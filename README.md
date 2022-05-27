@@ -1,0 +1,1 @@
+Deposit & withdraw stablecoins from any chain among Ethereum, BSC, Avalanche, Polygon, Arbitrum, Optimism & Fantom. Earn chosen reward on highest APR by switching farms among these chains. Receive chosen reward among these chains (only supported reward). Powered by Synapse & LayerZero.
