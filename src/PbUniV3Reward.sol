@@ -1,27 +1,29 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.13;
+pragma solidity 0.8.14;
 
 import "openzeppelin-contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "openzeppelin-contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "openzeppelin-contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-import "openzeppelin-contracts-upgradeable/security/PausableUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import "openzeppelin-contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import "../interface/ISwapRouter.sol";
 import "../interface/ILendingPool.sol";
-import "../interface/IIncentivesController.sol";
+import "../interface/IVault.sol";
 
 import "forge-std/Test.sol";
 
-contract PbUniV3Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
+contract PbUniV3Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
     IERC20Upgradeable public constant WBTC = IERC20Upgradeable(0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f);
     IERC20Upgradeable public constant WETH = IERC20Upgradeable(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1);
     ISwapRouter public constant swapRouter = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
     ILendingPool public constant lendingPool = ILendingPool(0x794a61358D6845594F94dc1DB02A252b5b4814aD); // Aave Pool V3
+
+    IERC20Upgradeable public token0;
+    IERC20Upgradeable public token1;
 
     struct User {
         uint balance;
@@ -40,73 +42,96 @@ contract PbUniV3Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable, Re
     mapping(address => Reward) public rewardInfo;
 
     address public vault;
-    uint public feePerc; // 2 decimals, 500 = 5%
+    uint public yieldFeePerc; // 2 decimals, 500 = 5%
     address public treasury;
+
+    event RecordDeposit(address indexed account, uint amount, address indexed rewardToken);
+    event RecordWithdraw(address indexed account, uint amount, address indexed rewardToken);
+    event Harvest(uint amount0, uint amount1, address indexed rewardToken, uint rewardTokenAmt, uint fee);
+    event ClaimReward(address indexed account, address indexed rewardToken, uint rewardTokenAmt);
+    event SetVault(address oldVault, address newVault);
+    event SetTreasury(address oldTreasury, address newTreasury);
+    event SetYieldFeePerc(uint oldYieldFeePerc, uint newYieldFeePerc);
 
     modifier onlyVault {
         require(msg.sender == vault, "Only vault");
         _;
     }
 
-    function initialize(address _vault, uint _feePerc, address _treasury) external initializer {
+    function initialize(address _vault, uint _yieldFeePerc, address _treasury) external initializer {
         __Ownable_init();
 
         vault = _vault;
-        feePerc = _feePerc;
+        yieldFeePerc = _yieldFeePerc;
         treasury = _treasury;
 
+        token0 = IERC20Upgradeable(IVault(_vault).token0());
+        token0.safeApprove(address(swapRouter), type(uint).max);
+        token1 = IERC20Upgradeable(IVault(_vault).token1());
+        token1.safeApprove(address(swapRouter), type(uint).max);
+
         address ibRewardTokenAddr;
+        // Get ibRewardToken address and approve rewardToken to lendingPool
         {
+            // WBTC
             (,,,,,,,,ibRewardTokenAddr) = lendingPool.getReserveData(address(WBTC));
             rewardInfo[address(WBTC)].ibRewardToken = IERC20Upgradeable(ibRewardTokenAddr);
-            setApproval(WBTC, address(lendingPool));
+            WBTC.safeApprove(address(lendingPool), type(uint).max);
 
+            // WETH
             (,,,,,,,,ibRewardTokenAddr) = lendingPool.getReserveData(address(WETH));
             rewardInfo[address(WETH)].ibRewardToken = IERC20Upgradeable(ibRewardTokenAddr);
-            setApproval(WETH, address(lendingPool));
+            WETH.safeApprove(address(lendingPool), type(uint).max);
         }
     }
 
+    /// @notice Record deposit info from vault
     function recordDeposit(address account, uint amount, address rewardToken) public onlyVault {
         User storage user = userInfo[account][rewardToken];
         user.balance += amount;
         user.rewardStartAt += (amount * rewardInfo[rewardToken].accRewardPerlpToken / 1e36);
         rewardInfo[rewardToken].basePool += amount;
-        // emit Record(account, amount, rewardToken, chainId, RecordType.DEPOSIT);
+
+        emit RecordDeposit(account, amount, rewardToken);
     }
 
+    /// @notice Record withdraw info from vault
     function recordWithdraw(address account, uint amount, address rewardToken) public onlyVault {
         User storage user = userInfo[account][rewardToken];
         user.balance -= amount;
         user.rewardStartAt = (user.balance * rewardInfo[rewardToken].accRewardPerlpToken / 1e36);
         rewardInfo[rewardToken].basePool -= amount;
-        // emit Record(account, amount, rewardToken, chainId, RecordType.WITHDRAW);
+
+        emit RecordWithdraw(account, amount, rewardToken);
     }
 
-    function harvest(IERC20Upgradeable token0, IERC20Upgradeable token1, uint amount0, uint amount1) external onlyVault {
+    // @notice Transfer Uniswap fees from vault and turn it into rewardToken
+    function harvest(uint amount0, uint amount1) external onlyVault nonReentrant {
         token0.safeTransferFrom(vault, address(this), amount0);
         token1.safeTransferFrom(vault, address(this), amount1);
 
+        // Get pool info
         uint WBTCPool = rewardInfo[address(WBTC)].basePool;
         uint WETHPool = rewardInfo[address(WETH)].basePool;
         uint totalPool = WBTCPool + WETHPool;
 
+        // Calculate token amount distributed for each rewardToken
+        // WBTC
         uint token0AmtForWBTC = amount0 * WBTCPool / totalPool;
         uint token1AmtForWBTC = amount1 * WBTCPool / totalPool;
         if (token0AmtForWBTC > 0 || token1AmtForWBTC > 0) {
-            _harvest(token0, token1, WBTC, token0AmtForWBTC, token1AmtForWBTC);
+            _harvest(WBTC, token0AmtForWBTC, token1AmtForWBTC);
         }
 
+        // WETH
         uint token0AmtForWETH = amount0 * WETHPool / totalPool;
         uint token1AmtForWETH = amount1 * WETHPool / totalPool;
         if (token0AmtForWETH > 0 || token1AmtForWETH > 0) {
-            _harvest(token0, token1, WETH, token0AmtForWETH, token1AmtForWETH);
+            _harvest(WETH, token0AmtForWETH, token1AmtForWETH);
         }
     }
 
     function _harvest(
-        IERC20Upgradeable token0,
-        IERC20Upgradeable token1,
         IERC20Upgradeable rewardToken,
         uint amount0,
         uint amount1
@@ -124,38 +149,48 @@ contract PbUniV3Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable, Re
         // Swap collected Uniswap fees to rewardToken
         uint rewardTokenAmt;
         if (token0 == rewardToken) {
+            // Only swap token1 to rewardToken
             rewardTokenAmt = amount0;
             rewardTokenAmt += _swap(address(token1), address(rewardToken), amount1);
         } else if (token1 == rewardToken) {
+            // Only swap token0 to rewardToken
             rewardTokenAmt = amount1;
             rewardTokenAmt += _swap(address(token0), address(rewardToken), amount0);
         } else {
+            // Swap both tokens to rewardToken
             rewardTokenAmt = _swap(address(token0), address(rewardToken), amount0);
             rewardTokenAmt += _swap(address(token1), address(rewardToken), amount1);
         }
 
-        // Calculate treasury fee
-        uint fee = rewardTokenAmt * feePerc / 10000;
-        rewardTokenAmt -= fee;
-        rewardToken.safeTransfer(treasury, fee);
+        // Sanity check for rewardTokenAmt: too small swap on WBTC will result 0
+        uint fee;
+        if (rewardTokenAmt > 0) {
+            // Calculate treasury fee
+            fee = rewardTokenAmt * yieldFeePerc / 10000;
+            rewardTokenAmt -= fee;
+            rewardToken.safeTransfer(treasury, fee);
 
-        // Update accRewardPerlpToken
-        rewardInfo[address(rewardToken)].accRewardPerlpToken += (rewardTokenAmt * 1e36 / basePool);
+            // Update accRewardPerlpToken
+            rewardInfo[address(rewardToken)].accRewardPerlpToken += (rewardTokenAmt * 1e36 / basePool);
 
-        // Supply reward token into Aave to get interest bearing aToken
-        lendingPool.supply(address(rewardToken), rewardTokenAmt, address(this), 0);
+            // Supply reward token into Aave to get ibRewardToken
+            lendingPool.supply(address(rewardToken), rewardTokenAmt, address(this), 0);
+        }
 
         // Update lastIbRewardTokenAmt
         rewardInfo[address(rewardToken)].lastIbRewardTokenAmt = reward.ibRewardToken.balanceOf(address(this));
 
-        // emit Harvest(amount0, amount1, address(rewardToken), rewardTokenAmt, fee);
+        emit Harvest(amount0, amount1, address(rewardToken), rewardTokenAmt, fee);
     }
 
-    function claim(address account) external {
+    /// @notice Claim all rewardToken at once
+    /// @notice Harvest will call on vault side first before claim to provide updated reward to user
+    function claim(address account) external onlyVault nonReentrant {
         _claim(account, WBTC);
         _claim(account, WETH);
     }
 
+    /// @notice Claim rewardToken
     function _claim(address account, IERC20Upgradeable rewardToken) private {
         User storage user = userInfo[account][address(rewardToken)];
         if (user.balance > 0) {
@@ -170,6 +205,7 @@ contract PbUniV3Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable, Re
                 if (reward.lastIbRewardTokenAmt > ibRewardTokenAmt) {
                     rewardInfo[address(rewardToken)].lastIbRewardTokenAmt -= ibRewardTokenAmt;
                 } else {
+                    // Last claim: to prevent arithmetic underflow error due to minor variation
                     rewardInfo[address(rewardToken)].lastIbRewardTokenAmt = 0;
                 }
 
@@ -178,6 +214,7 @@ contract PbUniV3Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable, Re
                 if (ibRewardTokenBal > ibRewardTokenAmt) {
                     lendingPool.withdraw(address(rewardToken), ibRewardTokenAmt, address(this));
                 } else {
+                    // Last withdraw: to prevent withdrawal fail from lendingPool due to minor variation
                     lendingPool.withdraw(address(rewardToken), ibRewardTokenBal, address(this));
                 }
 
@@ -185,34 +222,30 @@ contract PbUniV3Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable, Re
                 uint rewardTokenAmt = rewardToken.balanceOf(address(this));
                 rewardToken.safeTransfer(account, rewardTokenAmt);
 
-                // emit ClaimReward(account, ibRewardTokenAmt, rewardTokenAmt);
+                emit ClaimReward(account, address(rewardToken), rewardTokenAmt);
             }
         }
     }
 
     /// @notice Swap fee hardcode to 0.05%
     /// @notice Swap as little amount as possible to prevent sandwich attack because amountOutMinimum set to 0
-    function _swap(address tokenIn, address tokenOut, uint amount) private returns (uint) {
-        if (amount == 0) return 0;
-        // console.log("checkpoint swap");
+    function _swap(address tokenIn, address tokenOut, uint amountIn) private returns (uint amountOut) {
+        if (amountIn == 0) return 0;
 
         if (tokenOut == address(WBTC) && tokenIn != address(WETH)) {
-            // console.log("if");
+            // The only good liquidity swap to WBTC is WETH-WBTC in Arbitrum, so all tokens swap to WETH need route through WETH
             ISwapRouter.ExactInputParams memory params = 
             ISwapRouter.ExactInputParams({
                 path: abi.encodePacked(address(tokenIn), uint24(500), address(WETH), uint24(500), address(WBTC)),
                 recipient: address(this),
                 deadline: block.timestamp,
-                amountIn: amount,
+                amountIn: amountIn,
                 amountOutMinimum: 0
             });
-            // swapRouter.exactInput(params);
-            // console.log(WBTC.balanceOf(address(this)));
-            // return WBTC.balanceOf(address(this));
-            return swapRouter.exactInput(params);
+            amountOut = swapRouter.exactInput(params);
+
         } else {
-            // console.log("else");
-            // console.log(amount);
+            // Normal swap
             ISwapRouter.ExactInputSingleParams memory params = 
                 ISwapRouter.ExactInputSingleParams({
                     tokenIn: tokenIn,
@@ -220,37 +253,30 @@ contract PbUniV3Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable, Re
                     fee: 500,
                     recipient: address(this),
                     deadline: block.timestamp,
-                    amountIn: amount,
+                    amountIn: amountIn,
                     amountOutMinimum: 0,
                     sqrtPriceLimitX96: 0
                 });
-            // swapRouter.exactInputSingle(params);
-            // console.log(WBTC.balanceOf(address(this)));
-            // return WBTC.balanceOf(address(this));
-            return swapRouter.exactInputSingle(params);
+            amountOut = swapRouter.exactInputSingle(params);
         }
     }
 
-    // /// @notice Swap fee hardcode to 0.05% for both path
-    // /// @notice Swap as little amount as possible to prevent sandwich attack because amountOutMinimum set to 0
-    // function _swap3(address tokenIn, address tokenOut, uint amount) private returns (uint) {
-    //     ISwapRouter.ExactInputParams memory params = 
-    //         ISwapRouter.ExactInputParams({
-    //             path: abi.encodePacked(address(tokenIn), uint24(500), address(WETH), uint24(500), address(tokenOut)),
-    //             recipient: address(this),
-    //             deadline: block.timestamp,
-    //             amountIn: amount,
-    //             amountOutMinimum: 0
-    //         });
-    //     return swapRouter.exactInput(params);
-    // }
-
     function setVault(address _vault) external onlyOwner {
+        emit SetVault(vault, _vault);
         vault = _vault;
     }
 
-    function setApproval(IERC20Upgradeable token, address destination) public onlyOwner {
-        token.safeApprove(destination, type(uint).max);
+    function setYieldFeePerc(uint _yieldFeePerc) external onlyOwner {
+        require(_yieldFeePerc <= 1000, "Fee cannot over 10%");
+        emit SetYieldFeePerc(yieldFeePerc, _yieldFeePerc);
+        yieldFeePerc = _yieldFeePerc;
+
+    }
+
+    function setTreasury(address _treasury) external onlyOwner {
+        emit SetTreasury(treasury, _treasury);
+        treasury = _treasury;
+
     }
 
     function getAllPool() external view returns (uint) {

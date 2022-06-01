@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.13;
+pragma solidity 0.8.14;
 
 import "openzeppelin-contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "openzeppelin-contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
@@ -34,6 +34,11 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
     event Deposit(address indexed account, uint amount, address indexed rewardToken);
     event Reinvest(address indexed token0, address indexed token1, uint amount, uint liquidity);
     event AddLiquidity(uint amount0, uint amount1, uint liquidity);
+    event RemoveLiquidity(uint amount0, uint amount1, uint liquidity);
+    event UpdateTicks(int24 tickLower, int24 tickUpper);
+    event ChangeTokenId(uint oldTokenId, uint newTokenId);
+    event SetReward(address oldReward, address newReward);
+    event SetBot(address oldBot, address newBot);
 
     modifier onlyEOA {
         require(msg.sender == tx.origin, "Only EOA");
@@ -49,8 +54,7 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
         IERC20Upgradeable _token0,
         IERC20Upgradeable _token1,
         uint24 _poolFee,
-        address _bot,
-        IReward _reward
+        address _bot
     ) external initializer {
         __Ownable_init();
 
@@ -58,16 +62,14 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
         token1 = _token1;
         poolFee = _poolFee;
         bot = _bot;
-        reward = _reward;
 
         token0.safeApprove(address(swapRouter), type(uint).max);
         token0.safeApprove(address(nonfungiblePositionManager), type(uint).max);
-        token0.safeApprove(address(reward), type(uint).max);
         token1.safeApprove(address(swapRouter), type(uint).max);
         token1.safeApprove(address(nonfungiblePositionManager), type(uint).max);
-        token1.safeApprove(address(reward), type(uint).max);
     }
 
+    /// @notice Deposit with USDC
     function deposit(
         uint amount,
         uint amountOutMin,
@@ -76,6 +78,9 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
         int24 tickUpper,
         address rewardToken
     ) external nonReentrant whenNotPaused {
+        // Do harvest first before deposit to prevent yield sandwich attack
+        if (tokenId != 0) harvest();
+
         USDC.safeTransferFrom(msg.sender, address(this), amount);
 
         // Swap USDC to pair tokens
@@ -94,6 +99,7 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
         uint token1Amt = token1.balanceOf(address(this));
         uint token1AmtMin = token1Amt * (10000 - slippage) / 10000;
 
+        // Add liquidity
         if (tokenId != 0) {
             // Already mint the NFT
             _addLiquidity(token0Amt, token1Amt, token0AmtMin, token1AmtMin);
@@ -125,6 +131,7 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
         emit Reinvest(address(tokenIn), address(tokenOut), amount, liquidity);
     }
 
+    /// @notice Withdraw out USDC
     function withdraw(uint amount, address rewardToken, uint amount0Min, uint amount1Min, uint amountOutMin) external {
         // Calculate liquidity to withdraw
         uint allPool = reward.getAllPool();
@@ -132,11 +139,14 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
         (,,,,,,,uint liquidity ,,,,) = nonfungiblePositionManager.positions(tokenId);
         uint withdrawLiquidity = liquidity * withdrawPerc / 10000;
 
+        // Record into reward contract
         reward.recordWithdraw(msg.sender, amount, rewardToken);
 
+        // Remove liquidity & collect (Uniswap v3 mechanism)
         (uint amount0, uint amount1) = _removeLiquidity(uint128(withdrawLiquidity), amount0Min, amount1Min);
         (uint token0Amt, uint token1Amt) = _collect(uint128(amount0), uint128(amount1));
 
+        // Swap any non-USDC token to USDC
         uint USDCAmt;
         if (token0 == USDC) {
             USDCAmt = token0Amt;
@@ -149,15 +159,23 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
             USDCAmt += _swap(address(token1), address(USDC), token1Amt, amountOutMin);
         }
 
+        // Transfer to user
         USDC.safeTransfer(msg.sender, USDCAmt);
     }
 
-    function harvest() external {
+    function harvest() public {
+        // Uniswap v3 mechanism: collect fees by pass in max uint
         (uint amount0, uint amount1) = _collect(type(uint128).max, type(uint128).max);
-        reward.harvest(address(token0), address(token1), amount0, amount1);
+        // Transfer tokens to reward contract for swap into rewardToken
+        if (amount0 > 0 || amount1 > 0) {
+            reward.harvest(amount0, amount1);
+        }
     }
 
-    function claim() external {
+    function claimReward() external {
+        // Harvest first to provide user updated reward
+        harvest();
+        // Claim rewardToken on reward contract
         reward.claim(msg.sender);
     }
 
@@ -172,18 +190,31 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
         (amt0Collected, amt1Collected) =  nonfungiblePositionManager.collect(collectParams);
     }
 
+    /// @notice Function to change price range: remove liquidity
     function updateTicks(int24 tickLower, int24 tickUpper, uint amount0Min, uint amount1Min, uint slippage) external onlyAuthorized {
-        (,,,,,,,uint128 liquidity ,,,,) = nonfungiblePositionManager.positions(tokenId);
+        // Harvest any unclaimed fees
+        harvest();
+
+        // Remove all liquidity
+        (,,,,,,, uint128 liquidity,,,,) = nonfungiblePositionManager.positions(tokenId);
         (uint amount0, uint amount1) = _removeLiquidity(liquidity, amount0Min, amount1Min);
         _collect(uint128(amount0), uint128(amount1));
+
+        // Burn the NFT
+        nonfungiblePositionManager.burn(tokenId);
+
+        // Get tokens amount & minimum amount add into liquidity
         uint token0Amt = token0.balanceOf(address(this));
         uint token0AmtMin = token0Amt * (10000 - slippage) / 10000;
         uint token1Amt = token1.balanceOf(address(this));
         uint token1AmtMin = token1Amt * (10000 - slippage) / 10000;
+
+        // Mint new NFT with new ticks
         _mint(tickLower, tickUpper, token0Amt, token1Amt, token0AmtMin, token1AmtMin);
+        emit UpdateTicks(tickLower, tickUpper);
     }
 
-    function _swap(address tokenIn, address tokenOut, uint amount, uint amountOutMin) private returns (uint) {
+    function _swap(address tokenIn, address tokenOut, uint amountIn, uint amountOutMin) private returns (uint amountOut) {
         ISwapRouter.ExactInputSingleParams memory params = 
             ISwapRouter.ExactInputSingleParams({
                 tokenIn: tokenIn,
@@ -191,11 +222,11 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
                 fee: poolFee,
                 recipient: address(this),
                 deadline: block.timestamp,
-                amountIn: amount,
+                amountIn: amountIn,
                 amountOutMinimum: amountOutMin,
                 sqrtPriceLimitX96: 0
             });
-        return swapRouter.exactInputSingle(params);
+        amountOut = swapRouter.exactInputSingle(params);
     }
 
     function _addLiquidity(uint token0Amt, uint token1Amt, uint token0AmtMin, uint token1AmtMin) private returns (uint liquidity) {
@@ -222,6 +253,7 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
                 deadline: block.timestamp
             });
         (amount0, amount1) = nonfungiblePositionManager.decreaseLiquidity(params);
+        emit RemoveLiquidity(amount0, amount1, uint(liquidity));
     }
 
     function _mint(
@@ -247,11 +279,29 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
                     deadline: block.timestamp
                 });
             (uint _tokenId,,,) = nonfungiblePositionManager.mint(params);
+            // Update tokenId
+            emit ChangeTokenId(tokenId, _tokenId);
             tokenId = _tokenId;
     }
 
+    function pauseContract() external onlyOwner {
+        _pause();
+    }
+
+    function unpauseContract() external onlyOwner {
+        _unpause();
+    }
+
     function setReward(IReward _reward) external onlyOwner {
+        emit SetReward(address(reward), address(_reward));
         reward = _reward;
+        token0.safeApprove(address(reward), type(uint).max);
+        token1.safeApprove(address(reward), type(uint).max);
+    }
+
+    function setBot(address _bot) external onlyOwner {
+        emit SetBot(bot, _bot);
+        bot = _bot;
     }
 
     function getTicks(uint160 sqrtPriceX96Lower, uint160 sqrtPriceX96Upper) external pure returns (int24[] memory ticks) {
@@ -260,8 +310,12 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
         ticks[1] = TickMath.getTickAtSqrtRatio(sqrtPriceX96Upper);
     }
 
+    function getAllPool() external view returns (uint) {
+        return reward.getAllPool();
+    }
+
     function getUserBalance(address account, address rewardToken) external view returns (uint) {
-        return reward.userInfo(rewardToken, account);
+        return reward.userInfo(account, rewardToken);
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
