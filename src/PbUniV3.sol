@@ -79,7 +79,7 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
         int24 tickLower,
         int24 tickUpper,
         address rewardToken
-    ) external nonReentrant whenNotPaused {
+    ) external onlyEOA nonReentrant whenNotPaused {
         // Do harvest first before deposit to prevent yield sandwich attack
         if (tokenId != 0) harvest();
 
@@ -134,7 +134,13 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
     }
 
     /// @notice Withdraw out USDC
-    function withdraw(uint amount, address rewardToken, uint amount0Min, uint amount1Min, uint[] calldata amountsOutMin) external {
+    function withdraw(
+        uint amount,
+        address rewardToken,
+        uint amount0Min,
+        uint amount1Min,
+        uint[] calldata amountsOutMin
+    ) external onlyEOA nonReentrant {
         // Calculate liquidity to withdraw
         uint allPool = reward.getAllPool();
         uint withdrawPerc = amount * 10000 / allPool;
@@ -174,7 +180,7 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
         }
     }
 
-    function claimReward() external {
+    function claimReward() external onlyEOA nonReentrant {
         // Harvest first to provide user updated reward
         harvest();
         // Claim rewardToken on reward contract
