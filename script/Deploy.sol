@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.14;
 
-import "src/PbWeve.sol";
-import "src/PbWeveProxy.sol";
+import "src/PbVelo.sol";
+import "src/PbVeloProxy.sol";
 import "forge-std/Script.sol";
 
 contract Deploy is Script {
@@ -12,12 +12,12 @@ contract Deploy is Script {
     function run() public {
         vm.startBroadcast();
 
-        PbWeve vault = new PbWeve();
-        PbWeveProxy proxy = new PbWeveProxy(
+        PbVelo vault = new PbVelo();
+        PbVeloProxy proxy = new PbVeloProxy(
             address(vault),
             abi.encodeWithSelector(
                 bytes4(keccak256("initialize(address,address,address,address,address,address,address,address)")),
-                0x888EF71766ca594DED1F0FA3AE64eD2941740A20, // _WEVE
+                0x888EF71766ca594DED1F0FA3AE64eD2941740A20, // _VELO
                 0x1d1A1871d1830D4b5087212c820E5f1252379c2c, // _gauge
                 WETH, // _rewardToken
                 // WBTC, // _rewardToken
@@ -28,5 +28,7 @@ contract Deploy is Script {
                 address(1) // _treasury
             )
         );
+        console.log("Proxy contract", address(proxy));
+        console.log("Implementation contract", address(vault));
     }
 }

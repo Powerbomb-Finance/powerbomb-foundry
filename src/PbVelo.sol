@@ -17,11 +17,11 @@ import "../interfaces/IWETH.sol";
 import "../interfaces/ILendingPool.sol";
 import "../interfaces/IChainLink.sol";
 
-contract PbWeve is Initializable, OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
+contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
     using SafeERC20Upgradeable for IPair;
 
-    IERC20Upgradeable public WEVE;
+    IERC20Upgradeable public VELO;
     IRouter public router;
     IWETH public WETH;
     IChainLink public WETHPriceFeed;
@@ -57,7 +57,7 @@ contract PbWeve is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
     event SetYieldFeePerc(uint oldYieldFeePerc, uint newYieldFeePerc);
 
     function initialize(
-        IERC20Upgradeable _WEVE,
+        IERC20Upgradeable _VELO,
         IGauge _gauge,
         IERC20Upgradeable _rewardToken,
         ILendingPool _lendingPool,
@@ -68,7 +68,7 @@ contract PbWeve is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
     ) external initializer {
         __Ownable_init();
 
-        WEVE = _WEVE;
+        VELO = _VELO;
         gauge = _gauge;
         address _lpToken = gauge.stake();
         lpToken = IPair(_lpToken);
@@ -90,7 +90,7 @@ contract PbWeve is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         token1.safeApprove(address(router), type(uint).max);
         lpToken.safeApprove(address(router), type(uint).max);
         lpToken.safeApprove(address(gauge), type(uint).max);
-        WEVE.safeApprove(address(router), type(uint).max);
+        VELO.safeApprove(address(router), type(uint).max);
         reward.rewardToken.safeApprove(address(lendingPool), type(uint).max);
     }
 
@@ -203,19 +203,19 @@ contract PbWeve is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
             reward.lastIbRewardTokenAmt = ibRewardTokenAmt;
         }
 
-        // Collect WEVE from gauge
+        // Collect VELO from gauge
         address[] memory tokens = new address[](1);
         tokens[0] = address(lpToken);
         gauge.getReward(address(this), tokens);
 
-        uint WEVEAmt = WEVE.balanceOf(address(this));
+        uint VELOAmt = VELO.balanceOf(address(this));
         uint WETHAmt;
-        if (WEVEAmt > 0) {
-            (WETHAmt,) = router.getAmountOut(WEVEAmt, address(WEVE), address(WETH));
+        if (VELOAmt > 0) {
+            (WETHAmt,) = router.getAmountOut(VELOAmt, address(VELO), address(WETH));
         }
         if (WETHAmt > 1e16) { // 0.01 WETH, ~$20 on 31 May 2022
-            // Swap WEVE to WETH
-            WETHAmt = _swap(address(WEVE), address(WETH), false, WEVEAmt, 0);
+            // Swap VELO to WETH
+            WETHAmt = _swap(address(VELO), address(WETH), false, VELOAmt, 0);
 
             // Swap WETH to reward token
             uint rewardTokenAmt;
@@ -239,7 +239,7 @@ contract PbWeve is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
             // Update lastIbRewardTokenAmt
             reward.lastIbRewardTokenAmt = reward.ibRewardToken.balanceOf(address(this));
 
-            emit Harvest(WEVEAmt, rewardTokenAmt, fee);
+            emit Harvest(VELOAmt, rewardTokenAmt, fee);
         }
     }
 
