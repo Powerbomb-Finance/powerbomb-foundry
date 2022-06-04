@@ -12,8 +12,6 @@ import "../interface/ISwapRouter.sol";
 import "../interface/ILendingPool.sol";
 import "../interface/IVault.sol";
 
-import "forge-std/Test.sol";
-
 contract PbUniV3Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
@@ -105,7 +103,7 @@ contract PbUniV3Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable, Re
         emit RecordWithdraw(account, amount, rewardToken);
     }
 
-    // @notice Transfer Uniswap fees from vault and turn it into rewardToken
+    // @notice Transfer Uniswap fees from vault and turn them into rewardToken
     function harvest(uint amount0, uint amount1) external onlyVault nonReentrant {
         token0.safeTransferFrom(vault, address(this), amount0);
         token1.safeTransferFrom(vault, address(this), amount1);
@@ -162,7 +160,7 @@ contract PbUniV3Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable, Re
             rewardTokenAmt += _swap(address(token1), address(rewardToken), amount1);
         }
 
-        // Sanity check for rewardTokenAmt: too small swap on WBTC will result 0
+        // Sanity check for rewardTokenAmt: too small amount swap to WBTC will result 0
         uint fee;
         if (rewardTokenAmt > 0) {
             // Calculate treasury fee
@@ -202,7 +200,7 @@ contract PbUniV3Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable, Re
                 user.rewardStartAt += ibRewardTokenAmt;
 
                 // Update lastIbRewardTokenAmt
-                if (reward.lastIbRewardTokenAmt > ibRewardTokenAmt) {
+                if (reward.lastIbRewardTokenAmt >= ibRewardTokenAmt) {
                     rewardInfo[address(rewardToken)].lastIbRewardTokenAmt -= ibRewardTokenAmt;
                 } else {
                     // Last claim: to prevent arithmetic underflow error due to minor variation
@@ -211,7 +209,7 @@ contract PbUniV3Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable, Re
 
                 // Withdraw ibRewardToken to rewardToken
                 uint ibRewardTokenBal = reward.ibRewardToken.balanceOf(address(this));
-                if (ibRewardTokenBal > ibRewardTokenAmt) {
+                if (ibRewardTokenBal >= ibRewardTokenAmt) {
                     lendingPool.withdraw(address(rewardToken), ibRewardTokenAmt, address(this));
                 } else {
                     // Last withdraw: to prevent withdrawal fail from lendingPool due to minor variation
@@ -235,13 +233,13 @@ contract PbUniV3Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable, Re
         if (tokenOut == address(WBTC) && tokenIn != address(WETH)) {
             // The only good liquidity swap to WBTC is WETH-WBTC in Arbitrum, so all tokens swap to WETH need route through WETH
             ISwapRouter.ExactInputParams memory params = 
-            ISwapRouter.ExactInputParams({
-                path: abi.encodePacked(address(tokenIn), uint24(500), address(WETH), uint24(500), address(WBTC)),
-                recipient: address(this),
-                deadline: block.timestamp,
-                amountIn: amountIn,
-                amountOutMinimum: 0
-            });
+                ISwapRouter.ExactInputParams({
+                    path: abi.encodePacked(address(tokenIn), uint24(500), address(WETH), uint24(500), address(WBTC)),
+                    recipient: address(this),
+                    deadline: block.timestamp,
+                    amountIn: amountIn,
+                    amountOutMinimum: 0
+                });
             amountOut = swapRouter.exactInput(params);
 
         } else {

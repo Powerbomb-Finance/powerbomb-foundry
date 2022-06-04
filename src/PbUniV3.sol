@@ -10,15 +10,16 @@ import "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import "openzeppelin-contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import "../interface/INonfungiblePositionManager.sol";
+import "../interface/IUniswapV3Pool.sol";
 import "../interface/ISwapRouter.sol";
 import "../interface/IReward.sol";
 import "../libraries/TickMath.sol";
-
-import "forge-std/Test.sol";
+import "../libraries/LiquidityAmounts.sol";
 
 contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
+    IERC20Upgradeable public constant WBTC = IERC20Upgradeable(0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f);
     IERC20Upgradeable public constant WETH = IERC20Upgradeable(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1);
     IERC20Upgradeable public constant USDC = IERC20Upgradeable(0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8);
     INonfungiblePositionManager public constant nonfungiblePositionManager = INonfungiblePositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
@@ -26,6 +27,7 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
 
     IERC20Upgradeable public token0;
     IERC20Upgradeable public token1;
+    IUniswapV3Pool public uniswapV3Pool;
     uint24 public poolFee; // 3000 = 0.3%
     IReward public reward;
     uint public tokenId;
@@ -50,29 +52,29 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
         _;
     }
 
-    function initialize(
-        IERC20Upgradeable _token0,
-        IERC20Upgradeable _token1,
-        uint24 _poolFee,
-        address _bot
-    ) external initializer {
+    function initialize(IUniswapV3Pool _uniswapV3Pool, address _bot) external initializer {
         __Ownable_init();
 
-        token0 = _token0;
-        token1 = _token1;
-        poolFee = _poolFee;
+        uniswapV3Pool = _uniswapV3Pool;
+        token0 = IERC20Upgradeable(uniswapV3Pool.token0());
+        token1 = IERC20Upgradeable(uniswapV3Pool.token1());
+        poolFee = uniswapV3Pool.fee();
         bot = _bot;
 
         token0.safeApprove(address(swapRouter), type(uint).max);
         token0.safeApprove(address(nonfungiblePositionManager), type(uint).max);
         token1.safeApprove(address(swapRouter), type(uint).max);
         token1.safeApprove(address(nonfungiblePositionManager), type(uint).max);
+
+        if (USDC != token0 && USDC != token1) {
+            USDC.safeApprove(address(swapRouter), type(uint).max);
+        }
     }
 
     /// @notice Deposit with USDC
     function deposit(
         uint amount,
-        uint amountOutMin,
+        uint[] calldata amountsOutMin,
         uint slippage,
         int24 tickLower,
         int24 tickUpper,
@@ -85,12 +87,12 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
 
         // Swap USDC to pair tokens
         if (token0 == USDC) {
-            _swap(address(USDC), address(token1), amount / 2, amountOutMin);
+            _swap(address(USDC), address(token1), amount / 2, amountsOutMin[0]);
         } else if (token1 == USDC) {
-            _swap(address(USDC), address(token0), amount / 2, amountOutMin);
+            _swap(address(USDC), address(token0), amount / 2, amountsOutMin[0]);
         } else {
-            _swap(address(USDC), address(token0), amount / 2, amountOutMin);
-            _swap(address(USDC), address(token1), amount / 2, amountOutMin);
+            _swap(address(USDC), address(token0), amount / 2, amountsOutMin[0]);
+            _swap(address(USDC), address(token1), amount / 2, amountsOutMin[1]);
         }
 
         // Get tokens amount & minimum amount add into liquidity
@@ -132,7 +134,7 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
     }
 
     /// @notice Withdraw out USDC
-    function withdraw(uint amount, address rewardToken, uint amount0Min, uint amount1Min, uint amountOutMin) external {
+    function withdraw(uint amount, address rewardToken, uint amount0Min, uint amount1Min, uint[] calldata amountsOutMin) external {
         // Calculate liquidity to withdraw
         uint allPool = reward.getAllPool();
         uint withdrawPerc = amount * 10000 / allPool;
@@ -150,13 +152,13 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
         uint USDCAmt;
         if (token0 == USDC) {
             USDCAmt = token0Amt;
-            USDCAmt += _swap(address(token1), address(USDC), token1Amt, amountOutMin);
+            USDCAmt += _swap(address(token1), address(USDC), token1Amt, amountsOutMin[0]);
         } else if (token1 == USDC) {
             USDCAmt = token1Amt;
-            USDCAmt += _swap(address(token0), address(USDC), token0Amt, amountOutMin);
+            USDCAmt += _swap(address(token0), address(USDC), token0Amt, amountsOutMin[0]);
         } else {
-            USDCAmt = _swap(address(token0), address(USDC), token0Amt, amountOutMin);
-            USDCAmt += _swap(address(token1), address(USDC), token1Amt, amountOutMin);
+            USDCAmt = _swap(address(token0), address(USDC), token0Amt, amountsOutMin[0]);
+            USDCAmt += _swap(address(token1), address(USDC), token1Amt, amountsOutMin[1]);
         }
 
         // Transfer to user
@@ -214,19 +216,49 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
         emit UpdateTicks(tickLower, tickUpper);
     }
 
+    /// @notice Swap fee hardcode to 0.05%
     function _swap(address tokenIn, address tokenOut, uint amountIn, uint amountOutMin) private returns (uint amountOut) {
-        ISwapRouter.ExactInputSingleParams memory params = 
-            ISwapRouter.ExactInputSingleParams({
-                tokenIn: tokenIn,
-                tokenOut: tokenOut,
-                fee: poolFee,
-                recipient: address(this),
-                deadline: block.timestamp,
-                amountIn: amountIn,
-                amountOutMinimum: amountOutMin,
-                sqrtPriceLimitX96: 0
-            });
-        amountOut = swapRouter.exactInputSingle(params);
+        if (amountIn == 0) return 0;
+
+        if (tokenOut == address(WBTC) && tokenIn != address(WETH)) {
+            // The only good liquidity swap to WBTC is WETH-WBTC in Arbitrum, so all tokens swap to WETH need route through WETH
+            ISwapRouter.ExactInputParams memory params = 
+                ISwapRouter.ExactInputParams({
+                    path: abi.encodePacked(address(tokenIn), uint24(500), address(WETH), uint24(500), address(WBTC)),
+                    recipient: address(this),
+                    deadline: block.timestamp,
+                    amountIn: amountIn,
+                    amountOutMinimum: amountOutMin
+                });
+            amountOut = swapRouter.exactInput(params);
+
+        } else if (tokenIn == address(WBTC) && tokenOut != address(WETH)) {
+            // Reverse of if above
+             ISwapRouter.ExactInputParams memory params = 
+                ISwapRouter.ExactInputParams({
+                    path: abi.encodePacked(address(WBTC), uint24(500), address(WETH), uint24(500), address(tokenOut)),
+                    recipient: address(this),
+                    deadline: block.timestamp,
+                    amountIn: amountIn,
+                    amountOutMinimum: amountOutMin
+                });
+            amountOut = swapRouter.exactInput(params);
+
+        } else {
+            // Normal swap
+            ISwapRouter.ExactInputSingleParams memory params = 
+                ISwapRouter.ExactInputSingleParams({
+                    tokenIn: tokenIn,
+                    tokenOut: tokenOut,
+                    fee: 500,
+                    recipient: address(this),
+                    deadline: block.timestamp,
+                    amountIn: amountIn,
+                    amountOutMinimum: amountOutMin,
+                    sqrtPriceLimitX96: 0
+                });
+            amountOut = swapRouter.exactInputSingle(params);
+        }
     }
 
     function _addLiquidity(uint token0Amt, uint token1Amt, uint token0AmtMin, uint token1AmtMin) private returns (uint liquidity) {
@@ -304,18 +336,35 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
         bot = _bot;
     }
 
-    function getTicks(uint160 sqrtPriceX96Lower, uint160 sqrtPriceX96Upper) external pure returns (int24[] memory ticks) {
-        ticks = new int24[](2);
-        ticks[0] = TickMath.getTickAtSqrtRatio(sqrtPriceX96Lower);
-        ticks[1] = TickMath.getTickAtSqrtRatio(sqrtPriceX96Upper);
+    function getTicks(uint160 sqrtPriceX96Lower, uint160 sqrtPriceX96Upper) external pure returns (int24 tickLower, int24 tickUpper) {
+        tickLower = TickMath.getTickAtSqrtRatio(sqrtPriceX96Lower);
+        tickUpper = TickMath.getTickAtSqrtRatio(sqrtPriceX96Upper);
+    }
+
+    function getMinimumAmountsRemoveLiquidity(uint amount, uint slippage) external view returns (uint amount0Min, uint amount1Min) {
+        (uint160 sqrtRatioX96,,,,,,) = uniswapV3Pool.slot0();
+        (,,,,,int24 tickLower, int24 tickUpper, uint liquidity,,,,) = nonfungiblePositionManager.positions(tokenId);
+        uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
+        uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
+        uint allPool = reward.getAllPool();
+        uint liquidity_ = liquidity * amount / allPool;
+        (uint amount0, uint amount1) = LiquidityAmounts.getAmountsForLiquidity(sqrtRatioX96, sqrtRatioAX96, sqrtRatioBX96, uint128(liquidity_));
+        amount0Min = amount0 * (10000 - slippage) / 10000;
+        amount1Min = amount1 * (10000 - slippage) / 10000;
     }
 
     function getAllPool() external view returns (uint) {
         return reward.getAllPool();
     }
 
-    function getUserBalance(address account, address rewardToken) external view returns (uint) {
-        return reward.userInfo(account, rewardToken);
+    function getUserBalance(address account, address rewardToken) external view returns (uint balance) {
+        (balance,) = reward.userInfo(account, rewardToken);
+    }
+
+    function getUserPendingReward(address account, address rewardToken) external view returns (uint ibRewardTokenAmt) {
+        (uint balance, uint rewardStartAt) = reward.userInfo(account, rewardToken);
+        (uint accRewardPerlpToken,,,) = reward.rewardInfo(rewardToken);
+        ibRewardTokenAmt = (balance * accRewardPerlpToken / 1e36) - rewardStartAt;
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}

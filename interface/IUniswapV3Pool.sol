@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.14;
 
-interface IUniswapV3PoolState {
+interface IUniswapV3Pool {
     function slot0()
         external
         view
@@ -16,6 +16,8 @@ interface IUniswapV3PoolState {
         );
 
     function tickSpacing() external view returns (int24);
+
+    function fee() external view returns (uint24);
 
     function token0() external view returns (address);
 

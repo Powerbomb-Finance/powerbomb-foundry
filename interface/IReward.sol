@@ -10,7 +10,9 @@ interface IReward {
 
     function claim(address account) external;
 
-    function userInfo(address rewardToken, address account) external view returns (uint balance);
+    function userInfo(address account, address rewardToken) external view returns (uint balance, uint rewardStartAt);
+
+    function rewardInfo(address rewardToken) external view returns (uint accRewardPerlpToken, uint basePool, address ibRewardToken, uint lastIbRewardTokenAmt);
 
     function getAllPool() external view returns (uint);
 }
