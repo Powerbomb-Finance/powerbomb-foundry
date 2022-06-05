@@ -42,11 +42,6 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
     event SetReward(address oldReward, address newReward);
     event SetBot(address oldBot, address newBot);
 
-    modifier onlyEOA {
-        require(msg.sender == tx.origin, "Only EOA");
-        _;
-    }
-
     modifier onlyAuthorized {
         require(msg.sender == bot || msg.sender == owner(), "Only authorized");
         _;
@@ -79,7 +74,7 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
         int24 tickLower,
         int24 tickUpper,
         address rewardToken
-    ) external onlyEOA nonReentrant whenNotPaused {
+    ) external nonReentrant whenNotPaused {
         // Do harvest first before deposit to prevent yield sandwich attack
         if (tokenId != 0) harvest();
 
@@ -140,7 +135,7 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
         uint amount0Min,
         uint amount1Min,
         uint[] calldata amountsOutMin
-    ) external onlyEOA nonReentrant {
+    ) external nonReentrant {
         // Calculate liquidity to withdraw
         uint allPool = reward.getAllPool();
         uint withdrawPerc = amount * 10000 / allPool;
@@ -180,7 +175,7 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
         }
     }
 
-    function claimReward() external onlyEOA nonReentrant {
+    function claimReward() external nonReentrant {
         // Harvest first to provide user updated reward
         harvest();
         // Claim rewardToken on reward contract
