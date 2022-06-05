@@ -17,13 +17,17 @@ import "../interfaces/IWETH.sol";
 import "../interfaces/ILendingPool.sol";
 import "../interfaces/IChainLink.sol";
 
+import "forge-std/Test.sol";
+
 contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
+    using SafeERC20Upgradeable for IWETH;
     using SafeERC20Upgradeable for IPair;
 
     IERC20Upgradeable public VELO;
     IRouter public router;
     IWETH public WETH;
+    IERC20Upgradeable public USDC;
     IChainLink public WETHPriceFeed;
     ILendingPool public lendingPool;
     IERC20Upgradeable public token0;
@@ -47,7 +51,7 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         uint rewardStartAt;
     }
     mapping(address => User) public userInfo;
-    mapping(address => uint) private depositedBlock;
+    mapping(address => uint) internal depositedBlock;
 
     event Deposit(address indexed tokenDeposit, uint amountToken, uint amountlpToken);
     event Withdraw(address indexed tokenWithdraw, uint amountToken);
@@ -65,7 +69,7 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         IWETH _WETH,
         IChainLink _WETHPriceFeed,
         address _treasury
-    ) external initializer {
+    ) external virtual initializer {
         __Ownable_init();
 
         VELO = _VELO;
@@ -92,9 +96,13 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         lpToken.safeApprove(address(gauge), type(uint).max);
         VELO.safeApprove(address(router), type(uint).max);
         reward.rewardToken.safeApprove(address(lendingPool), type(uint).max);
+
+        if (WETH.allowance(address(this), address(router)) == 0) {
+            WETH.safeApprove(address(router), type(uint).max);
+        }
     }
 
-    function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin) external payable nonReentrant whenNotPaused {
+    function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin) external payable virtual nonReentrant whenNotPaused {
         require(token == token0 || token == token1 || token == lpToken, "Invalid token");
         require(amount > 0, "Invalid amount");
 
@@ -116,13 +124,13 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         if (token != lpToken) {
             if (token == token0) {
                 uint halfToken0Amt = amount / 2;
-                uint token1Amt = _swap(address(token0), address(token1), stable, halfToken0Amt, amountOutMin);
+                uint token1Amt = swap(address(token0), address(token1), stable, halfToken0Amt, amountOutMin);
                 (,,lpTokenAmt) = router.addLiquidity(
                     address(token0), address(token1), stable, halfToken0Amt, token1Amt, 0, 0, address(this), block.timestamp
                 );
             } else {
                 uint halfToken1Amt = amount / 2;
-                uint token0Amt = _swap(address(token1), address(token0), stable, halfToken1Amt, amountOutMin);
+                uint token0Amt = swap(address(token1), address(token0), stable, halfToken1Amt, amountOutMin);
                 (,,lpTokenAmt) = router.addLiquidity(
                     address(token0), address(token1), stable, token0Amt, halfToken1Amt, 0, 0, address(this), block.timestamp
                 );
@@ -162,7 +170,7 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
 
     function _withdraw(
         IERC20Upgradeable token, uint amountOutLpToken, uint amountOutMin
-    ) private nonReentrant returns (uint amountOutToken) {
+    ) internal virtual nonReentrant returns (uint amountOutToken) {
         require(token == token0 || token == token1 || token == lpToken, "Invalid token");
         User storage user = userInfo[msg.sender];
         require(amountOutLpToken > 0 && user.lpTokenBalance >= amountOutLpToken, "Invalid amountOutLpToken to withdraw");
@@ -179,10 +187,10 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
                 address(token0), address(token1), stable, amountOutLpToken, 0, 0, address(this), block.timestamp
             );
             if (token == token0) {
-                token0Amt += _swap(address(token1), address(token0), stable, token1Amt, amountOutMin);
+                token0Amt += swap(address(token1), address(token0), stable, token1Amt, amountOutMin);
                 amountOutToken = token0Amt;
             } else {
-                token1Amt += _swap(address(token0), address(token1), stable, token0Amt, amountOutMin);
+                token1Amt += swap(address(token0), address(token1), stable, token0Amt, amountOutMin);
                 amountOutToken = token1Amt;
             }
         } else {
@@ -192,7 +200,7 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         emit Withdraw(address(token), amountOutToken);
     }
 
-    function harvest() public {
+    function harvest() public virtual {
         uint currentPool = getAllPool();
 
         // Update accrued amount of ibRewardToken
@@ -215,12 +223,12 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         }
         if (WETHAmt > 1e16) { // 0.01 WETH, ~$20 on 31 May 2022
             // Swap VELO to WETH
-            WETHAmt = _swap(address(VELO), address(WETH), false, VELOAmt, 0);
+            WETHAmt = swap(address(VELO), address(WETH), false, VELOAmt, 0);
 
             // Swap WETH to reward token
             uint rewardTokenAmt;
             if (reward.rewardToken != WETH) {
-                rewardTokenAmt = _swap(address(WETH), address(reward.rewardToken), false, WETHAmt, 0);
+                rewardTokenAmt = swap(address(WETH), address(reward.rewardToken), false, WETHAmt, 0);
             } else {
                 rewardTokenAmt = WETHAmt;
             }
@@ -278,13 +286,13 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         }
     }
 
-    function _swap(address tokenIn, address tokenOut, bool _stable, uint amount, uint amountOutMin) private returns (uint) {
+    function swap(address tokenIn, address tokenOut, bool _stable, uint amount, uint amountOutMin) internal returns (uint) {
         return router.swapExactTokensForTokensSimple(
             amount, amountOutMin, tokenIn, tokenOut, _stable, address(this), block.timestamp
         )[1];
     }
 
-    function _getLpTokenPriceInETH() private view returns (uint) {
+    function getLpTokenPriceInETH() internal view returns (uint) {
         (uint reserveToken0, uint reserveToken1) = lpToken.getReserves();
 
         uint totalReserveTokenInETH;
@@ -334,10 +342,10 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         emit SetYieldFeePerc(oldYieldFeePerc, _yieldFeePerc);
     }
 
-    function getPricePerFullShareInUSD() public view returns (uint) {
+    function getPricePerFullShareInUSD() public view virtual returns (uint) {
         (, int rawPrice,,,) = WETHPriceFeed.latestRoundData();
 
-        return _getLpTokenPriceInETH() * uint(rawPrice) / 1e20; // 6 decimals
+        return getLpTokenPriceInETH() * uint(rawPrice) / 1e20; // 6 decimals
     }
 
     function getAllPool() public view returns (uint) {
@@ -360,11 +368,11 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         ibRewardTokenAmt = (user.lpTokenBalance * reward.accRewardPerlpToken / 1e36) - user.rewardStartAt;
     }
 
-    function getUserBalance(address account) external view returns (uint) {
+    function getUserBalance(address account) external view virtual returns (uint) {
         return userInfo[account].lpTokenBalance;
     }
 
-    function getUserBalanceInUSD(address account) external view returns (uint) {
+    function getUserBalanceInUSD(address account) external view virtual returns (uint) {
         return userInfo[account].lpTokenBalance * getPricePerFullShareInUSD() / 1e18; // 6 decimals
     }
 
