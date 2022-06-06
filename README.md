@@ -1,1 +1,0 @@
-Remember to set onlyEOA for all user interaction function
