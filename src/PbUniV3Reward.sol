@@ -84,7 +84,7 @@ contract PbUniV3Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable, Re
     }
 
     /// @notice Record deposit info from vault
-    function recordDeposit(address account, uint amount, address rewardToken) public onlyVault {
+    function recordDeposit(address account, uint amount, address rewardToken) external onlyVault {
         User storage user = userInfo[account][rewardToken];
         user.balance += amount;
         user.rewardStartAt += (amount * rewardInfo[rewardToken].accRewardPerlpToken / 1e36);
@@ -94,7 +94,7 @@ contract PbUniV3Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable, Re
     }
 
     /// @notice Record withdraw info from vault
-    function recordWithdraw(address account, uint amount, address rewardToken) public onlyVault {
+    function recordWithdraw(address account, uint amount, address rewardToken) external onlyVault {
         User storage user = userInfo[account][rewardToken];
         user.balance -= amount;
         user.rewardStartAt = (user.balance * rewardInfo[rewardToken].accRewardPerlpToken / 1e36);
@@ -183,7 +183,7 @@ contract PbUniV3Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable, Re
 
     /// @notice Claim all rewardToken at once
     /// @notice Harvest will call on vault side first before claim to provide updated reward to user
-    function claim(address account) external onlyVault nonReentrant {
+    function claim(address account) external onlyVault {
         _claim(account, WBTC);
         _claim(account, WETH);
     }
