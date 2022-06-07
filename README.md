@@ -30,7 +30,7 @@ Users deposit USDC into strategy. `harvest()` will execute first to prevent yiel
 
 `tickLower` & `tickUpper`: price range, only applicable for first deposit (mint Uniswap V3 NFT), else 0
 
-`rewardToken`: tokens user choose as reward from farm
+`rewardToken`: tokens user choose as farm reward
 
 <br>
 
@@ -42,11 +42,11 @@ This function is to add back tokens that left by last liquidity adding. It norma
 
 **Parameters**
 
-`tokenIn`: token that return the most by Uniswap V3
+`tokenIn`: token that return the most from Uniswap V3
 
 `amount`: amount of token above
 
-`amountOutMin`: amountsOutMin for swap half to other token
+`amountOutMin`: amountsOutMin for swap half to other token within pair
 
 `slippage`: slippage for add liquidity into pair
 
@@ -60,9 +60,9 @@ Withdraw USDC from strategy. Strategy first calculate out liquidity to remove fr
 
 **Parameters**
 
-`amount`: amount of USDC to withdraw (won't be exact same amount after withdrawal)
+`amount`: amount of USDC to withdraw
 
-`rewardToken`: chosen token as reward from farm
+`rewardToken`: chosen token as farm reward
 
 `amount0Min` & `amount1Min`: slippage check for remove liquidity from pair
 
@@ -74,7 +74,7 @@ Withdraw USDC from strategy. Strategy first calculate out liquidity to remove fr
 
 **Info**
 
-This function collect fees from Uniswap V3 and send to reward contract and turn into users chosen reward token. This function called alongside with `deposit()` (to prevent yield sandwich attack), `claimReward()` (to provide user updated reward), and `updateTicks()` (to harvest any unclaimed fees before move liquidity).
+This function collect fees from Uniswap V3 and send to reward contract and turn into users chosen farm reward. This function called alongside with `deposit()` (to prevent yield sandwich attack), `claimReward()` (to provide user updated reward), and `updateTicks()` (to harvest any unclaimed fees before move liquidity).
 
 **Parameters**
 
@@ -119,7 +119,7 @@ This function remove liquidity from Uniswap V3 position, burn minted position NF
 
 **Info**
 
-This function can be called by vault contract only, alongside with `deposit()` from vault contract. It record user deposit amount, chosen token as farm reward and a checkpoint variable to determine user portion of reward. It also record current TVL in each type of reward.
+This function can be called by vault contract only, alongside with `deposit()` from vault contract. It record user deposit amount, chosen token as farm reward and a checkpoint variable to determine user portion of reward. It also record current TVL in each type of farm reward.
 
 **Parameters**
 
@@ -135,7 +135,7 @@ This function can be called by vault contract only, alongside with `deposit()` f
 
 **Info**
 
-This function can be called by vault contract only, alongside with `withdraw()` from vault contract. It record user withdraw amount, chosen token as farm reward and a checkpoint variable to determine user portion of reward. It also record current TVL in each type of reward.
+This function can be called by vault contract only, alongside with `withdraw()` from vault contract. It record user withdraw amount, chosen token as farm reward and a checkpoint variable to determine user portion of reward. It also record current TVL in each type of farm reward.
 
 **Parameters**
 
@@ -151,7 +151,7 @@ This function can be called by vault contract only, alongside with `withdraw()` 
 
 **Info**
 
-This function can be called by vault contract only, alongside with `harvest()` from vault contract. It transfer fee token(s) from vault contract, and calculate token(s) amount distributed for each farm reward (token). For each distributed token(s), it turn into farm reward token, collect treasury fee and lastly supply into Aave for interest bearing aToken. Before each harvest, contract update amount of aToken associate checkpoint variable as reward.
+This function can be called by vault contract only, alongside with `harvest()` from vault contract. It transfer fee token(s) from vault contract, and calculate token(s) amount distributed for each farm reward (token). For each distributed token(s), it turn into farm reward token, collect treasury fee and lastly supply into Aave for interest bearing aToken. Before each harvest, contract update amount of aToken associate checkpoint reward variable.
 
 **Parameters**
 
@@ -163,7 +163,7 @@ This function can be called by vault contract only, alongside with `harvest()` f
 
 **Info**
 
-This function can be called by vault contract only, alongside with `claimReward()` from vault contract. It calculate user portion of reward token(s), update user record and latest aToken balance, withdraw from Aave, and transfer to user.
+This function can be called by vault contract only, alongside with `claimReward()` from vault contract. It calculate user portion of reward token(s), update user record and latest aToken balance after withdraw. Contract then withdraw user chosen token from Aave, and transfer to user.
 
 **Parameters**
 
