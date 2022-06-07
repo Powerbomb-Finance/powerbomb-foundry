@@ -182,17 +182,6 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
         reward.claim(msg.sender);
     }
 
-    function _collect(uint128 amount0, uint128 amount1) private returns (uint amt0Collected, uint amt1Collected) {
-        INonfungiblePositionManager.CollectParams memory collectParams =
-            INonfungiblePositionManager.CollectParams({
-                tokenId: tokenId,
-                recipient: address(this),
-                amount0Max: amount0,
-                amount1Max: amount1
-            });
-        (amt0Collected, amt1Collected) =  nonfungiblePositionManager.collect(collectParams);
-    }
-
     /// @notice Function to change price range: remove liquidity
     function updateTicks(int24 tickLower, int24 tickUpper, uint amount0Min, uint amount1Min, uint slippage) external onlyAuthorized {
         // Harvest any unclaimed fees
@@ -215,6 +204,17 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
         // Mint new NFT with new ticks
         _mint(tickLower, tickUpper, token0Amt, token1Amt, token0AmtMin, token1AmtMin);
         emit UpdateTicks(tickLower, tickUpper);
+    }
+
+    function _collect(uint128 amount0, uint128 amount1) private returns (uint amt0Collected, uint amt1Collected) {
+        INonfungiblePositionManager.CollectParams memory collectParams =
+            INonfungiblePositionManager.CollectParams({
+                tokenId: tokenId,
+                recipient: address(this),
+                amount0Max: amount0,
+                amount1Max: amount1
+            });
+        (amt0Collected, amt1Collected) =  nonfungiblePositionManager.collect(collectParams);
     }
 
     /// @notice Swap fee hardcode to 0.05%
