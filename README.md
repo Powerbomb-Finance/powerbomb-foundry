@@ -136,6 +136,13 @@ Install Foundry
 
 https://book.getfoundry.sh/getting-started/installation.html
 
+```
+git clone https://github.com/Powerbomb-Finance/powerbomb-foundry
+cd powerbomb-foundry
+git switch univ3
+forge install
+```
+
 Run test
 
 > forge test --fork-url https://arb-mainnet.g.alchemy.com/v2/<YOUR_ALCHEMY_KEY> --fork-block-number 13069100
