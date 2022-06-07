@@ -4,9 +4,15 @@
 
 The strategy utilize Uniswap V3 on Arbitrum. Users deposit USDC into strategy with pre-fixed range. Strategy change price range from time to time based on current market price, to get the most trading fees. The fees then swap into tokens that chosen by users (WETH & USDC on launch). Users able to exit from strategy by withdraw out in form of USDC.
 
+<br>
+
 ## Contracts & Main Functions
 
+<br>
+
 ### PbUniV3.sol
+
+<br>
 
 > deposit(amount, amountsOutMin, slippage, tickLower, tickUpper, rewardToken)
 
@@ -22,6 +28,8 @@ Users deposit USDC into strategy. `harvest()` will execute first to prevent yiel
 `tickLower` & `tickUpper`: price range, only applicable for first deposit (mint Uniswap V3 NFT), else 0
 `rewardToken`: tokens user choose as reward from farm
 
+<br>
+
 > reinvest(tokenIn, amount, amountOutMin, slippage)
 
 **Info**
@@ -34,6 +42,8 @@ This function is to add back tokens that left by last liquidity adding. It norma
 `amount`: amount of token above
 `amountOutMin`: amountsOutMin for swap half to other token
 `slippage`: slippage for add liquidity into pair
+
+<br>
 
 > withdraw(amount, rewardToken, amount0Min, amount1Min, amountsOutMin)
 
@@ -48,6 +58,8 @@ Withdraw USDC from strategy. Strategy first calculate out liquidity to remove fr
 `amount0Min` & `amount1Min`: slippage check for remove liquidity from pair
 `amountsOutMin`: slippage check for swap
 
+<br>
+
 > harvest()
 
 **Info**
@@ -56,7 +68,9 @@ This function collect fees from Uniswap V3 and send to reward contract and turn 
 
 **Parameters**
 
--
+\-
+
+<br>
 
 > claimReward()
 
@@ -66,7 +80,9 @@ This function trigger `claim()` of reward contract. `harvest()` will execute fir
 
 **Parameters**
 
--
+\-
+
+<br>
 
 > updateTicks(tickLower, tickUpper, amount0Min, amount1Min, slippage)
 
@@ -80,7 +96,12 @@ This function remove liquidity from Uniswap V3 position, burn minted position NF
 `amount0Min` & `amount1Min`: slippage check for remove liquidity from pair
 `slippage`: slippage for add liquidity into pair
 
+<br>
+<br>
+
 ### PbUniV3Reward.sol
+
+<br>
 
 > recordDeposit(account, amount, rewardToken)
 
@@ -94,6 +115,8 @@ This function can be called by vault contract only, alongside with `deposit()` f
 `amount`: user deposit amount
 `rewardToken`: user chosen token as farm reward
 
+<br>
+
 > recordWithdraw(account, amount, rewardToken)
 
 **Info**
@@ -106,6 +129,8 @@ This function can be called by vault contract only, alongside with `withdraw()` 
 `amount`: user withdraw amount
 `rewardToken`: user chosen token as farm reward
 
+<br>
+
 > harvest(amount0, amount1)
 
 **Info**
@@ -115,6 +140,8 @@ This function can be called by vault contract only, alongside with `harvest()` f
 **Parameters**
 
 `amount0` & `amount1`: amount of tokens that transfer from vault contract as fees.
+
+<br>
 
 > claim(account)
 
@@ -126,9 +153,15 @@ This function can be called by vault contract only, alongside with `claimReward(
 
 `account`: user wallet address who claim
 
+<br>
+<br>
+
 ### PbUniV3Proxy.sol
 
 Proxy contract to store state variables for PbUniV3 and PbUniV3Reward.
+
+<br>
+<br>
 
 ## Test
 
