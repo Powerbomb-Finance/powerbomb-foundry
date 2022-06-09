@@ -9,49 +9,10 @@ import "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import "openzeppelin-contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-import "forge-std/Test.sol";
-
-interface IRouter {
-    function swapExactTokensForTokens(
-        uint amountIn,
-        uint amountOutMin,
-        address[] calldata path,
-        address to,
-        uint deadline
-    ) external returns (uint[] memory amounts);
-
-    function getAmountsOut(uint amountIn, address[] memory path) external view returns (uint[] memory amounts);
-}
-
-interface IPool {
-    function add_liquidity(uint[3] memory amounts, uint _min_mint_amount) external;
-
-    function remove_liquidity_one_coin(uint _token_amount, int128 i, uint _min_amount) external;
-}
-
-interface IGauge {
-    function deposit(uint amount) external;
-    function withdraw(uint amount) external;
-    function claim_rewards() external;
-    function claimable_reward(address _addr, address _token) external view returns (uint);
-    function balanceOf(address account) external view returns (uint);
-}
-
-interface IReward {
-    function recordDeposit(address account, uint amount) external;
-
-    function recordWithdraw(address account, uint amount) external;
-
-    function harvest(uint amount) external;
-
-    function claim(address account) external;
-
-    function userInfo(address account) external view returns (uint balance, uint rewardStartAt);
-
-    function accRewardPerlpToken() external view returns (uint);
-
-    function getAllPool() external view returns (uint);
-}
+import "../interface/IPool.sol";
+import "../interface/IGauge.sol";
+import "../interface/IReward.sol";
+import "../interface/IChainlink.sol";
 
 contract PbCrvTri is Initializable, UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -63,33 +24,26 @@ contract PbCrvTri is Initializable, UUPSUpgradeable, OwnableUpgradeable, Reentra
     IERC20Upgradeable constant crv3crypto = IERC20Upgradeable(0x8e0B8c8BB9db49a46697F3a5Bb8A308e744821D2);
     IPool constant pool = IPool(0x960ea3e3C7FB317332d990873d354E18d7645590);
     IGauge constant gauge = IGauge(0x97E2768e8E73511cA874545DC5Ff8067eB19B787);
-    IRouter constant router = IRouter(0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506); // Sushi
+    IChainlink constant USDTPriceOracle = IChainlink(0x3f3f5dF88dC9F13eac63DF89EC16ef6e7E25DdE7);
 
-    address[] public rewards;
-
-    struct User {
-        uint lpTokenBalance;
-        uint rewardStartAt;
-    }
-    mapping(address => User) public userInfo;
     mapping(address => uint) private depositedBlock;
     mapping(address => IReward) public rewardInfo;
+    address[] public rewards;
 
-    event Deposit(address tokenDeposit, uint amountToken, uint amountlpToken);
-    event Withdraw(address tokenWithdraw, uint amountToken);
-    event Harvest(uint harvestedfarmToken, uint swappedRewardTokenAfterFee, uint fee);
-    event ClaimReward(address receiver, uint claimedIbRewardTokenAfterFee, uint rewardToken);
-    event SetTreasury(address oldTreasury, address newTreasury);
-    event SetYieldFeePerc(uint oldYieldFeePerc, uint newYieldFeePerc);
+    event Deposit(address indexed token, uint tokenAmt, uint lpTokenAmt, address indexed rewardToken);
+    event Withdraw(address indexed token, uint lpTokenAmt, uint tokenAmt, address indexed rewardToken);
+    event AddNewReward(address rewardContract, address rewardToken);
+    event SetCurrentReward(address oldRewardContract, address newRewardContract, address rewardToken, uint index);
+    event RemoveReward(address rewardToken, uint index);
 
     function initialize() external initializer {
         __Ownable_init();
-
 
         USDT.safeApprove(address(pool), type(uint).max);
         WBTC.safeApprove(address(pool), type(uint).max);
         WETH.safeApprove(address(pool), type(uint).max);
         crv3crypto.safeApprove(address(gauge), type(uint).max);
+        crv3crypto.safeApprove(address(pool), type(uint).max);
     }
 
     function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin, address rewardToken) external nonReentrant whenNotPaused {
@@ -117,100 +71,128 @@ contract PbCrvTri is Initializable, UUPSUpgradeable, OwnableUpgradeable, Reentra
         gauge.deposit(crv3cryptoAmt);
 
         IReward reward = rewardInfo[rewardToken];
-        reward.recordDeposit(msg.sender, amount);
-        // emit Deposit(address(token), amount, crv3cryptoAmt);
+        reward.recordDeposit(msg.sender, crv3cryptoAmt);
+        emit Deposit(address(token), amount, crv3cryptoAmt, rewardToken);
     }
 
-    // function withdraw(IERC20Upgradeable token, uint amountOutLpToken, uint slippage) external nonReentrant {
-    //     require(token == USDT || token == USDC || token == DAI || token == lpToken, "Invalid token");
-    //     User storage user = userInfo[msg.sender];
-    //     require(amountOutLpToken > 0 && user.lpTokenBalance >= amountOutLpToken, "Invalid amountOutLpToken to withdraw");
-    // }
+    function withdraw(IERC20Upgradeable token, uint lpTokenAmt, uint amountOutMin, address rewardToken) external nonReentrant {
+        require(token == USDT || token == WBTC || token == WETH || token == crv3crypto, "Invalid token");
+        IReward reward = rewardInfo[rewardToken];
+        (uint balance,) = reward.userInfo(msg.sender);
+        require(lpTokenAmt > 0 && balance >= lpTokenAmt, "Invalid lpTokenAmt to withdraw");
+        require(depositedBlock[msg.sender] != block.number, "Not allow withdraw within same block");
+
+        reward.recordWithdraw(msg.sender, lpTokenAmt);
+        gauge.withdraw(lpTokenAmt);
+
+        uint tokenAmt;
+        if (token != crv3crypto) {
+            uint i;
+            if (token == USDT) i = 0;
+            else if (token == WBTC) i = 1;
+            else i = 2; // WETH
+            pool.remove_liquidity_one_coin(lpTokenAmt, i, amountOutMin);
+            tokenAmt = token.balanceOf(address(this));
+        } else {
+            tokenAmt = lpTokenAmt;
+        }
+        token.safeTransfer(msg.sender, tokenAmt);
+
+        emit Withdraw(address(token), lpTokenAmt, tokenAmt, rewardToken);
+    }
 
     function harvest() public {
         gauge.claim_rewards();
-        uint CRVAmt = CRV.balanceOf(address(this));
-        // console.log(CRV.balanceOf(address(this))); // 11.863594254423020207
 
+        uint CRVAmt = CRV.balanceOf(address(this));
         uint allPool = getAllPool();
 
         for (uint i; i < rewards.length; i++) {
             if (rewards[i] != address(0)) {
                 IReward reward = IReward(rewards[i]);
                 uint rewardPool = reward.getAllPool();
-                uint poolPerc = rewardPool * 10000 / allPool;
-                uint poolCRVAmt = poolPerc * CRVAmt / 10000;
-                reward.harvest(poolCRVAmt);
+                uint poolPerc = rewardPool * 1e18 / allPool;
+                uint _CRVAmt = poolPerc * CRVAmt / 1e18;
+                reward.harvest(_CRVAmt);
             }
         }
     }
 
-    // function claimReward(address account) public nonReentrant {
-        
-    // }
-
-    // function swap(address tokenIn, address tokenOut, uint amount) private returns (uint) {
-    //     address[] memory path = getPath(tokenIn, tokenOut);
-    //     return router.swapExactTokensForTokens(amount, 0, path, address(this), block.timestamp)[1];
-    // }
-
-    // function pauseContract() external onlyOwner {
-    //     _pause();
-    // }
-
-    // function unpauseContract() external onlyOwner {
-    //     _unpause();
-    // }
-
-    // function setTreasury(address _treasury) external onlyOwner {
-    //     emit SetTreasury(treasury, _treasury);
-    //     treasury = _treasury;
-    // }
-
-
-    function setNewReward(address reward, address rewardToken) external onlyOwner {
-        rewardInfo[rewardToken] = IReward(reward);
-        rewards.push(reward);
-        CRV.safeApprove(reward, type(uint).max);
+    function claimReward() external nonReentrant {
+        // Harvest first to provide user updated reward
+        harvest();
+        // Claim rewardToken on all reward contracts
+        for (uint i; i < rewards.length; i++) {
+            if (rewards[i] != address(0)) {
+                IReward(rewards[i]).claim(msg.sender);
+            }
+        }
     }
 
-    function removeReward(uint index) external onlyOwner {
+    function pauseContract() external onlyOwner {
+        _pause();
+    }
+
+    function unPauseContract() external onlyOwner {
+        _unpause();
+    }
+
+    function addNewReward(address rewardContract, address rewardToken) external onlyOwner {
+        require(address(rewardInfo[rewardToken]) == address(0), "Reward contract added");
+        rewardInfo[rewardToken] = IReward(rewardContract);
+        rewards.push(rewardContract);
+        CRV.safeApprove(rewardContract, type(uint).max);
+        emit AddNewReward(rewardContract, rewardToken);
+    }
+
+    function setCurrentReward(address rewardContract, address rewardToken, uint index) external onlyOwner {
+        address _rewardContract = address(rewardInfo[rewardToken]);
+        require(_rewardContract != address(0), "Reward contract not added");
+        require(_rewardContract != rewardContract, "Same reward contract");
+        require(rewards[index] == _rewardContract, "Wrong index");
+        CRV.safeApprove(_rewardContract, 0);
+        rewardInfo[rewardToken] = IReward(rewardContract);
+        rewards[index] = rewardContract;
+        CRV.safeApprove(rewardContract, type(uint).max);
+        emit SetCurrentReward(_rewardContract, rewardContract, rewardToken, index);
+    }
+
+    function removeReward(address rewardToken, uint index) external onlyOwner {
+        address rewardContract = rewards[index];
+        IReward reward = rewardInfo[rewardToken];
+        require(rewardContract == address(reward), "Wrong rewardToken or index");
+        require(reward.getAllPool() == 0, "Reward pool not 0");
         CRV.safeApprove(address(rewards[index]), 0);
         rewards[index] = address(0);
+        rewardInfo[rewardToken] = IReward(address(0));
+        emit RemoveReward(rewardToken, index);
     }
 
-    // function getPath(address tokenIn, address tokenOut) private pure returns (address[] memory path) {
-    //     path = new address[](2);
-    //     path[0] = tokenIn;
-    //     path[1] = tokenOut;
-    // }
-
-    // /// @return Price per full share in USD (6 decimals)
-    // function getPricePerFullShareInUSD() public view returns (uint) {
-    //     return pool_price() / 1e12;
-    // }
+    function getPricePerFullShareInUSD() internal view returns (uint) {
+        (, int answer,,,) = USDTPriceOracle.latestRoundData();
+        // Get total USD for each asset (18 decimals)
+        uint totalUSDTInUSD = pool.balances(0) * uint(answer) * 1e4;
+        uint totalWBTCInUSD = pool.balances(1) * pool.price_oracle(0) / 1e8;
+        uint totalWETHInUSD = pool.balances(2) * pool.price_oracle(1) / 1e18;
+        uint totalAssetsInUSD = totalUSDTInUSD + totalWBTCInUSD + totalWETHInUSD;
+        // Calculate price per full share
+        return totalAssetsInUSD * 1e6 / crv3crypto.totalSupply(); // 6 decimals
+    }
 
     function getAllPool() public view returns (uint) {
-        return gauge.balanceOf(address(this));
+        return gauge.balanceOf(address(this)); // lpToken, 18 decimals
     }
 
-    // /// @return All pool in USD (6 decimals)
-    // function getAllPoolInUSD() public view returns (uint) {
-    //     uint allPool = getAllPool();
-    //     if (allPool == 0) return 0;
-    //     return allPool * getPricePerFullShareInUSD() / 1e18;
-    // }
+    function getAllPoolInUSD() external view returns (uint) {
+        uint allPool = getAllPool();
+        if (allPool == 0) return 0;
+        return allPool * getPricePerFullShareInUSD() / 1e18; // 6 decimals
+    }
 
-    // function getPoolPendingReward(IERC20Upgradeable pendingRewardToken) external returns (uint) {
-    //     uint pendingRewardFromCurve = gauge.claimable_reward_write(address(this), address(pendingRewardToken));
-    //     return pendingRewardFromCurve + pendingRewardToken.balanceOf(address(this));
-    // }
-
-    // /// @return ibRewardTokenAmt User pending reward (decimal follow reward token)
-    // function getUserPendingReward(address account) external view returns (uint ibRewardTokenAmt) {
-    //     User storage user = userInfo[account];
-    //     ibRewardTokenAmt = (user.lpTokenBalance * accRewardPerlpToken / 1e36) - user.rewardStartAt;
-    // }
+    /// @dev Call this function off-chain by using view
+    function getPoolPendingReward() external returns (uint) {
+        return gauge.claimable_reward_write(address(this), address(CRV));
+    }
 
     function getUserPendingReward(address account, address rewardToken) external view returns (uint) {
         IReward reward = rewardInfo[rewardToken];
@@ -219,15 +201,16 @@ contract PbCrvTri is Initializable, UUPSUpgradeable, OwnableUpgradeable, Reentra
         return (balance * accRewardPerlpToken / 1e36) - rewardStartAt;
     }
 
-    // /// @return User balance in LP (18 decimals)
-    // function getUserBalance(address account) external view returns (uint) {
-    //     return userInfo[account].lpTokenBalance;
-    // }
+    /// @return balance in LP (18 decimals)
+    function getUserBalance(address account, address rewardToken) public view returns (uint balance) {
+        IReward reward = rewardInfo[rewardToken];
+        (balance,) = reward.userInfo(account);
+    }
 
-    // /// @return User balance in USD (6 decimals)
-    // function getUserBalanceInUSD(address account) external view returns (uint) {
-    //     return userInfo[account].lpTokenBalance * getPricePerFullShareInUSD() / 1e18;
-    // }
+    function getUserBalanceInUSD(address account, address rewardToken) external view returns (uint) {
+        uint userBalance = getUserBalance(account, rewardToken);
+        return userBalance * getPricePerFullShareInUSD() / 1e18; // 6 decimals
+    }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
 }
