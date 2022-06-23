@@ -18,30 +18,33 @@ contract PbCrvArb2pTest is Test {
     PbCrvArb2p vaultETH;
     IERC20Upgradeable aWBTC;
     IERC20Upgradeable aWETH;
+    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
 
     function setUp() public {
-        // Deploy implementation contract
-        PbCrvArb2p vaultImpl = new PbCrvArb2p();
-        // Deploy BTC reward proxy contract
-        PbProxy proxy = new PbProxy(
-            address(vaultImpl),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address,address)")),
-                address(WBTC),
-                address(6288)
-            )
-        );
-        vaultBTC = PbCrvArb2p(address(proxy));
-        // Deploy ETH reward proxy contract
-        proxy = new PbProxy(
-            address(vaultImpl),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address,address)")),
-                address(WETH),
-                address(6288)
-            )
-        );
-        vaultETH = PbCrvArb2p(address(proxy));
+        // // Deploy implementation contract
+        // PbCrvArb2p vaultImpl = new PbCrvArb2p();
+        // // Deploy BTC reward proxy contract
+        // PbProxy proxy = new PbProxy(
+        //     address(vaultImpl),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(address,address)")),
+        //         address(WBTC),
+        //         address(6288)
+        //     )
+        // );
+        // vaultBTC = PbCrvArb2p(address(proxy));
+        vaultBTC = PbCrvArb2p(0xE616e7e282709d8B05821a033B43a358a6ea8408);
+        // // Deploy ETH reward proxy contract
+        // proxy = new PbProxy(
+        //     address(vaultImpl),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(address,address)")),
+        //         address(WETH),
+        //         address(6288)
+        //     )
+        // );
+        // vaultETH = PbCrvArb2p(address(proxy));
+        vaultETH = PbCrvArb2p(0xBE6A4db3480EFccAb2281F30fe97b897BeEf408c);
         // Initialize aToken
         aWBTC = IERC20Upgradeable(vaultBTC.aToken());
         aWETH = IERC20Upgradeable(vaultETH.aToken());
@@ -125,8 +128,8 @@ contract PbCrvArb2pTest is Test {
         assertGt(aWBTC.balanceOf(address(vaultBTC)), 0);
         assertEq(WETH.balanceOf(address(vaultETH)), 0);
         assertGt(aWETH.balanceOf(address(vaultETH)), 0);
-        assertGt(WBTC.balanceOf(address(6288)), 0); // treasury fee
-        assertGt(WETH.balanceOf(address(6288)), 0); // treasury fee
+        assertGt(WBTC.balanceOf(owner), 0); // treasury fee
+        assertGt(WETH.balanceOf(owner), 0); // treasury fee
         assertGt(vaultBTC.accRewardPerlpToken(), 0);
         assertGt(vaultETH.accRewardPerlpToken(), 0);
         assertGt(vaultBTC.lastATokenAmt(), 0);
@@ -188,25 +191,30 @@ contract PbCrvArb2pTest is Test {
         deal(address(USDC), address(this), 10000e6);
         USDC.approve(address(vaultBTC), type(uint).max);
         // Pause contract and test deposit
+        hoax(owner);
         vaultBTC.pauseContract();
         vm.expectRevert(bytes("Pausable: paused"));
         vaultBTC.deposit(USDC, 10000e6, 0);
         // Unpause contract and test deposit
+        hoax(owner);
         vaultBTC.unPauseContract();
         vaultBTC.deposit(USDC, 10000e6, 0);
         vm.roll(block.number + 1);
         // Pause contract and test withdraw
+        hoax(owner);
         vaultBTC.pauseContract();
         vaultBTC.withdraw(USDC, vaultBTC.getUserBalance(address(this)), 0);
     }
 
     function testUpgrade() public {
         PbCrvArb2p vault_ = new PbCrvArb2p();
+        startHoax(owner);
         vaultBTC.upgradeTo(address(vault_));
         vaultETH.upgradeTo(address(vault_));
     }
 
     function testSetter() public {
+        startHoax(owner);
         vaultBTC.setYieldFeePerc(1000);
         assertEq(vaultBTC.yieldFeePerc(), 1000);
         vaultBTC.setTreasury(address(1));
@@ -218,9 +226,10 @@ contract PbCrvArb2pTest is Test {
     }
 
     function testAuthorization() public {
-        assertEq(vaultBTC.owner(), address(this));
-        assertEq(vaultETH.owner(), address(this));
+        assertEq(vaultBTC.owner(), owner);
+        assertEq(vaultETH.owner(), owner);
         // TransferOwnership
+        startHoax(owner);
         vaultBTC.transferOwnership(address(1));
         vaultETH.transferOwnership(address(1));
         // Vault

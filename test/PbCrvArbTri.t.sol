@@ -19,40 +19,44 @@ contract PbCrvArbTriTest is Test {
     IERC20Upgradeable aWBTC;
     IERC20Upgradeable aWETH;
     IERC20Upgradeable aUSDT;
+    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
 
     function setUp() public {
-        // Deploy implementation contract
-        PbCrvArbTri vaultImpl = new PbCrvArbTri();
-        // Deploy BTC reward proxy contract
-        PbProxy proxy = new PbProxy(
-            address(vaultImpl),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address,address)")),
-                address(WBTC),
-                address(6288)
-            )
-        );
-        vaultBTC = PbCrvArbTri(address(proxy));
-        // Deploy ETH reward proxy contract
-        proxy = new PbProxy(
-            address(vaultImpl),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address,address)")),
-                address(WETH),
-                address(6288)
-            )
-        );
-        vaultETH = PbCrvArbTri(address(proxy));
-        // Deploy USDT reward proxy contract
-        proxy = new PbProxy(
-            address(vaultImpl),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address,address)")),
-                address(USDT),
-                address(6288)
-            )
-        );
-        vaultUSDT = PbCrvArbTri(address(proxy));
+        // // Deploy implementation contract
+        // PbCrvArbTri vaultImpl = new PbCrvArbTri();
+        // // Deploy BTC reward proxy contract
+        // PbProxy proxy = new PbProxy(
+        //     address(vaultImpl),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(address,address)")),
+        //         address(WBTC),
+        //         address(6288)
+        //     )
+        // );
+        // vaultBTC = PbCrvArbTri(address(proxy));
+        vaultBTC = PbCrvArbTri(0x5bA0139444AD6f28cC28d88c719Ae85c81C307a5);
+        // // Deploy ETH reward proxy contract
+        // proxy = new PbProxy(
+        //     address(vaultImpl),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(address,address)")),
+        //         address(WETH),
+        //         address(6288)
+        //     )
+        // );
+        // vaultETH = PbCrvArbTri(address(proxy));
+        vaultETH = PbCrvArbTri(0xb88C7a8e678B243a6851b9Fa82a1aA0986574631);
+        // // Deploy USDT reward proxy contract
+        // proxy = new PbProxy(
+        //     address(vaultImpl),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(address,address)")),
+        //         address(USDT),
+        //         address(6288)
+        //     )
+        // );
+        // vaultUSDT = PbCrvArbTri(address(proxy));
+        vaultUSDT = PbCrvArbTri(0x8Ae32c034dAcd85a79CFd135050FCb8e6D4207D8);
         // Initialize aToken
         aWBTC = IERC20Upgradeable(vaultBTC.aToken());
         aWETH = IERC20Upgradeable(vaultETH.aToken());
@@ -157,9 +161,9 @@ contract PbCrvArbTriTest is Test {
         assertGt(aWETH.balanceOf(address(vaultETH)), 0);
         assertEq(USDT.balanceOf(address(vaultUSDT)), 0);
         assertGt(aUSDT.balanceOf(address(vaultUSDT)), 0);
-        assertGt(WBTC.balanceOf(address(6288)), 0); // treasury fee
-        assertGt(WETH.balanceOf(address(6288)), 0); // treasury fee
-        assertGt(USDT.balanceOf(address(6288)), 0); // treasury fee
+        assertGt(WBTC.balanceOf(owner), 0); // treasury fee
+        assertGt(WETH.balanceOf(owner), 0); // treasury fee
+        assertGt(USDT.balanceOf(owner), 0); // treasury fee
         assertGt(vaultBTC.accRewardPerlpToken(), 0);
         assertGt(vaultETH.accRewardPerlpToken(), 0);
         assertGt(vaultUSDT.accRewardPerlpToken(), 0);
@@ -242,26 +246,31 @@ contract PbCrvArbTriTest is Test {
         deal(address(WETH), address(this), 10 ether);
         WETH.approve(address(vaultBTC), type(uint).max);
         // Pause contract and test deposit
+        hoax(owner);
         vaultBTC.pauseContract();
         vm.expectRevert(bytes("Pausable: paused"));
         vaultBTC.deposit(WETH, 10 ether, 0);
         // Unpause contract and test deposit
+        hoax(owner);
         vaultBTC.unPauseContract();
         vaultBTC.deposit(WETH, 10 ether, 0);
         vm.roll(block.number + 1);
         // Pause contract and test withdraw
+        hoax(owner);
         vaultBTC.pauseContract();
         vaultBTC.withdraw(WETH, vaultBTC.getUserBalance(address(this)), 0);
     }
 
     function testUpgrade() public {
         PbCrvArbTri vault_ = new PbCrvArbTri();
+        startHoax(owner);
         vaultBTC.upgradeTo(address(vault_));
         vaultETH.upgradeTo(address(vault_));
         vaultUSDT.upgradeTo(address(vault_));
     }
 
     function testSetter() public {
+        startHoax(owner);
         vaultBTC.setYieldFeePerc(1000);
         assertEq(vaultBTC.yieldFeePerc(), 1000);
         vaultBTC.setTreasury(address(1));
@@ -277,10 +286,11 @@ contract PbCrvArbTriTest is Test {
     }
 
     function testAuthorization() public {
-        assertEq(vaultBTC.owner(), address(this));
-        assertEq(vaultETH.owner(), address(this));
-        assertEq(vaultUSDT.owner(), address(this));
+        assertEq(vaultBTC.owner(), owner);
+        assertEq(vaultETH.owner(), owner);
+        assertEq(vaultUSDT.owner(), owner);
         // TransferOwnership
+        startHoax(owner);
         vaultBTC.transferOwnership(address(1));
         vaultETH.transferOwnership(address(1));
         vaultUSDT.transferOwnership(address(1));

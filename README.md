@@ -8,15 +8,15 @@
 
 WBTC: 0x5bA0139444AD6f28cC28d88c719Ae85c81C307a5
 
-WETH: 0xb88c7a8e678b243a6851b9fa82a1aa0986574631
+WETH: 0xb88C7a8e678B243a6851b9Fa82a1aA0986574631
 
-USDT: 0x8ae32c034dacd85a79cfd135050fcb8e6d4207d8
+USDT: 0x8Ae32c034dAcd85a79CFd135050FCb8e6D4207D8
 
 #### 2pool
 
-WBTC: 0xe616e7e282709d8b05821a033b43a358a6ea8408
+WBTC: 0xE616e7e282709d8B05821a033B43a358a6ea8408
 
-WETH: 0xbe6a4db3480efccab2281f30fe97b897beef408c
+WETH: 0xBE6A4db3480EFccAb2281F30fe97b897BeEf408c
 
 ### Polygon
 
@@ -34,14 +34,14 @@ USDC: 0x7331f946809406F455623d0e69612151655e8261
 
 #### tricrypto
 
-> forge test --fork-url https://arb-mainnet.g.alchemy.com/v2/<ALCHEMY_API_KEY> --fork-block-number 15370000 -vvv --match-contract PbCrvArbTriTest
+> forge test --fork-url https://arb-mainnet.g.alchemy.com/v2/<ALCHEMY_API_KEY> --fork-block-number 15533265 -vvv --match-contract PbCrvArbTriTest
 
 #### 2pool
 
-> forge test --fork-url https://arb-mainnet.g.alchemy.com/v2/<ALCHEMY_API_KEY> --fork-block-number 15370000 -vvv --match-contract PbCrvArb2pTest
+> forge test --fork-url https://arb-mainnet.g.alchemy.com/v2/<ALCHEMY_API_KEY> --fork-block-number 15533265 -vvv --match-contract PbCrvArb2pTest
 
 ### Polygon
 
 #### tricrypto
 
-> forge test --fork-url https://polygon-mainnet.g.alchemy.com/v2/<ALCHEMY_API_KEY> --fork-block-number 29875300 -vvv --match-contract PbCrvPolyTriTest
+> forge test --fork-url https://polygon-mainnet.g.alchemy.com/v2/<ALCHEMY_API_KEY> --fork-block-number 29914756 -vvv --match-contract PbCrvPolyTriTest
