@@ -109,6 +109,30 @@ This function remove liquidity from Uniswap V3 position, burn minted position NF
 `slippage`: slippage for add liquidity into pair
 
 <br>
+
+> setReward(newRewardAddr)
+
+**Info**
+
+This function change reward contract that this contract interate with. This function only able to call by owner of this contract. Emit `SetReward` event upon change.
+
+**Parameters**
+
+`newRewardAddr` : new reward contract address
+
+<br>
+
+> setBot(newBotAddr)
+
+**Info**
+
+This function change bot wallat that able to call `reinvest` and `updateTicks` function. This function only able to call by owner of this contract. Emit `SetBot` event upon change.
+
+**Parameters**
+
+`newBotAddr` : new Bot wallet address
+
+<br>
 <br>
 
 ### PbUniV3Reward.sol
@@ -168,6 +192,30 @@ This function can be called by vault contract only, alongside with `claimReward(
 **Parameters**
 
 `account`: user wallet address who claim
+
+<br>
+
+> setVault(newVaultAddr)
+
+**Info**
+
+This function change vault contract that retrieve tokens from and able to call `recordDeposit`, `recordWithdraw`, `harvest` and `claim` function. This function only able to call by owner of this contract. Emit `SetVault` event upon change.
+
+**Parameters**
+
+`newVaultAddr` : new Vault contract address
+
+<br>
+
+> setTreasury(newTreasuryAddr)
+
+**Info**
+
+This function change treasury wallet that receive fees from this contract. This function only able to call by owner of this contract. Emit `SetTreasury` event upon change.
+
+**Parameters**
+
+`newTreasuryAddr` : new treasury wallet address
 
 <br>
 <br>

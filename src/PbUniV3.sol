@@ -113,6 +113,7 @@ contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentran
     /// @notice This function is to add back tokens that left by last liquidity adding
     /// @param tokenIn token that have balance in contract (which will swap half amount to pair token)
     function reinvest(IERC20Upgradeable tokenIn, uint amount, uint amountOutMin, uint slippage) external onlyAuthorized {
+        require(tokenIn == token0 || tokenIn == token1, "Invalid token");
         // Determine pair token and swap half amount into pair token
         IERC20Upgradeable tokenOut = tokenIn == token0 ? token1 : token0;
         _swap(address(tokenIn), address(tokenOut), amount / 2, amountOutMin);
