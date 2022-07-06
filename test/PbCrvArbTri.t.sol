@@ -34,7 +34,7 @@ contract PbCrvArbTriTest is Test {
         //     )
         // );
         // vaultBTC = PbCrvArbTri(address(proxy));
-        vaultBTC = PbCrvArbTri(0x5bA0139444AD6f28cC28d88c719Ae85c81C307a5);
+        vaultBTC = PbCrvArbTri(payable(0x5bA0139444AD6f28cC28d88c719Ae85c81C307a5));
         // // Deploy ETH reward proxy contract
         // proxy = new PbProxy(
         //     address(vaultImpl),
@@ -45,7 +45,7 @@ contract PbCrvArbTriTest is Test {
         //     )
         // );
         // vaultETH = PbCrvArbTri(address(proxy));
-        vaultETH = PbCrvArbTri(0xb88C7a8e678B243a6851b9Fa82a1aA0986574631);
+        vaultETH = PbCrvArbTri(payable(0xb88C7a8e678B243a6851b9Fa82a1aA0986574631));
         // // Deploy USDT reward proxy contract
         // proxy = new PbProxy(
         //     address(vaultImpl),
@@ -56,11 +56,19 @@ contract PbCrvArbTriTest is Test {
         //     )
         // );
         // vaultUSDT = PbCrvArbTri(address(proxy));
-        vaultUSDT = PbCrvArbTri(0x8Ae32c034dAcd85a79CFd135050FCb8e6D4207D8);
+        vaultUSDT = PbCrvArbTri(payable(0x8Ae32c034dAcd85a79CFd135050FCb8e6D4207D8));
         // Initialize aToken
         aWBTC = IERC20Upgradeable(vaultBTC.aToken());
         aWETH = IERC20Upgradeable(vaultETH.aToken());
         aUSDT = IERC20Upgradeable(vaultUSDT.aToken());
+
+        // // Upgrade
+        // PbCrvArbTri vaultImpl = new PbCrvArbTri();
+        // vm.startPrank(owner);
+        // vaultBTC.upgradeTo(address(vaultImpl));
+        // vaultETH.upgradeTo(address(vaultImpl));
+        // vaultUSDT.upgradeTo(address(vaultImpl));
+        // vm.stopPrank();
     }
 
     function testDeposit() public {
@@ -71,11 +79,14 @@ contract PbCrvArbTriTest is Test {
         uint amountOut = pool.calc_token_amount(amounts, true);
         vaultBTC.deposit(WBTC, WBTC.balanceOf(address(this)), amountOut * 99 / 100);
         // Deposit ETH for ETH reward
-        deal(address(WETH), address(this), 10 ether);
-        WETH.approve(address(vaultETH), type(uint).max);
-        amounts = [0, 0, WETH.balanceOf(address(this))];
+        // deal(address(WETH), address(this), 10 ether);
+        uint ETHAmt = 10 ether;
+        // WETH.approve(address(vaultETH), type(uint).max);
+        // amounts = [0, 0, WETH.balanceOf(address(this))];
+        amounts = [0, 0, ETHAmt];
         amountOut = pool.calc_token_amount(amounts, true);
-        vaultETH.deposit(WETH, WETH.balanceOf(address(this)), amountOut * 99 / 100);
+        // vaultETH.deposit(WETH, WETH.balanceOf(address(this)), amountOut * 99 / 100);
+        vaultETH.deposit{value: ETHAmt}(WETH, ETHAmt, amountOut * 99 / 100);
         // Deposit USDT for USDT reward
         deal(address(USDT), address(this), 10000e6);
         USDT.approve(address(vaultUSDT), type(uint).max);
@@ -120,26 +131,32 @@ contract PbCrvArbTriTest is Test {
         // Withdraw WBTC from WBTC reward
         uint amountOut = pool.calc_withdraw_one_coin(vaultBTC.getUserBalance(address(this)), uint(1));
         vaultBTC.withdraw(WBTC, vaultBTC.getUserBalance(address(this)), amountOut * 99 / 100);
-        // Withdraw WETH from WETH reward
+        // Withdraw ETH from WETH reward
+        uint ETHAmtBef = address(this).balance;
         amountOut = pool.calc_withdraw_one_coin(vaultETH.getUserBalance(address(this)), uint(2));
         vaultETH.withdraw(WETH, vaultETH.getUserBalance(address(this)), amountOut * 99 / 100);
         // Withdraw USDT from USDT reward
         amountOut = pool.calc_withdraw_one_coin(vaultUSDT.getUserBalance(address(this)), uint(0));
         vaultUSDT.withdraw(USDT, vaultUSDT.getUserBalance(address(this)), amountOut * 99 / 100);
         // Assertion check
-        assertEq(vaultBTC.getAllPool(), 0);
-        assertEq(vaultBTC.getAllPoolInUSD(), 0);
-        assertEq(vaultBTC.getUserBalance(address(this)), 0);
-        assertEq(vaultBTC.getUserBalanceInUSD(address(this)), 0);
-        assertEq(vaultETH.getAllPool(), 0);
-        assertEq(vaultETH.getAllPoolInUSD(), 0);
-        assertEq(vaultETH.getUserBalance(address(this)), 0);
-        assertEq(vaultETH.getUserBalanceInUSD(address(this)), 0);
-        assertEq(vaultUSDT.getAllPool(), 0);
-        assertEq(vaultUSDT.getAllPoolInUSD(), 0);
-        assertEq(vaultUSDT.getUserBalance(address(this)), 0);
-        assertEq(vaultUSDT.getUserBalanceInUSD(address(this)), 0);
+        assertGt(WBTC.balanceOf(address(this)), 0);
+        assertGt(address(this).balance, ETHAmtBef);
+        assertGt(USDT.balanceOf(address(this)), 0);
+        // assertEq(vaultBTC.getAllPool(), 0);
+        // assertEq(vaultBTC.getAllPoolInUSD(), 0);
+        // assertEq(vaultBTC.getUserBalance(address(this)), 0);
+        // assertEq(vaultBTC.getUserBalanceInUSD(address(this)), 0);
+        // assertEq(vaultETH.getAllPool(), 0);
+        // assertEq(vaultETH.getAllPoolInUSD(), 0);
+        // assertEq(vaultETH.getUserBalance(address(this)), 0);
+        // assertEq(vaultETH.getUserBalanceInUSD(address(this)), 0);
+        // assertEq(vaultUSDT.getAllPool(), 0);
+        // assertEq(vaultUSDT.getAllPoolInUSD(), 0);
+        // assertEq(vaultUSDT.getUserBalance(address(this)), 0);
+        // assertEq(vaultUSDT.getUserBalanceInUSD(address(this)), 0);
     }
+
+    receive() external payable {}
 
     function testHarvest() public {
         testDeposit();
@@ -231,29 +248,29 @@ contract PbCrvArbTriTest is Test {
         assertGt(rewardStartAtWETH, 0);
         (, uint rewardStartAtUSDT) = vaultUSDT.userInfo(address(this));
         assertGt(rewardStartAtUSDT, 0);
-        uint lastATokenAmtWBTC = vaultBTC.lastATokenAmt();
-        uint lastATokenAmtWETH = vaultETH.lastATokenAmt();
-        uint lastATokenAmtUSDT = vaultUSDT.lastATokenAmt();
-        assertLe(lastATokenAmtWBTC, 1);
-        assertLe(lastATokenAmtWETH, 1);
-        assertLe(lastATokenAmtUSDT, 1);
-        assertLe(aWBTC.balanceOf(address(vaultBTC)), 1);
-        assertLe(aWETH.balanceOf(address(vaultETH)), 1);
-        assertLe(aUSDT.balanceOf(address(vaultUSDT)), 1);
+        // uint lastATokenAmtWBTC = vaultBTC.lastATokenAmt();
+        // uint lastATokenAmtWETH = vaultETH.lastATokenAmt();
+        // uint lastATokenAmtUSDT = vaultUSDT.lastATokenAmt();
+        // assertLe(lastATokenAmtWBTC, 1);
+        // assertLe(lastATokenAmtWETH, 1);
+        // assertLe(lastATokenAmtUSDT, 1);
+        // assertLe(aWBTC.balanceOf(address(vaultBTC)), 1);
+        // assertLe(aWETH.balanceOf(address(vaultETH)), 1);
+        // assertLe(aUSDT.balanceOf(address(vaultUSDT)), 1);
     }
 
     function testPauseContract() public {
-        deal(address(WETH), address(this), 10 ether);
-        WETH.approve(address(vaultBTC), type(uint).max);
+        // deal(address(WETH), address(this), 10 ether);
+        // WETH.approve(address(vaultBTC), type(uint).max);
         // Pause contract and test deposit
         hoax(owner);
         vaultBTC.pauseContract();
         vm.expectRevert(bytes("Pausable: paused"));
-        vaultBTC.deposit(WETH, 10 ether, 0);
+        vaultBTC.deposit{value: 10 ether}(WETH, 10 ether, 0);
         // Unpause contract and test deposit
         hoax(owner);
         vaultBTC.unPauseContract();
-        vaultBTC.deposit(WETH, 10 ether, 0);
+        vaultBTC.deposit{value: 10 ether}(WETH, 10 ether, 0);
         vm.roll(block.number + 1);
         // Pause contract and test withdraw
         hoax(owner);

@@ -34,7 +34,7 @@ USDC: 0x7331f946809406F455623d0e69612151655e8261
 
 #### tricrypto
 
-> forge test --fork-url https://arb-mainnet.g.alchemy.com/v2/<ALCHEMY_API_KEY> --fork-block-number 15533265 -vvv --match-contract PbCrvArbTriTest
+> forge test --fork-url https://arb-mainnet.g.alchemy.com/v2/<ALCHEMY_API_KEY> --fork-block-number 17108572 -vvv --match-contract PbCrvArbTriTest
 
 #### 2pool
 

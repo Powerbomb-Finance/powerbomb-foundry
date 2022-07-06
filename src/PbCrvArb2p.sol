@@ -35,7 +35,7 @@ contract PbCrvArb2p is PbCrvBase {
         rewardToken.safeApprove(address(lendingPool), type(uint).max);
     }
 
-    function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin) external override nonReentrant whenNotPaused {
+    function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin) external payable override nonReentrant whenNotPaused {
         require(token == USDC || token == USDT || token == lpToken, "Invalid token");
         require(amount > 0, "Invalid amount");
 
@@ -63,7 +63,7 @@ contract PbCrvArb2p is PbCrvBase {
         emit Deposit(msg.sender, address(token), amount, lpTokenAmt);
     }
 
-    function withdraw(IERC20Upgradeable token, uint lpTokenAmt, uint amountOutMin) external override nonReentrant {
+    function withdraw(IERC20Upgradeable token, uint lpTokenAmt, uint amountOutMin) external payable override nonReentrant {
         require(token == USDC || token == USDT || token == lpToken, "Invalid token");
         User storage user = userInfo[msg.sender];
         require(lpTokenAmt > 0 && user.lpTokenBalance >= lpTokenAmt, "Invalid lpTokenAmt to withdraw");

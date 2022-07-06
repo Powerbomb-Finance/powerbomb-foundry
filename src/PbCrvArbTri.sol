@@ -4,6 +4,7 @@ pragma solidity 0.8.15;
 import "./PbCrvBase.sol";
 import "../interface/IChainlink.sol";
 import "../interface/ISwapRouter.sol";
+import "../interface/IWETH.sol";
 
 contract PbCrvArbTri is PbCrvBase {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -37,14 +38,19 @@ contract PbCrvArbTri is PbCrvBase {
         rewardToken.safeApprove(address(lendingPool), type(uint).max);
     }
 
-    function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin) external override nonReentrant whenNotPaused {
+    function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin) external payable override nonReentrant whenNotPaused {
         require(token == USDT || token == WBTC || token == WETH || token == lpToken, "Invalid token");
         require(amount > 0, "Invalid amount");
 
         uint currentPool = gauge.balanceOf(address(this));
         if (currentPool > 0) harvest();
 
-        token.safeTransferFrom(msg.sender, address(this), amount);
+        if (token == WETH) {
+            require(msg.value == amount, "Invalid ETH");
+            IWETH(address(WETH)).deposit{value: amount}();
+        } else {
+            token.safeTransferFrom(msg.sender, address(this), amount);
+        }
         depositedBlock[msg.sender] = block.number;
 
         uint lpTokenAmt;
@@ -67,7 +73,7 @@ contract PbCrvArbTri is PbCrvBase {
         emit Deposit(msg.sender, address(token), amount, lpTokenAmt);
     }
 
-    function withdraw(IERC20Upgradeable token, uint lpTokenAmt, uint amountOutMin) external override nonReentrant {
+    function withdraw(IERC20Upgradeable token, uint lpTokenAmt, uint amountOutMin) external payable override nonReentrant {
         require(token == USDT || token == WBTC || token == WETH || token == lpToken, "Invalid token");
         User storage user = userInfo[msg.sender];
         require(lpTokenAmt > 0 && user.lpTokenBalance >= lpTokenAmt, "Invalid lpTokenAmt to withdraw");
@@ -90,10 +96,19 @@ contract PbCrvArbTri is PbCrvBase {
         } else {
             tokenAmt = lpTokenAmt;
         }
-        token.safeTransfer(msg.sender, tokenAmt);
+
+        if (token == WETH) {
+            IWETH(address(WETH)).withdraw(tokenAmt);
+            (bool success,) = msg.sender.call{value: address(this).balance}("");
+            require(success, "Failed transfer ETH");
+        } else {
+            token.safeTransfer(msg.sender, tokenAmt);
+        }
 
         emit Withdraw(msg.sender, address(token), lpTokenAmt, tokenAmt);
     }
+
+    receive() external payable {}
 
     function harvest() public override {
         // Update accrued amount of aToken

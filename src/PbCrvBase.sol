@@ -43,9 +43,9 @@ abstract contract PbCrvBase is Initializable, UUPSUpgradeable, OwnableUpgradeabl
     event SetTreasury(address oldTreasury, address newTreasury);
     event SetYieldFeePerc(uint oldYieldFeePerc, uint newYieldFeePerc);
 
-    function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin) external virtual;
+    function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin) external payable virtual;
 
-    function withdraw(IERC20Upgradeable token, uint lpTokenAmt, uint amountOutMin) external virtual;
+    function withdraw(IERC20Upgradeable token, uint lpTokenAmt, uint amountOutMin) external payable virtual;
 
     function harvest() public virtual;
 
