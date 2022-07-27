@@ -2,7 +2,7 @@
 pragma solidity 0.8.15;
 
 interface IPool {
-    function add_liquidity(uint[2] memory amounts, uint _min_mint_amount) external returns (uint);
+    function add_liquidity(uint[2] memory amounts, uint _min_mint_amount) external payable returns (uint);
 
     function add_liquidity(uint[3] memory amounts, uint _min_mint_amount) external;
 
@@ -15,6 +15,8 @@ interface IPool {
     function remove_liquidity_one_coin(uint _token_amount, int128 i, uint _min_amount) external returns (uint);
 
     function remove_liquidity_one_coin(uint _token_amount, int128 i, uint _min_amount, bool _use_underlying) external returns (uint);
+
+    function remove_liquidity_one_coin(uint _burn_amount, int128 i, uint _min_received, address _receiver) external returns (uint);
 
     function lp_token() external view returns (address);
 

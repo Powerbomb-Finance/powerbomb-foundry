@@ -28,6 +28,22 @@ WETH: 0x5abbEB3323D4B19C4C371C9B056390239FC0Bf43
 
 USDC: 0x7331f946809406F455623d0e69612151655e8261
 
+### Optimism
+
+#### susd/3crv
+
+Summary: deposit/withdraw in SUSD/DAI/USDC/USDT/LP token, reward in WBTC/WETH. Token address refer src/PbCrvOpUsd.sol.
+
+WBTC: 0x61F157E08b2B55eB3B0dD137c1D2A73C9AB5888e
+
+WETH: 0xA8e39872452BA48b1F4c7e16b78668199d2C41Dd
+
+#### seth/eth
+
+Summary: deposit/withdraw in SETH/native ETH/LP token, reward in USDC only. Token address refer src/PbCrvOpEth.sol. For native ETH, pass in WETH contract address.
+
+USDC: 0xb88C7a8e678B243a6851b9Fa82a1aA0986574631
+
 ## Test
 
 ### Arbitrum
@@ -45,3 +61,13 @@ USDC: 0x7331f946809406F455623d0e69612151655e8261
 #### tricrypto
 
 > forge test --fork-url https://polygon-mainnet.g.alchemy.com/v2/<ALCHEMY_API_KEY> --fork-block-number 29914756 -vvv --match-contract PbCrvPolyTriTest
+
+### Optimism
+
+#### susd/3crv
+
+> forge test --fork-url https://opt-mainnet.g.alchemy.com/v2/<ALCHEMY_API_KEY> --fork-block-number 16079201 -vvv --match-contract PbCrvOpUsdTest
+
+#### seth/eth
+
+> forge test --fork-url https://opt-mainnet.g.alchemy.com/v2/<ALCHEMY_API_KEY> --fork-block-number 16079201 -vvv --match-contract PbCrvOpEthTest
