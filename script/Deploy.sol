@@ -2,7 +2,7 @@
 pragma solidity 0.8.15;
 
 import "src/PbVelo.sol";
-import "src/PbVeloProxy.sol";
+import "src/PbProxy.sol";
 import "forge-std/Script.sol";
 
 contract Deploy is Script {
@@ -13,7 +13,7 @@ contract Deploy is Script {
         vm.startBroadcast();
 
         PbVelo vault = new PbVelo();
-        PbVeloProxy proxy = new PbVeloProxy(
+        PbProxy proxy = new PbProxy(
             address(vault),
             abi.encodeWithSelector(
                 bytes4(keccak256("initialize(address,address,address,address,address,address,address,address)")),

@@ -3,7 +3,7 @@ pragma solidity 0.8.15;
 
 import "forge-std/Test.sol";
 import "../src/PbVelo.sol";
-import "../src/PbVeloProxy.sol";
+import "../src/PbProxy.sol";
 import "../script/Deploy.sol";
 import "../interfaces/IGauge.sol";
 import "../interfaces/IRouter.sol";
@@ -26,7 +26,7 @@ contract PbVeloTest_OPUSDC is Test {
 
     function setUp() public {
         vault = new PbVelo();
-        PbVeloProxy proxy = new PbVeloProxy(
+        PbProxy proxy = new PbProxy(
             address(vault),
             abi.encodeWithSelector(
                 bytes4(keccak256("initialize(address,address,address,address,address,address,address,address)")),
