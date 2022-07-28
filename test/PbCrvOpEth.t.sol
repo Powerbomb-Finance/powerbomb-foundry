@@ -74,32 +74,32 @@ contract PbCrvOpEthTest is Test {
         assertEq(lpToken.balanceOf(address(vaultUSDC)), 0);
     }
 
-    // function testWithdraw() public {
-    //     testDeposit();
-    //     vm.roll(block.number + 1);
-    //     // Record ETH before withdraw
-    //     uint ethAmt = address(this).balance;
-    //     // Withdraw ETH from USDC reward
-    //     uint amountOut = pool.calc_withdraw_one_coin(vaultUSDC.getUserBalance(address(this)) / 3, int128(0));
-    //     vaultUSDC.withdraw(WETH, vaultUSDC.getUserBalance(address(this)) / 3, amountOut * 99 / 100);
-    //     // Withdraw SETH from WETH reward
-    //     amountOut = pool.calc_withdraw_one_coin(vaultUSDC.getUserBalance(address(this)) / 2, int128(1));
-    //     vaultUSDC.withdraw(SETH, vaultUSDC.getUserBalance(address(this)) / 2, amountOut * 99 / 100);
-    //     // Withdraw lpToken from WETH reward
-    //     vaultUSDC.withdraw(lpToken, vaultUSDC.getUserBalance(address(this)), 0);
-    //     // Assertion check
-    //     assertEq(vaultUSDC.getAllPool(), 0);
-    //     assertEq(vaultUSDC.getAllPoolInUSD(), 0);
-    //     assertEq(vaultUSDC.getUserBalance(address(this)), 0);
-    //     assertEq(vaultUSDC.getUserBalanceInUSD(address(this)), 0);
-    //     // console.log(address(this).balance - ethAmt); // 
-    //     // console.log(SETH.balanceOf(address(this))); // 
-    //     // console.log(lpToken.balanceOf(address(this))); // 
-    //     assertEq(address(vaultUSDC).balance, 0);
-    //     assertEq(SETH.balanceOf(address(vaultUSDC)), 0);
-    //     assertGt(address(this).balance - ethAmt, 0);
-    //     assertGt(SETH.balanceOf(address(this)), 0);
-    // }
+    function testWithdraw() public {
+        testDeposit();
+        vm.roll(block.number + 1);
+        // Record ETH before withdraw
+        uint ethAmt = address(this).balance;
+        // Withdraw ETH from USDC reward
+        uint amountOut = pool.calc_withdraw_one_coin(vaultUSDC.getUserBalance(address(this)) / 3, int128(0));
+        vaultUSDC.withdraw(WETH, vaultUSDC.getUserBalance(address(this)) / 3, amountOut * 99 / 100);
+        // Withdraw SETH from WETH reward
+        amountOut = pool.calc_withdraw_one_coin(vaultUSDC.getUserBalance(address(this)) / 2, int128(1));
+        vaultUSDC.withdraw(SETH, vaultUSDC.getUserBalance(address(this)) / 2, amountOut * 99 / 100);
+        // Withdraw lpToken from WETH reward
+        vaultUSDC.withdraw(lpToken, vaultUSDC.getUserBalance(address(this)), 0);
+        // Assertion check
+        assertEq(vaultUSDC.getAllPool(), 0);
+        assertEq(vaultUSDC.getAllPoolInUSD(), 0);
+        assertEq(vaultUSDC.getUserBalance(address(this)), 0);
+        assertEq(vaultUSDC.getUserBalanceInUSD(address(this)), 0);
+        // console.log(address(this).balance - ethAmt); // 
+        // console.log(SETH.balanceOf(address(this))); // 
+        // console.log(lpToken.balanceOf(address(this))); // 
+        assertEq(address(vaultUSDC).balance, 0);
+        assertEq(SETH.balanceOf(address(vaultUSDC)), 0);
+        assertGt(address(this).balance - ethAmt, 0);
+        assertGt(SETH.balanceOf(address(this)), 0);
+    }
 
     receive() external payable {}
 
