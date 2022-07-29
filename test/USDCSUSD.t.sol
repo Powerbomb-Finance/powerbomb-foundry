@@ -254,11 +254,11 @@ contract USDCSUSDTest is Test {
         hoax(owner);
         vaultBTC.pauseContract();
         vm.expectRevert(bytes("Pausable: paused"));
-        vaultBTC.deposit(token0, 10000e6, 0, 0);
+        vaultBTC.deposit(token0, 10000e6, 500, 0);
         // Unpause contract and test deposit
         hoax(owner);
         vaultBTC.unPauseContract();
-        vaultBTC.deposit(token0, 10000e6, 50, 0);
+        vaultBTC.deposit(token0, 10000e6, 500, 0);
         vm.roll(block.number + 1);
         // Pause contract and test withdraw
         hoax(owner);

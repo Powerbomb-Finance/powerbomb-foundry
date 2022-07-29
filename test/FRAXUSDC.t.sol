@@ -251,11 +251,11 @@ contract FRAXUSDCTest is Test {
         hoax(owner);
         vaultBTC.pauseContract();
         vm.expectRevert(bytes("Pausable: paused"));
-        vaultBTC.deposit(token0, 10_000 ether, 0, 0);
+        vaultBTC.deposit(token0, 10_000 ether, 500, 0);
         // Unpause contract and test deposit
         hoax(owner);
         vaultBTC.unPauseContract();
-        vaultBTC.deposit(token0, 10_000 ether, 50, 0);
+        vaultBTC.deposit(token0, 10_000 ether, 500, 0);
         vm.roll(block.number + 1);
         // Pause contract and test withdraw
         hoax(owner);
