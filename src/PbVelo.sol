@@ -144,24 +144,9 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         emit Deposit(address(token), amount, lpTokenAmt);
     }
 
-    function withdraw(IERC20Upgradeable token, uint amountOutLpToken, uint amountOutMin) external {
-        uint amountOutToken = _withdraw(token, amountOutLpToken, amountOutMin);
-        token.safeTransfer(msg.sender, amountOutToken);
-    }
-
-    function withdrawETH(IERC20Upgradeable token, uint amountOutLpToken, uint amountOutMin) external {
-        require(token0 == WETH || token1 == WETH, "Withdraw ETH not valid");
-        uint WETHAmt = _withdraw(token, amountOutLpToken, amountOutMin);
-        WETH.withdraw(WETHAmt);
-        (bool success,) = msg.sender.call{value: address(this).balance}("");
-        require(success, "ETH transfer failed");
-    }
-
-    receive() external payable {}
-
-    function _withdraw(
+    function withdraw(
         IERC20Upgradeable token, uint amountOutLpToken, uint amountOutMin
-    ) internal virtual nonReentrant returns (uint amountOutToken) {
+    ) external virtual nonReentrant returns (uint amountOutToken) {
         require(token == token0 || token == token1 || token == lpToken, "Invalid token");
         User storage user = userInfo[msg.sender];
         require(amountOutLpToken > 0 && user.lpTokenBalance >= amountOutLpToken, "Invalid amountOutLpToken to withdraw");
@@ -188,8 +173,18 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
             amountOutToken = amountOutLpToken;
         }
 
+        if (token == WETH) {
+            WETH.withdraw(WETH.balanceOf(address(this)));
+            (bool success,) = msg.sender.call{value: address(this).balance}("");
+            require(success, "ETH transfer failed");
+        } else {
+            token.safeTransfer(msg.sender, amountOutToken);
+        }
+
         emit Withdraw(address(token), amountOutToken);
     }
+
+    receive() external payable {}
 
     function harvest() public virtual {
         uint currentPool = getAllPool();
