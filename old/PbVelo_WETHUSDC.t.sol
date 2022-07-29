@@ -23,22 +23,17 @@ contract PbVeloTest_WETHUSDC is Test {
     IERC20Upgradeable lpToken;
     IERC20Upgradeable rewardToken;
     IRouter router = IRouter(0xa132DAB612dB5cB9fC9Ac426A0Cc215A3423F9c9);
+    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
 
     function setUp() public {
         vault = new PbVelo();
         PbProxy proxy = new PbProxy(
             address(vault),
             abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address,address,address,address,address,address,address,address)")),
-                address(VELO), // _VELO
+                bytes4(keccak256("initialize(address,address,address)")),
                 0xE2CEc8aB811B648bA7B1691Ce08d5E800Dd0a60a, // _gauge
-                // address(WETH), // _rewardToken
-                address(USDC), // _rewardToken
-                0x794a61358D6845594F94dc1DB02A252b5b4814aD, // _lendingPool
-                address(router), // _router
-                address(WETH), // _WETH
-                0x13e3Ee699D1909E989722E753853AE30b17e08c5, // _WETHPriceFeed
-                address(1) // _treasury
+                address(WETH), // _rewardToken
+                address(owner) // _treasury
             )
         );
         vault = PbVelo(payable(address(proxy)));
@@ -46,8 +41,7 @@ contract PbVeloTest_WETHUSDC is Test {
         token0 = IERC20Upgradeable(vault.token0()); // WETH
         token1 = IERC20Upgradeable(vault.token1()); // USDC
         lpToken = IERC20Upgradeable(vault.lpToken());
-        // rewardToken = WETH;
-        rewardToken = USDC;
+        rewardToken = WETH;
     }
 
     function testDeposit() public {
@@ -55,9 +49,30 @@ contract PbVeloTest_WETHUSDC is Test {
         deal(address(token0), address(this), 10 ether);
         token0.approve(address(vault), type(uint).max);
         (uint amountOut,) = router.getAmountOut(token0.balanceOf(address(this)) / 2, address(token0), address(token1));
+        // console.log(amountOut); // 8129.612070
         vault.deposit(token0, token0.balanceOf(address(this)), amountOut * 95 / 100);
-        // console.log(token0.balanceOf(address(this)));
-        // console.log(token1.balanceOf(address(this)));
+        // console.log(token0.balanceOf(address(this))); // 0
+        // console.log(token1.balanceOf(address(this))); // 14.794953
+
+        (uint reserveA, uint reserveB) = router.getReserves(address(token0), address(token1), vault.stable());
+        uint amountA = 5 ether;
+        uint amountB = amountA * reserveB / reserveA;
+        console.log(amountB); // 8147.692750
+
+        (uint amountA, uint amountB,) = router.quoteAddLiquidity(
+            address(token0),
+            address(token1),
+            vault.stable(),
+            5 ether,
+            type(uint).max
+        );
+        console.log(amountA); // 5.000000000000000000
+        console.log(amountB); // 8147.692750
+
+        IPair pair = vault.lpToken();
+        uint amountIn = 5 ether;
+        uint amountOut = amountIn * reserveB / (reserveA + amountIn);
+        console.log(amountOut); // 8131.235033
 
         // Deposit token1
         deal(address(token1), address(this), 10_000e6);
