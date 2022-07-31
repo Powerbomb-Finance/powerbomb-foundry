@@ -7,6 +7,8 @@ import "../interface/IGauge.sol";
 import "../interface/IZap.sol";
 import "../interface/ISwapRouter.sol";
 
+// import "forge-std/console.sol";
+
 contract Contract {
 
     IERC20 lpToken = IERC20(0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B);
@@ -61,5 +63,26 @@ contract Contract {
         uint[4] memory amounts = [0, 0, usdcAmt, 0];
         uint lpTokenAmt = zap.add_liquidity(address(lpToken), amounts, 0);
         pool.deposit(pid, lpTokenAmt, true);
+
+        // ISwapRouter.ExactInputParams memory params = 
+        //     ISwapRouter.ExactInputParams({
+        //         path: abi.encodePacked(address(crv), uint24(10000), address(weth)),
+        //         recipient: address(this),
+        //         deadline: block.timestamp,
+        //         amountIn: crv.balanceOf(address(this)),
+        //         amountOutMinimum: 0
+        //     });
+        // uint wethAmt = swapRouter.exactInput(params);
+
+        // params = 
+        //     ISwapRouter.ExactInputParams({
+        //         path: abi.encodePacked(address(cvx), uint24(10000), address(weth)),
+        //         recipient: address(this),
+        //         deadline: block.timestamp,
+        //         amountIn: cvx.balanceOf(address(this)),
+        //         amountOutMinimum: 0
+        //     });
+        // wethAmt += swapRouter.exactInput(params);
+        // console.log(weth.balanceOf(address(this))); // 0.006737255430509816
     }
 }

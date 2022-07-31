@@ -43,6 +43,7 @@ contract ContractTest is Test {
         deal(address(lpToken), address(vault), amount);
         vault.deposit();
         skip(864000);
+        vm.roll(block.number + 1);
         vault.harvest();
     }
 
