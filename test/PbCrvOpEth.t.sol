@@ -13,6 +13,7 @@ contract PbCrvOpEthTest is Test {
     IERC20Upgradeable USDC = IERC20Upgradeable(0x7F5c764cBc14f9669B88837ca1490cCa17c31607);
     IERC20Upgradeable WETH = IERC20Upgradeable(0x4200000000000000000000000000000000000006);
     IERC20Upgradeable lpToken = IERC20Upgradeable(0x7Bc5728BC2b59B45a58d9A576E2Ffc5f0505B35E);
+    IERC20Upgradeable OP = IERC20Upgradeable(0x4200000000000000000000000000000000000042);
     PbCrvOpEth vaultUSDC;
     IERC20Upgradeable aUSDC;
     address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
@@ -33,6 +34,13 @@ contract PbCrvOpEthTest is Test {
         // );
         // vaultUSDC = PbCrvOpEth(address(proxy));
         vaultUSDC = PbCrvOpEth(0xb88C7a8e678B243a6851b9Fa82a1aA0986574631);
+
+        // // Upgrade
+        // PbCrvOpEth vaultUSDCImpl = new PbCrvOpEth();
+        // hoax(owner);
+        // vaultUSDC.upgradeTo(address(vaultUSDCImpl));
+        // hoax(owner);
+        // vaultUSDC.setApproval();
 
         // Initialize aToken
         aUSDC = IERC20Upgradeable(vaultUSDC.aToken());
@@ -75,6 +83,9 @@ contract PbCrvOpEthTest is Test {
     }
 
     function testWithdraw() public {
+        // Record before deposit
+        uint allPool = vaultUSDC.getAllPool();
+        uint allPoolInUSD = vaultUSDC.getAllPoolInUSD();
         testDeposit();
         vm.roll(block.number + 1);
         // Record ETH before withdraw
@@ -88,8 +99,8 @@ contract PbCrvOpEthTest is Test {
         // Withdraw lpToken from WETH reward
         vaultUSDC.withdraw(lpToken, vaultUSDC.getUserBalance(address(this)), 0);
         // Assertion check
-        assertEq(vaultUSDC.getAllPool(), 0);
-        assertEq(vaultUSDC.getAllPoolInUSD(), 0);
+        assertEq(vaultUSDC.getAllPool(), allPool);
+        assertEq(vaultUSDC.getAllPoolInUSD(), allPoolInUSD);
         assertEq(vaultUSDC.getUserBalance(address(this)), 0);
         assertEq(vaultUSDC.getUserBalanceInUSD(address(this)), 0);
         // console.log(address(this).balance - ethAmt); // 
@@ -109,8 +120,7 @@ contract PbCrvOpEthTest is Test {
         skip(864000);
         assertGt(vaultUSDC.getPoolPendingReward(), 0);
         // Harvest USDC reward
-        // CRV harvested cap at 0.875 when fork block 16079201 for unknown reason
-        deal(address(CRV), address(vaultUSDC), CRV.balanceOf(address(vaultUSDC)) + 0.2 ether);
+        deal(address(CRV), address(vaultUSDC), CRV.balanceOf(address(vaultUSDC)));
         vaultUSDC.harvest();
         // Assertion check
         assertEq(CRV.balanceOf(address(vaultUSDC)), 0);
@@ -119,13 +129,21 @@ contract PbCrvOpEthTest is Test {
         assertGt(USDC.balanceOf(owner), 0); // treasury fee
         assertGt(vaultUSDC.accRewardPerlpToken(), 0);
         assertGt(vaultUSDC.lastATokenAmt(), 0);
+        // Harvest again after deposit aToken
+        skip(864000);
+        uint OPBal = OP.balanceOf(address(vaultUSDC));
+        // deal(address(CRV), address(vaultUSDC), 2 ether); // Assume CRV meet threshold
+        // deal(address(OP), address(vaultUSDC), 2 ether); // Assume OP meet threshold
+        vaultUSDC.harvest();
+        assertGt(OP.balanceOf(address(vaultUSDC)), OPBal);
+        // console.log(aUSDC.balanceOf(address(vaultUSDC))); // 28302708 31853619
+        // assertEq(OP.balanceOf(address(vaultUSDC)), 0);
         // Assume aToken increase
         hoax(0x70144e5b5bbf464cFf98d689254dc7C7223E01Ab);
         aUSDC.transfer(address(vaultUSDC), 10e6);
         uint accRewardPerlpTokenUSDC = vaultUSDC.accRewardPerlpToken();
         uint lastATokenAmtUSDC = vaultUSDC.lastATokenAmt();
         uint userPendingVaultUSDC = vaultUSDC.getUserPendingReward(address(this));
-
         // Harvest again
         vaultUSDC.harvest();
         // Assertion check
@@ -147,8 +165,8 @@ contract PbCrvOpEthTest is Test {
         (, uint rewardStartAtUSDC) = vaultUSDC.userInfo(address(this));
         assertGt(rewardStartAtUSDC, 0);
         uint lastATokenAmtUSDC = vaultUSDC.lastATokenAmt();
-        assertLe(lastATokenAmtUSDC, 1);
-        assertLe(aUSDC.balanceOf(address(vaultUSDC)), 1);
+        assertLe(lastATokenAmtUSDC, 2);
+        assertLe(aUSDC.balanceOf(address(vaultUSDC)), 2);
         assertEq(USDC.balanceOf(address(vaultUSDC)), 0);
     }
 

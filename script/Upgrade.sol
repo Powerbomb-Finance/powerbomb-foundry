@@ -2,20 +2,30 @@
 pragma solidity 0.8.15;
 
 import "forge-std/Script.sol";
-import "src/PbCrvArbTri.sol";
+import "src/PbCrvOpUsd.sol";
+import "src/PbCrvOpEth.sol";
 
 contract Upgrade is Script {
-    PbCrvArbTri strat;
+    PbCrvOpUsd stratUsdBtc;
+    PbCrvOpUsd stratUsdEth;
+    PbCrvOpEth stratEth;
     
     function run() public {
         vm.startBroadcast();
 
-        PbCrvArbTri stratImpl = new PbCrvArbTri();
-        strat = PbCrvArbTri(payable(0x5bA0139444AD6f28cC28d88c719Ae85c81C307a5));
-        strat.upgradeTo(address(stratImpl));
-        strat = PbCrvArbTri(payable(0xb88C7a8e678B243a6851b9Fa82a1aA0986574631));
-        strat.upgradeTo(address(stratImpl));
-        strat = PbCrvArbTri(payable(0x8Ae32c034dAcd85a79CFd135050FCb8e6D4207D8));
-        strat.upgradeTo(address(stratImpl));
+        PbCrvOpUsd stratUsdImpl = new PbCrvOpUsd();
+
+        stratUsdBtc = PbCrvOpUsd(0x61F157E08b2B55eB3B0dD137c1D2A73C9AB5888e);
+        stratUsdBtc.upgradeTo(address(stratUsdImpl));
+        stratUsdBtc.setApproval();
+
+        stratUsdEth = PbCrvOpUsd(0xA8e39872452BA48b1F4c7e16b78668199d2C41Dd);
+        stratUsdEth.upgradeTo(address(stratUsdImpl));
+        stratUsdEth.setApproval();
+
+        PbCrvOpEth stratEthImpl = new PbCrvOpEth();
+        stratEth = PbCrvOpEth(0xb88C7a8e678B243a6851b9Fa82a1aA0986574631);
+        stratEth.upgradeTo(address(stratEthImpl));
+        stratEth.setApproval();
     }
 }

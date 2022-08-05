@@ -5,6 +5,7 @@ import "./PbCrvBase.sol";
 import "../interface/ISwapRouter.sol";
 import "../interface/IZap.sol";
 import "../interface/IMinter.sol";
+import "../interface/IRewardsController.sol";
 
 contract PbCrvOpUsd is PbCrvBase {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -15,9 +16,11 @@ contract PbCrvOpUsd is PbCrvBase {
     IERC20Upgradeable constant SUSD = IERC20Upgradeable(0x8c6f28f2F1A3C87F0f938b96d27520d9751ec8d9);
     IERC20Upgradeable constant WETH = IERC20Upgradeable(0x4200000000000000000000000000000000000006);
     IERC20Upgradeable constant WBTC = IERC20Upgradeable(0x68f180fcCe6836688e9084f035309E29Bf0A2095);
+    IERC20Upgradeable constant OP = IERC20Upgradeable(0x4200000000000000000000000000000000000042);
     ISwapRouter constant swapRouter = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
     IZap constant zap = IZap(0x167e42a1C7ab4Be03764A2222aAC57F5f6754411);
     IMinter constant minter = IMinter(0xabC000d88f23Bb45525E447528DBF656A9D55bf5);
+    IRewardsController constant rewardsController = IRewardsController(0x929EC64c34a17401F460460D4B9390518E5B473e);
 
     function initialize(IERC20Upgradeable _rewardToken, address _treasury) external initializer {
         __Ownable_init();
@@ -111,35 +114,63 @@ contract PbCrvOpUsd is PbCrvBase {
             lastATokenAmt = aTokenAmt;
         }
 
+        // Claim CRV from Curve
         // gauge.claim_rewards();
         minter.mint(address(gauge));
 
+        // Claim OP from Aave
+        address[] memory assets = new address[](1);
+        assets[0] = address(aToken);
+        rewardsController.claimRewards(assets, type(uint).max, address(this), address(OP));
+
         uint CRVAmt = CRV.balanceOf(address(this));
         if (CRVAmt > 1e18) {
-            uint rewardTokenAmt;
-            if (rewardToken == WETH) {
-                ISwapRouter.ExactInputSingleParams memory params = 
+
+            // Swap CRV to WETH
+            uint rewardTokenAmt = swapRouter.exactInputSingle(
+                ISwapRouter.ExactInputSingleParams({
+                    tokenIn: address(CRV),
+                    tokenOut: address(WETH),
+                    fee: 3000,
+                    recipient: address(this),
+                    deadline: block.timestamp,
+                    amountIn: CRVAmt,
+                    amountOutMinimum: 0,
+                    sqrtPriceLimitX96: 0
+                })
+            );
+
+            // Swap OP to WETH
+            uint OPAmt = OP.balanceOf(address(this));
+            if (OPAmt > 1 ether) {
+                rewardTokenAmt += swapRouter.exactInputSingle(
                     ISwapRouter.ExactInputSingleParams({
-                        tokenIn: address(CRV),
+                        tokenIn: address(OP),
                         tokenOut: address(WETH),
                         fee: 3000,
                         recipient: address(this),
                         deadline: block.timestamp,
-                        amountIn: CRVAmt,
+                        amountIn: OPAmt,
                         amountOutMinimum: 0,
                         sqrtPriceLimitX96: 0
-                    });
-                rewardTokenAmt = swapRouter.exactInputSingle(params);
-            } else { // rewardToken == WBTC
-                ISwapRouter.ExactInputParams memory params = 
-                    ISwapRouter.ExactInputParams({
-                        path: abi.encodePacked(address(CRV), uint24(3000), address(WETH), uint24(3000), address(WBTC)),
+                    })
+                );
+            }
+
+            // Swap WETH to WBTC if rewardToken == WBTC
+            if (rewardToken == WBTC) {
+                rewardTokenAmt = swapRouter.exactInputSingle(
+                    ISwapRouter.ExactInputSingleParams({
+                        tokenIn: address(WETH),
+                        tokenOut: address(WBTC),
+                        fee: 3000,
                         recipient: address(this),
                         deadline: block.timestamp,
-                        amountIn: CRVAmt,
-                        amountOutMinimum: 0
-                    });
-                rewardTokenAmt = swapRouter.exactInput(params);
+                        amountIn: rewardTokenAmt,
+                        amountOutMinimum: 0,
+                        sqrtPriceLimitX96: 0
+                    })
+                );
             }
 
             // Calculate fee
@@ -194,6 +225,11 @@ contract PbCrvOpUsd is PbCrvBase {
                 emit Claim(msg.sender, rewardTokenAmt);
             }
         }
+    }
+
+    function setApproval() external onlyOwner {
+        OP.safeApprove(address(swapRouter), type(uint).max);
+        WETH.safeApprove(address(swapRouter), type(uint).max);
     }
 
     function getPricePerFullShareInUSD() public view override returns (uint) {

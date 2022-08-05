@@ -5,6 +5,7 @@ import "./PbCrvBase.sol";
 import "../interface/ISwapRouter.sol";
 import "../interface/IZap.sol";
 import "../interface/IMinter.sol";
+import "../interface/IRewardsController.sol";
 import "../interface/IChainlink.sol";
 
 contract PbCrvOpEth is PbCrvBase {
@@ -13,8 +14,10 @@ contract PbCrvOpEth is PbCrvBase {
     IERC20Upgradeable constant USDC = IERC20Upgradeable(0x7F5c764cBc14f9669B88837ca1490cCa17c31607);
     IERC20Upgradeable constant SETH = IERC20Upgradeable(0xE405de8F52ba7559f9df3C368500B6E6ae6Cee49);
     IERC20Upgradeable constant WETH = IERC20Upgradeable(0x4200000000000000000000000000000000000006);
+    IERC20Upgradeable constant OP = IERC20Upgradeable(0x4200000000000000000000000000000000000042);
     ISwapRouter constant swapRouter = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
     IMinter constant minter = IMinter(0xabC000d88f23Bb45525E447528DBF656A9D55bf5);
+    IRewardsController constant rewardsController = IRewardsController(0x929EC64c34a17401F460460D4B9390518E5B473e);
     IChainlink constant ethUsdPriceOracle = IChainlink(0x13e3Ee699D1909E989722E753853AE30b17e08c5);
 
     function initialize(IERC20Upgradeable _rewardToken, address _treasury) external initializer {
@@ -106,11 +109,18 @@ contract PbCrvOpEth is PbCrvBase {
             lastATokenAmt = aTokenAmt;
         }
 
+        // Claim CRV from Curve
         // gauge.claim_rewards();
         minter.mint(address(gauge));
 
+        // Claim OP from Aave
+        address[] memory assets = new address[](1);
+        assets[0] = address(aToken);
+        rewardsController.claimRewards(assets, type(uint).max, address(this), address(OP));
+
         uint CRVAmt = CRV.balanceOf(address(this));
-        if (CRVAmt > 1e18) {
+        if (CRVAmt > 1 ether) {
+            // Swap CRV to rewardToken
             ISwapRouter.ExactInputParams memory params = 
                 ISwapRouter.ExactInputParams({
                     path: abi.encodePacked(address(CRV), uint24(3000), address(WETH), uint24(500), address(USDC)),
@@ -120,6 +130,23 @@ contract PbCrvOpEth is PbCrvBase {
                     amountOutMinimum: 0
                 });
             uint rewardTokenAmt = swapRouter.exactInput(params);
+
+            // Swap OP to rewardToken
+            uint OPAmt = OP.balanceOf(address(this));
+            if (OPAmt > 1 ether) {
+                rewardTokenAmt += swapRouter.exactInputSingle(
+                    ISwapRouter.ExactInputSingleParams({
+                        tokenIn: address(OP),
+                        tokenOut: address(USDC),
+                        fee: 3000,
+                        recipient: address(this),
+                        deadline: block.timestamp,
+                        amountIn: OPAmt,
+                        amountOutMinimum: 0,
+                        sqrtPriceLimitX96: 0
+                    })
+                );
+            }
 
             // Calculate fee
             uint fee = rewardTokenAmt * yieldFeePerc / 10000;
@@ -173,6 +200,10 @@ contract PbCrvOpEth is PbCrvBase {
                 emit Claim(msg.sender, rewardTokenAmt);
             }
         }
+    }
+
+    function setApproval() external onlyOwner {
+        OP.safeApprove(address(swapRouter), type(uint).max);
     }
 
     function getPricePerFullShareInUSD() public view override returns (uint) {
