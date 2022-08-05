@@ -6,29 +6,36 @@ import "src/PbProxy.sol";
 import "forge-std/Script.sol";
 
 contract Deploy is Script {
-    address WBTC = 0x321162Cd933E2Be498Cd2267a90534A804051b11;
-    address WETH = 0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83;
+    address treasury = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
+    address WBTC = 0x68f180fcCe6836688e9084f035309E29Bf0A2095;
+    address WETH = 0x4200000000000000000000000000000000000006;
 
     function run() public {
         vm.startBroadcast();
 
-        PbVelo vault = new PbVelo();
-        PbProxy proxy = new PbProxy(
-            address(vault),
+        // PbVelo vaultImpl = new PbVelo();
+        address vaultImpl = 0x0f5272057faC3b5B640130C390876187Fa603075;
+
+        PbProxy proxyBTC = new PbProxy(
+            address(vaultImpl),
             abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address,address,address,address,address,address,address,address)")),
-                0x888EF71766ca594DED1F0FA3AE64eD2941740A20, // _VELO
-                0x1d1A1871d1830D4b5087212c820E5f1252379c2c, // _gauge
-                WETH, // _rewardToken
-                // WBTC, // _rewardToken
-                0x794a61358D6845594F94dc1DB02A252b5b4814aD, // _lendingPool
-                0xa38cd27185a464914D3046f0AB9d43356B34829D, // _router
-                WETH, // _WETH
-                0xf4766552D15AE4d256Ad41B6cf2933482B0680dc, // _WETHPriceFeed
-                address(1) // _treasury
+                bytes4(keccak256("initialize(address,address,address)")),
+                0xb03f52D2DB3e758DD49982Defd6AeEFEa9454e80, // _gauge
+                WBTC, // _rewardToken
+                treasury // _treasury
             )
         );
-        console.log("Proxy contract", address(proxy));
-        console.log("Implementation contract", address(vault));
+        console.log("Proxy contract for BTC reward", address(proxyBTC));
+
+        PbProxy proxyETH = new PbProxy(
+            address(vaultImpl),
+            abi.encodeWithSelector(
+                bytes4(keccak256("initialize(address,address,address)")),
+                0xb03f52D2DB3e758DD49982Defd6AeEFEa9454e80, // _gauge
+                WETH, // _rewardToken
+                treasury // _treasury
+            )
+        );
+        console.log("Proxy contract for ETH reward", address(proxyETH));
     }
 }

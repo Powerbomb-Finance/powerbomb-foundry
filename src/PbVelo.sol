@@ -27,6 +27,7 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
     IERC20Upgradeable constant WBTC = IERC20Upgradeable(0x68f180fcCe6836688e9084f035309E29Bf0A2095);
     IWETH constant WETH = IWETH(0x4200000000000000000000000000000000000006);
     IERC20Upgradeable constant USDC = IERC20Upgradeable(0x7F5c764cBc14f9669B88837ca1490cCa17c31607);
+    IERC20Upgradeable constant OP = IERC20Upgradeable(0x4200000000000000000000000000000000000042);
     IChainLink constant WETHPriceFeed = IChainLink(0x13e3Ee699D1909E989722E753853AE30b17e08c5);
     ILendingPool constant lendingPool = ILendingPool(0x794a61358D6845594F94dc1DB02A252b5b4814aD);
     IERC20Upgradeable public token0;
@@ -88,6 +89,9 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
 
         if (WETH.allowance(address(this), address(router)) == 0) {
             WETH.safeApprove(address(router), type(uint).max);
+        }
+        if (OP.allowance(address(this), address(router)) == 0) {
+            OP.safeApprove(address(router), type(uint).max);
         }
     }
 
@@ -198,18 +202,28 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         }
 
         // Collect VELO from gauge
-        address[] memory tokens = new address[](1);
-        tokens[0] = address(lpToken);
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(VELO);
+        tokens[1] = address(OP);
         gauge.getReward(address(this), tokens);
 
+        // Calculate WETH amount of VELO
         uint VELOAmt = VELO.balanceOf(address(this));
-        uint WETHAmt;
-        if (VELOAmt > 0) {
-            (WETHAmt,) = router.getAmountOut(VELOAmt, address(VELO), address(WETH));
-        }
+        uint WETHAmt = getAmountOut(VELOAmt, address(VELO), address(WETH));
+
+        // Calculate WETH amount of OP
+        uint OPAmt = OP.balanceOf(address(this));
+        WETHAmt += getAmountOut(OPAmt, address(OP), address(WETH));
+
         if (WETHAmt > 1e16) { // 0.01 WETH, ~$15 on 28 July 2022
             // Swap VELO to WETH
             WETHAmt = swap(address(VELO), address(WETH), false, VELOAmt, 0);
+
+            // Swap OP to WETH
+            if (reward.rewardToken != USDC) {
+                // If reward.rewardtoken == USDC, swap OP directly to USDC below
+                WETHAmt += swap(address(OP), address(WETH), false, OPAmt, 0);
+            }
 
             // Swap WETH to reward token
             uint rewardTokenAmt;
@@ -227,6 +241,7 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
 
             } else if (reward.rewardToken == USDC) {
                 rewardTokenAmt = swap(address(WETH), address(reward.rewardToken), false, WETHAmt, 0);
+                rewardTokenAmt += swap(address(OP), address(reward.rewardToken), false, OPAmt, 0);
 
             } else { // reward.rewardToken == WETH
                 rewardTokenAmt = WETHAmt;
@@ -289,6 +304,8 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
     function swap(
         address tokenIn, address tokenOut, bool _stable, uint amount, uint amountOutMin
     ) internal returns (uint) {
+        if (amount == 0) return 0;
+
         return router.swapExactTokensForTokensSimple(
             amount, amountOutMin, tokenIn, tokenOut, _stable, address(this), block.timestamp
         )[1];
@@ -338,6 +355,14 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         require(_yieldFeePerc <= 1000, "Fee cannot over 10%");
         emit SetYieldFeePerc(yieldFeePerc, _yieldFeePerc);
         yieldFeePerc = _yieldFeePerc;
+    }
+
+    function getAmountOut(uint amountIn, address tokenIn, address tokenOut) internal view returns (uint amountOut) {
+        if (amountIn > 0) {
+            (amountOut,) = router.getAmountOut(amountIn, tokenIn, tokenOut);
+        } else {
+            amountOut = 0;
+        }
     }
 
     function getPricePerFullShareInUSD() public view virtual returns (uint) {

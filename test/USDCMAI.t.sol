@@ -18,6 +18,7 @@ contract USDCMAITest is Test {
     IERC20Upgradeable VELO = IERC20Upgradeable(0x3c8B650257cFb5f272f799F5e2b4e65093a11a05);
     IERC20Upgradeable WBTC = IERC20Upgradeable(0x68f180fcCe6836688e9084f035309E29Bf0A2095);
     IERC20Upgradeable WETH = IERC20Upgradeable(0x4200000000000000000000000000000000000006);
+    IERC20Upgradeable OP = IERC20Upgradeable(0x4200000000000000000000000000000000000042);
     IERC20Upgradeable token0;
     IERC20Upgradeable token1;
     IERC20Upgradeable lpToken;
@@ -161,8 +162,11 @@ contract USDCMAITest is Test {
         testDeposit();
 
         // Assume reward
-        deal(address(VELO), address(vaultBTC), 1000 ether);
-        deal(address(VELO), address(vaultETH), 1000 ether);
+        skip(864000);
+        // deal(address(VELO), address(vaultBTC), 1000 ether);
+        // deal(address(VELO), address(vaultETH), 1000 ether);
+        deal(address(OP), address(vaultBTC), 5 ether);
+        deal(address(OP), address(vaultETH), 5 ether);
 
         // Harvest
         vaultBTC.harvest();
@@ -235,11 +239,11 @@ contract USDCMAITest is Test {
         (, rewardStartAt) = vaultETH.userInfo(address(this));
         assertGt(rewardStartAt, 0);
         (,,uint lastATokenAmt,) = vaultBTC.reward();
-        assertLe(lastATokenAmt, 1);
+        assertLe(lastATokenAmt, 2);
         (,,lastATokenAmt,) = vaultETH.reward();
-        assertLe(lastATokenAmt, 1);
-        assertLe(aWBTC.balanceOf(address(vaultBTC)), 1);
-        assertLe(aWETH.balanceOf(address(vaultETH)), 1);
+        assertLe(lastATokenAmt, 2);
+        assertLe(aWBTC.balanceOf(address(vaultBTC)), 2);
+        assertLe(aWETH.balanceOf(address(vaultETH)), 2);
         assertEq(WBTC.balanceOf(address(vaultBTC)), 0);
         assertEq(WETH.balanceOf(address(vaultETH)), 0);
     }

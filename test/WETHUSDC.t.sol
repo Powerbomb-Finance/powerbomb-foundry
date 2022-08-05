@@ -20,6 +20,7 @@ contract WETHUSDCTest is Test {
     IERC20Upgradeable WBTC = IERC20Upgradeable(0x68f180fcCe6836688e9084f035309E29Bf0A2095);
     IERC20Upgradeable WETH = IERC20Upgradeable(0x4200000000000000000000000000000000000006);
     IERC20Upgradeable USDC = IERC20Upgradeable(0x7F5c764cBc14f9669B88837ca1490cCa17c31607);
+    IERC20Upgradeable OP = IERC20Upgradeable(0x4200000000000000000000000000000000000042);
     IERC20Upgradeable token0;
     IERC20Upgradeable token1;
     IERC20Upgradeable lpToken;
@@ -158,7 +159,7 @@ contract WETHUSDCTest is Test {
         vaultBTC.withdraw(token1, userBalance, amountOut * 95 / 100);
 
         // Withdraw token0 from ETH reward
-        uint ethBal = address(this).balance;
+        // uint ethBal = address(this).balance;
         userBalance = vaultETH.getUserBalance(address(this));
         (,uint amount1) = router.quoteRemoveLiquidity(address(token0), address(token1), vaultETH.stable(), userBalance);
         (amountOut,) = router.getAmountOut(amount1, address(token1), address(token0));
@@ -203,9 +204,13 @@ contract WETHUSDCTest is Test {
         testDeposit();
 
         // Assume reward
-        deal(address(VELO), address(vaultBTC), 1000 ether);
-        deal(address(VELO), address(vaultETH), 1000 ether);
-        deal(address(VELO), address(vaultUSDC), 1000 ether);
+        skip(864000);
+        // deal(address(VELO), address(vaultBTC), 1000 ether);
+        // deal(address(VELO), address(vaultETH), 1000 ether);
+        // deal(address(VELO), address(vaultUSDC), 1000 ether);
+        deal(address(OP), address(vaultBTC), 5 ether);
+        deal(address(OP), address(vaultETH), 5 ether);
+        deal(address(OP), address(vaultUSDC), 5 ether);
 
         // Harvest
         vaultBTC.harvest();
@@ -303,14 +308,14 @@ contract WETHUSDCTest is Test {
         (, rewardStartAt) = vaultUSDC.userInfo(address(this));
         assertGt(rewardStartAt, 0);
         (,,uint lastATokenAmt,) = vaultBTC.reward();
-        assertLe(lastATokenAmt, 1);
+        assertLe(lastATokenAmt, 2);
         (,,lastATokenAmt,) = vaultETH.reward();
-        assertLe(lastATokenAmt, 1);
+        assertLe(lastATokenAmt, 2);
         (,,lastATokenAmt,) = vaultUSDC.reward();
-        assertLe(lastATokenAmt, 1);
-        assertLe(aWBTC.balanceOf(address(vaultBTC)), 1);
-        assertLe(aWETH.balanceOf(address(vaultETH)), 1);
-        assertLe(aUSDC.balanceOf(address(vaultUSDC)), 1);
+        assertLe(lastATokenAmt, 2);
+        assertLe(aWBTC.balanceOf(address(vaultBTC)), 2);
+        assertLe(aWETH.balanceOf(address(vaultETH)), 2);
+        assertLe(aUSDC.balanceOf(address(vaultUSDC)), 2);
         assertEq(WBTC.balanceOf(address(vaultBTC)), 0);
         assertEq(WETH.balanceOf(address(vaultETH)), 0);
         assertEq(USDC.balanceOf(address(vaultUSDC)), 0);

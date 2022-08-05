@@ -17,6 +17,7 @@ contract WETHSETHTest is Test {
     IERC20Upgradeable VELO = IERC20Upgradeable(0x3c8B650257cFb5f272f799F5e2b4e65093a11a05);
     IERC20Upgradeable USDC = IERC20Upgradeable(0x7F5c764cBc14f9669B88837ca1490cCa17c31607);
     IERC20Upgradeable WETH = IERC20Upgradeable(0x4200000000000000000000000000000000000006);
+    IERC20Upgradeable OP = IERC20Upgradeable(0x4200000000000000000000000000000000000042);
     IERC20Upgradeable token0;
     IERC20Upgradeable token1;
     IERC20Upgradeable lpToken;
@@ -132,7 +133,9 @@ contract WETHSETHTest is Test {
         testDeposit();
 
         // Assume reward
-        deal(address(VELO), address(vaultUSDC), 1000 ether);
+        skip(864000);
+        // deal(address(VELO), address(vaultUSDC), 1000 ether);
+        deal(address(OP), address(vaultUSDC), 5 ether);
 
         // Harvest
         vaultUSDC.harvest();
@@ -141,6 +144,7 @@ contract WETHSETHTest is Test {
         assertEq(VELO.balanceOf(address(vaultUSDC)), 0);
         assertEq(USDC.balanceOf(address(vaultUSDC)), 0);
         assertGt(aUSDC.balanceOf(address(vaultUSDC)), 0);
+        // console.log(aUSDC.balanceOf(address(vaultUSDC))); // 118550456 127843902
         assertGt(USDC.balanceOf(owner), 0); // treasury fee
         (,,uint lastATokenAmt, uint accRewardPerlpToken) = vaultUSDC.reward();
         assertGt(lastATokenAmt, 0);
@@ -180,8 +184,8 @@ contract WETHSETHTest is Test {
         (, uint rewardStartAt) = vaultUSDC.userInfo(address(this));
         assertGt(rewardStartAt, 0);
         (,,uint lastATokenAmt,) = vaultUSDC.reward();
-        assertLe(lastATokenAmt, 1);
-        assertLe(aUSDC.balanceOf(address(vaultUSDC)), 1);
+        assertLe(lastATokenAmt, 2);
+        assertLe(aUSDC.balanceOf(address(vaultUSDC)), 2);
         assertEq(USDC.balanceOf(address(vaultUSDC)), 0);
     }
 
