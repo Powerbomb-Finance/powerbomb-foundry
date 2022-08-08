@@ -16,6 +16,7 @@ import "../interfaces/IGauge.sol";
 import "../interfaces/IWETH.sol";
 import "../interfaces/ILendingPool.sol";
 import "../interfaces/IChainLink.sol";
+import "../interfaces/IRewardsController.sol";
 
 contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -30,6 +31,7 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
     IERC20Upgradeable constant OP = IERC20Upgradeable(0x4200000000000000000000000000000000000042);
     IChainLink constant WETHPriceFeed = IChainLink(0x13e3Ee699D1909E989722E753853AE30b17e08c5);
     ILendingPool constant lendingPool = ILendingPool(0x794a61358D6845594F94dc1DB02A252b5b4814aD);
+    IRewardsController constant rewardsController = IRewardsController(0x929EC64c34a17401F460460D4B9390518E5B473e);
     IERC20Upgradeable public token0;
     IERC20Upgradeable public token1;
     IPair public lpToken;
@@ -201,11 +203,16 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
             reward.lastATokenAmt = aTokenAmt;
         }
 
-        // Collect VELO from gauge
+        // Collect VELO & OP from gauge
         address[] memory tokens = new address[](2);
         tokens[0] = address(VELO);
         tokens[1] = address(OP);
         gauge.getReward(address(this), tokens);
+
+        // Claim OP from Aave
+        address[] memory assets = new address[](1);
+        assets[0] = address(reward.aToken);
+        rewardsController.claimRewards(assets, type(uint).max, address(this), address(OP));
 
         // Calculate WETH amount of VELO
         uint VELOAmt = VELO.balanceOf(address(this));

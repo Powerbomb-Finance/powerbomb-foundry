@@ -165,8 +165,8 @@ contract FRAXUSDCTest is Test {
         skip(864000);
         // deal(address(VELO), address(vaultBTC), 1000 ether);
         // deal(address(VELO), address(vaultETH), 1000 ether);
-        deal(address(OP), address(vaultBTC), 5 ether);
-        deal(address(OP), address(vaultETH), 5 ether);
+        deal(address(OP), address(vaultBTC), 6 ether);
+        deal(address(OP), address(vaultETH), 6 ether);
 
         // Harvest
         vaultBTC.harvest();
