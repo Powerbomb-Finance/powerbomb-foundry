@@ -25,33 +25,35 @@ contract USDCDAITest is Test {
     IERC20Upgradeable aWBTC;
     IERC20Upgradeable aWETH;
     IRouter router = IRouter(0xa132DAB612dB5cB9fC9Ac426A0Cc215A3423F9c9);
-    // address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
-    address owner = address(this);
+    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
+    // address owner = address(this);
 
     function setUp() public {
-        PbVelo vaultImpl = new PbVelo();
+        // PbVelo vaultImpl = new PbVelo();
 
-        PbProxy proxy = new PbProxy(
-            address(vaultImpl),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address,address,address)")),
-                0xc4fF55A961bC04b880e60219CCBBDD139c6451A4, // _gauge
-                address(WBTC), // _rewardToken
-                address(owner) // _treasury
-            )
-        );
-        vaultBTC = PbVelo(payable(address(proxy)));
+        // PbProxy proxy = new PbProxy(
+        //     address(vaultImpl),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(address,address,address)")),
+        //         0xc4fF55A961bC04b880e60219CCBBDD139c6451A4, // _gauge
+        //         address(WBTC), // _rewardToken
+        //         address(owner) // _treasury
+        //     )
+        // );
+        // vaultBTC = PbVelo(payable(address(proxy)));
+        vaultBTC = PbVelo(payable(0xc23CF2762094a4Dd8DC3D4AaAAfdB38704B0f484));
 
-        proxy = new PbProxy(
-            address(vaultImpl),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address,address,address)")),
-                0xc4fF55A961bC04b880e60219CCBBDD139c6451A4, // _gauge
-                address(WETH), // _rewardToken
-                address(owner) // _treasury
-            )
-        );
-        vaultETH = PbVelo(payable(address(proxy)));
+        // proxy = new PbProxy(
+        //     address(vaultImpl),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(address,address,address)")),
+        //         0xc4fF55A961bC04b880e60219CCBBDD139c6451A4, // _gauge
+        //         address(WETH), // _rewardToken
+        //         address(owner) // _treasury
+        //     )
+        // );
+        // vaultETH = PbVelo(payable(address(proxy)));
+        vaultETH = PbVelo(payable(0xC15d58452E7CC62F213534dcD1999EDcc4C56E53));
 
         token0 = IERC20Upgradeable(vaultBTC.token0());
         token1 = IERC20Upgradeable(vaultBTC.token1());
@@ -165,8 +167,8 @@ contract USDCDAITest is Test {
         skip(864000);
         // deal(address(VELO), address(vaultBTC), 1000 ether);
         // deal(address(VELO), address(vaultETH), 1000 ether);
-        deal(address(OP), address(vaultBTC), 5 ether);
-        deal(address(OP), address(vaultETH), 5 ether);
+        deal(address(OP), address(vaultBTC), 13 ether);
+        deal(address(OP), address(vaultETH), 13 ether);
 
         // Harvest
         vaultBTC.harvest();

@@ -25,33 +25,35 @@ contract FRAXUSDCTest is Test {
     IERC20Upgradeable aWBTC;
     IERC20Upgradeable aWETH;
     IRouter router = IRouter(0xa132DAB612dB5cB9fC9Ac426A0Cc215A3423F9c9);
-    // address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
-    address owner = address(this);
+    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
+    // address owner = address(this);
 
     function setUp() public {
-        PbVelo vaultImpl = new PbVelo();
+        // PbVelo vaultImpl = new PbVelo();
 
-        PbProxy proxy = new PbProxy(
-            address(vaultImpl),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address,address,address)")),
-                0x14d60F07924e3a7226DDD368409243eDF87e6205, // _gauge
-                address(WBTC), // _rewardToken
-                address(owner) // _treasury
-            )
-        );
-        vaultBTC = PbVelo(payable(address(proxy)));
+        // PbProxy proxy = new PbProxy(
+        //     address(vaultImpl),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(address,address,address)")),
+        //         0x14d60F07924e3a7226DDD368409243eDF87e6205, // _gauge
+        //         address(WBTC), // _rewardToken
+        //         address(owner) // _treasury
+        //     )
+        // );
+        // vaultBTC = PbVelo(payable(address(proxy)));
+        vaultBTC = PbVelo(payable(0x74f6C748E2DF1c89bf7ed29617A2B41b0f4f82A2));
 
-        proxy = new PbProxy(
-            address(vaultImpl),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address,address,address)")),
-                0x14d60F07924e3a7226DDD368409243eDF87e6205, // _gauge
-                address(WETH), // _rewardToken
-                address(owner) // _treasury
-            )
-        );
-        vaultETH = PbVelo(payable(address(proxy)));
+        // proxy = new PbProxy(
+        //     address(vaultImpl),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(address,address,address)")),
+        //         0x14d60F07924e3a7226DDD368409243eDF87e6205, // _gauge
+        //         address(WETH), // _rewardToken
+        //         address(owner) // _treasury
+        //     )
+        // );
+        // vaultETH = PbVelo(payable(address(proxy)));
+        vaultETH = PbVelo(payable(0x75633BFAbf0ee9036af06900b8f301Ed8ed29121));
 
         token0 = IERC20Upgradeable(vaultBTC.token0());
         token1 = IERC20Upgradeable(vaultBTC.token1());
@@ -165,8 +167,8 @@ contract FRAXUSDCTest is Test {
         skip(864000);
         // deal(address(VELO), address(vaultBTC), 1000 ether);
         // deal(address(VELO), address(vaultETH), 1000 ether);
-        deal(address(OP), address(vaultBTC), 6 ether);
-        deal(address(OP), address(vaultETH), 6 ether);
+        deal(address(OP), address(vaultBTC), 13 ether);
+        deal(address(OP), address(vaultETH), 13 ether);
 
         // Harvest
         vaultBTC.harvest();

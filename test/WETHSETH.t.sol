@@ -24,22 +24,23 @@ contract WETHSETHTest is Test {
     IERC20Upgradeable aUSDC;
     IERC20Upgradeable aWETH;
     IRouter router = IRouter(0xa132DAB612dB5cB9fC9Ac426A0Cc215A3423F9c9);
-    // address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
-    address owner = address(this);
+    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
+    // address owner = address(this);
 
     function setUp() public {
-        PbVelo vaultImpl = new PbVelo();
+        // PbVelo vaultImpl = new PbVelo();
 
-        PbProxy proxy = new PbProxy(
-            address(vaultImpl),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address,address,address)")),
-                0x101D5e5651D7f949154258C1C7516da1eC273476, // _gauge
-                address(USDC), // _rewardToken
-                address(owner) // _treasury
-            )
-        );
-        vaultUSDC = PbVelo(payable(address(proxy)));
+        // PbProxy proxy = new PbProxy(
+        //     address(vaultImpl),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(address,address,address)")),
+        //         0x101D5e5651D7f949154258C1C7516da1eC273476, // _gauge
+        //         address(USDC), // _rewardToken
+        //         address(owner) // _treasury
+        //     )
+        // );
+        // vaultUSDC = PbVelo(payable(address(proxy)));
+        vaultUSDC = PbVelo(payable(0xcba7864134e1A5326b817676ad5302A009c84d68));
 
         token0 = IERC20Upgradeable(vaultUSDC.token0());
         token1 = IERC20Upgradeable(vaultUSDC.token1());
@@ -135,7 +136,7 @@ contract WETHSETHTest is Test {
         // Assume reward
         skip(864000);
         // deal(address(VELO), address(vaultUSDC), 1000 ether);
-        deal(address(OP), address(vaultUSDC), 5 ether);
+        deal(address(OP), address(vaultUSDC), 13 ether);
 
         // Harvest
         vaultUSDC.harvest();
@@ -152,7 +153,7 @@ contract WETHSETHTest is Test {
 
         // Assume aToken increase
         // aUSDC
-        hoax(0xc274105f79C921Ed4248dB09d2e8D9F6cAf533AE);
+        hoax(0x5F34c530Ffcc091bFb7228B20892612F79361C34);
         aUSDC.transfer(address(vaultUSDC), 10e6);
         (,,uint lastATokenAmtUSDC, uint accRewardPerlpTokenUSDC) = vaultUSDC.reward();
         uint userPendingvaultUSDC = vaultUSDC.getUserPendingReward(address(this));
