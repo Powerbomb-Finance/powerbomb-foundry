@@ -110,6 +110,7 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         uint token1AmtBef = token1.balanceOf(address(this));
 
         if (msg.value != 0) {
+            require(token == WETH, "WETH only for ETH deposit");
             require(amount == msg.value, "Invalid ETH amount");
             WETH.deposit{value: msg.value}();
         } else {
