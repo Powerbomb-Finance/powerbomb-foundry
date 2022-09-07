@@ -1,12 +1,5 @@
 # Powerbomb Velodrome (Optimism)
 
-## script
-```javascript
-
-```
-
-
-
 ## USDC-sUSD vault
 
 ### Summary
