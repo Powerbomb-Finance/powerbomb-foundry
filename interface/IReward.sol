@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.14;
+pragma solidity 0.8.16;
 
 interface IReward {
     function recordDeposit(address account, uint amount, address rewardToken) external;
