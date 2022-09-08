@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 
 import "../src/PbUniV3Op.sol";
 import "../src/PbUniV3OpReward.sol";
-import "../src/PbUniV3Proxy.sol";
+import "../src/PbProxy.sol";
 
 import "../interface/ISwapRouter.sol";
 import "../interface/IUniswapV3Pool.sol";
@@ -15,8 +15,8 @@ import "../interface/IReward.sol";
 import "openzeppelin-contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 
 contract PbUniV3OpTest_USDCDAI is Test {
-    PbUniV3 vault;
-    PbUniV3Reward reward;
+    PbUniV3Op vault;
+    PbUniV3OpReward reward;
     IERC20Upgradeable WBTC = IERC20Upgradeable(0x68f180fcCe6836688e9084f035309E29Bf0A2095);
     IERC20Upgradeable WETH = IERC20Upgradeable(0x4200000000000000000000000000000000000006);
     IERC20Upgradeable DAI = IERC20Upgradeable(0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1);
@@ -29,8 +29,8 @@ contract PbUniV3OpTest_USDCDAI is Test {
 
     function setUp() public {
         // Deploy vault
-        vault = new PbUniV3();
-        PbUniV3Proxy vaultProxy = new PbUniV3Proxy(
+        vault = new PbUniV3Op();
+        PbProxy vaultProxy = new PbProxy(
             address(vault),
             abi.encodeWithSelector(
                 bytes4(keccak256("initialize(address,address)")),
@@ -38,10 +38,10 @@ contract PbUniV3OpTest_USDCDAI is Test {
                 address(this) // _bot
             )
         );
-        vault = PbUniV3(address(vaultProxy));
+        vault = PbUniV3Op(address(vaultProxy));
         // Deploy reward
-        reward = new PbUniV3Reward();
-        PbUniV3Proxy rewardProxy = new PbUniV3Proxy(
+        reward = new PbUniV3OpReward();
+        PbProxy rewardProxy = new PbProxy(
             address(reward),
             abi.encodeWithSelector(
                 bytes4(keccak256("initialize(address,uint256,address)")),
@@ -50,7 +50,7 @@ contract PbUniV3OpTest_USDCDAI is Test {
                 address(1) // _treasury
             )
         );
-        reward = PbUniV3Reward(address(rewardProxy));
+        reward = PbUniV3OpReward(address(rewardProxy));
         // Vault set reward contract
         vault.setReward(IReward(address(reward)));
     }
@@ -378,10 +378,10 @@ contract PbUniV3OpTest_USDCDAI is Test {
 
     function testUpgrade() public {
         // Upgrade vault
-        PbUniV3 vault_ = new PbUniV3();
+        PbUniV3Op vault_ = new PbUniV3Op();
         vault.upgradeTo(address(vault_));
         // Upgrade reward
-        PbUniV3Reward reward_ = new PbUniV3Reward();
+        PbUniV3OpReward reward_ = new PbUniV3OpReward();
         reward.upgradeTo(address(reward_));
         // Test run after upgrade
         testClaimRewardWBTC();

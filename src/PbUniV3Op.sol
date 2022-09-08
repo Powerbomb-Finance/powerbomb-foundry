@@ -16,7 +16,7 @@ import "../interface/IReward.sol";
 import "../libraries/TickMath.sol";
 import "../libraries/LiquidityAmounts.sol";
 
-contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
+contract PbUniV3Op is Initializable, OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
     IERC20Upgradeable public constant WBTC = IERC20Upgradeable(0x68f180fcCe6836688e9084f035309E29Bf0A2095);
