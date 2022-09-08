@@ -16,8 +16,6 @@ import "../interface/IReward.sol";
 import "../libraries/TickMath.sol";
 import "../libraries/LiquidityAmounts.sol";
 
-import "forge-std/console.sol";
-
 contract PbUniV3 is Initializable, OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 

@@ -13,8 +13,6 @@ import "../interface/ILendingPool.sol";
 import "../interface/IRewardsController.sol";
 import "../interface/IVault.sol";
 
-import "forge-std/console.sol";
-
 contract PbUniV3Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
