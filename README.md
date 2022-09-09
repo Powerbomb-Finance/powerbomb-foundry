@@ -18,7 +18,7 @@ WETH address: 0x4200000000000000000000000000000000000006
 
 ### Optimism
 
-vault: 0xAb736E1D68f3A51933E0De23CbC6c1147d0C2934 (user only interact with this contract)
+vault: 0xAb736E1D68f3A51933E0De23CbC6c1147d0C2934 (user interact with this contract only)
 
 reward: 0xf4c8dd2BB19B9898d65881D88660F8AEBb03064D
 
