@@ -20,7 +20,7 @@ WETH address: 0x4200000000000000000000000000000000000006
 
 ## Addresses
 
-### Optimism
+### Optimism - USDC/DAI
 
 vault: 0xAb736E1D68f3A51933E0De23CbC6c1147d0C2934 (user interact with this contract only)
 
