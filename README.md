@@ -1,4 +1,4 @@
-# Powerbomb Uniswap V3 Arbitrum
+# Powerbomb Uniswap V3
 
 ## Notes
 
@@ -16,13 +16,15 @@ WETH address: 0x4200000000000000000000000000000000000006
 
 ## Addresses
 
+### Optimism
+
 vault: 0xAb736E1D68f3A51933E0De23CbC6c1147d0C2934 (user only interact with this contract)
 
 reward: 0xf4c8dd2BB19B9898d65881D88660F8AEBb03064D
 
 ## Summary
 
-The strategy utilize Uniswap V3 on Arbitrum. Users deposit USDC into strategy with pre-fixed range. Strategy change price range from time to time based on current market price, try to get better trading fees. The fees then turn into tokens that chosen by users (WBTC & WETH on launch). Users able to exit from strategy by withdraw out in form of USDC.
+The strategy utilize Uniswap V3 on Arbitrum and Optimism. Users deposit USDC into strategy with pre-fixed range. Strategy change price range from time to time based on current market price, try to get better trading fees. The fees then turn into tokens that chosen by users (WBTC & WETH on launch). Users able to exit from strategy by withdraw out in form of USDC.
 
 <br>
 
