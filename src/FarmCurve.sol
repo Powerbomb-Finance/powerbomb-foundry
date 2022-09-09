@@ -113,7 +113,7 @@ contract FarmCurve is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
         weth.withdraw(wethAmt);
 
-        // bridge weth to ethereum
+        // bridge eth to ethereum
         stargateRouterETH.swapETH{value: msg.value + wethAmt}(
             1, // _dstChainId
             admin, // _refundAddress
