@@ -2,6 +2,10 @@
 
 ## Notes
 
+Only accept token USDC.
+
+USDC address: 0x7F5c764cBc14f9669B88837ca1490cCa17c31607
+
 `rewardToken` needed for `deposit()` & `withdraw()` is the reward token that user choose, either WBTC or WETH.
 
 WBTC address: 0x68f180fcCe6836688e9084f035309E29Bf0A2095
