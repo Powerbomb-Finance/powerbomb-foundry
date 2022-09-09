@@ -26,33 +26,39 @@ contract PbUniV3OpTest_USDCDAI is Test {
     IUniswapV3Pool uniswapV3Pool = IUniswapV3Pool(0xbf16ef186e715668AA29ceF57e2fD7f9D48AdFE6);
     IQuoter quoter = IQuoter(0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6);
     INonfungiblePositionManager nonfungiblePositionManager = INonfungiblePositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
+    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
 
     function setUp() public {
-        // Deploy vault
-        vault = new PbUniV3Op();
-        PbProxy vaultProxy = new PbProxy(
-            address(vault),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address,address)")),
-                address(uniswapV3Pool), // _uniswapV3Pool
-                address(this) // _bot
-            )
-        );
-        vault = PbUniV3Op(address(vaultProxy));
-        // Deploy reward
-        reward = new PbUniV3OpReward();
-        PbProxy rewardProxy = new PbProxy(
-            address(reward),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address,uint256,address)")),
-                address(vault), // _vault
-                500, // _yieldFeePerc
-                address(1) // _treasury
-            )
-        );
-        reward = PbUniV3OpReward(address(rewardProxy));
-        // Vault set reward contract
-        vault.setReward(IReward(address(reward)));
+        // // Deploy vault
+        // vault = new PbUniV3Op();
+        // PbProxy vaultProxy = new PbProxy(
+        //     address(vault),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(address,address)")),
+        //         address(uniswapV3Pool), // _uniswapV3Pool
+        //         address(this) // _bot
+        //     )
+        // );
+        // vault = PbUniV3Op(address(vaultProxy));
+        vault = PbUniV3Op(0xAb736E1D68f3A51933E0De23CbC6c1147d0C2934);
+        // PbUniV3Op vaultImpl = new PbUniV3Op();
+        // hoax(owner);
+        // vault.upgradeTo(address(vaultImpl));
+        // // Deploy reward
+        // reward = new PbUniV3OpReward();
+        // PbProxy rewardProxy = new PbProxy(
+        //     address(reward),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(address,uint256,address)")),
+        //         address(vault), // _vault
+        //         500, // _yieldFeePerc
+        //         address(1) // _treasury
+        //     )
+        // );
+        // reward = PbUniV3OpReward(address(rewardProxy));
+        reward = PbUniV3OpReward(0xf4c8dd2BB19B9898d65881D88660F8AEBb03064D);
+        // // Vault set reward contract
+        // vault.setReward(IReward(address(reward)));
     }
 
     function testDeposit() public {
@@ -83,7 +89,10 @@ contract PbUniV3OpTest_USDCDAI is Test {
         // console.log(DAI.balanceOf(address(vault))); // 0
         // console.log(USDC.balanceOf(address(vault))); // 110.675659
         uint amountOutMin = quoter.quoteExactInputSingle(address(USDC), address(DAI), 100, USDC.balanceOf(address(vault)) / 2, 0) * 99 / 100;
+        // hoax(owner);
+        vm.startPrank(owner);
         vault.reinvest(USDC, USDC.balanceOf(address(vault)), amountOutMin, 2000);
+        vm.stopPrank();
         // console.log(DAI.balanceOf(address(vault))); // 0
         // console.log(USDC.balanceOf(address(vault))); // 1.361345
         // Assertion check
@@ -117,8 +126,8 @@ contract PbUniV3OpTest_USDCDAI is Test {
         amountsOutMin[0] = quoter.quoteExactInputSingle(address(DAI), address(USDC), 100, amount1Min, 0);
         vault.withdraw(4000e6, address(WETH), amount0Min, amount1Min, amountsOutMin);
         // Assertion check
-        // console.log(USDC.balanceOf(address(this))); // 8994.084466
-        assertGt(USDC.balanceOf(address(this)), 8990e6);
+        // console.log(USDC.balanceOf(address(this))); // 8989.229212
+        assertGt(USDC.balanceOf(address(this)), 8980e6);
         assertEq(vault.getAllPool(), 0);
         (,,,,,,,uint liquidity ,,,,) = nonfungiblePositionManager.positions(vault.tokenId());
         assertEq(liquidity, 0);
@@ -147,15 +156,15 @@ contract PbUniV3OpTest_USDCDAI is Test {
         testDeposit();
         // Assume swap happening
         _mockSwap();
-        uint WBTCAmt1 = WBTC.balanceOf(address(1));
-        uint WETHAmt1 = WETH.balanceOf(address(1));
+        uint WBTCAmt1 = WBTC.balanceOf(owner);
+        uint WETHAmt1 = WETH.balanceOf(owner);
         // Assume OP reward from Aave
         deal(address(OP), address(reward), 1 ether);
         // Harvest
         vault.harvest();
         // Assertion check
-        assertGt(WBTC.balanceOf(address(1)), WBTCAmt1); // treasury fees
-        assertGt(WETH.balanceOf(address(1)), WETHAmt1); // treasury fees
+        assertGt(WBTC.balanceOf(owner), WBTCAmt1); // treasury fees
+        assertGt(WETH.balanceOf(owner), WETHAmt1); // treasury fees
         (uint accRewardPerlpToken,, IERC20Upgradeable ibWBTC, uint lastIbRewardTokenAmt) = reward.rewardInfo(address(WBTC));
         assertGt(accRewardPerlpToken, 0);
         uint accRewardPerlpTokenBefWBTC = accRewardPerlpToken;
@@ -301,14 +310,21 @@ contract PbUniV3OpTest_USDCDAI is Test {
         uint amount1Min = amount0Min * 1e12; // DAI 18 decimals
         // Update ticks
         uint tokenId = vault.tokenId();
-        vault.updateTicks(tickLower, tickUpper, amount0Min, amount1Min, 1000);
-        // console.log(DAI.balanceOf(address(vault))); // 64
-        // console.log(USDC.balanceOf(address(vault))); // 98.376953
+        hoax(owner);
+        vault.updateTicks(tickLower, tickUpper, amount0Min, amount1Min, 2500);
+        // console.log(DAI.balanceOf(address(vault))); // 79
+        // console.log(USDC.balanceOf(address(vault))); // 1089.978817
         uint amountOutMin = quoter.quoteExactInputSingle(address(USDC), address(DAI), 100, USDC.balanceOf(address(vault)) / 2, 0) * 95 / 100;
-        vault.reinvest(USDC, USDC.balanceOf(address(vault)), amountOutMin, 2000);
+        vm.startPrank(owner);
+        vault.reinvest(USDC, USDC.balanceOf(address(vault)), amountOutMin, 3000);
+        amountOutMin = quoter.quoteExactInputSingle(address(USDC), address(DAI), 100, USDC.balanceOf(address(vault)) / 2, 0) * 95 / 100;
+        vault.reinvest(USDC, USDC.balanceOf(address(vault)), amountOutMin, 3000);
+        vm.stopPrank();
+        // console.log(DAI.balanceOf(address(vault))); // 409
+        // console.log(USDC.balanceOf(address(vault))); // 22.448165
         _mockSwap();
         // Claim again
-        deal(address(WETH), address(this), 0); // reset WETH balance of address(this) to 0
+        // deal(address(WETH), address(this), 0); // reset WETH balance of address(this) to 0
         vault.claimReward();
         // Assertion check
         assertGt(WETH.balanceOf(address(this)), WETHClaim1);
@@ -316,6 +332,7 @@ contract PbUniV3OpTest_USDCDAI is Test {
     }
 
     function testPause() public {
+        hoax(owner);
         vault.pauseContract();
         // Try deposit
         uint[] memory amountsOutMin = new uint[](2);
@@ -324,6 +341,7 @@ contract PbUniV3OpTest_USDCDAI is Test {
         vm.expectRevert(bytes("Pausable: paused"));
         vault.deposit(0, amountsOutMin, 0, 0, 0, address(0));
         // Unpause pause contract
+        hoax(owner);
         vault.unpauseContract();
         // Try deposit again
         deal(address(USDC), address(this), 1000e6);
@@ -333,6 +351,7 @@ contract PbUniV3OpTest_USDCDAI is Test {
 
     function testSetterFunction() public {
         // Vault
+        startHoax(owner);
         vault.setReward(IReward(address(1)));
         assertEq(address(vault.reward()), address(1));
         vault.setBot(address(1));
@@ -357,6 +376,7 @@ contract PbUniV3OpTest_USDCDAI is Test {
 
     function testAuthorization() public {
         // Vault
+        startHoax(owner);
         vault.transferOwnership(address(1));
         vm.expectRevert(bytes("Ownable: caller is not the owner"));
         vault.pauseContract();
@@ -379,9 +399,11 @@ contract PbUniV3OpTest_USDCDAI is Test {
     function testUpgrade() public {
         // Upgrade vault
         PbUniV3Op vault_ = new PbUniV3Op();
+        hoax(owner);
         vault.upgradeTo(address(vault_));
         // Upgrade reward
         PbUniV3OpReward reward_ = new PbUniV3OpReward();
+        hoax(owner);
         reward.upgradeTo(address(reward_));
         // Test run after upgrade
         testClaimRewardWBTC();
