@@ -220,7 +220,7 @@ This function change treasury wallet that receive fees from this contract. This 
 <br>
 <br>
 
-### PbUniV3Proxy.sol
+### PbProxy.sol
 
 Proxy contract to store state variables for PbUniV3 and PbUniV3Reward.
 

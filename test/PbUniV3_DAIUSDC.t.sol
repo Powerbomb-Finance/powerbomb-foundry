@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 
 import "../src/PbUniV3.sol";
 import "../src/PbUniV3Reward.sol";
-import "../src/PbUniV3Proxy.sol";
+import "../src/PbProxy.sol";
 
 import "../interface/ISwapRouter.sol";
 import "../interface/IUniswapV3Pool.sol";
@@ -29,7 +29,7 @@ contract PbUniV3Test_DAIUSDC is Test {
     function setUp() public {
         // Deploy vault
         vault = new PbUniV3();
-        PbUniV3Proxy vaultProxy = new PbUniV3Proxy(
+        PbProxy vaultProxy = new PbProxy(
             address(vault),
             abi.encodeWithSelector(
                 bytes4(keccak256("initialize(address,address)")),
@@ -40,7 +40,7 @@ contract PbUniV3Test_DAIUSDC is Test {
         vault = PbUniV3(address(vaultProxy));
         // Deploy reward
         reward = new PbUniV3Reward();
-        PbUniV3Proxy rewardProxy = new PbUniV3Proxy(
+        PbProxy rewardProxy = new PbProxy(
             address(reward),
             abi.encodeWithSelector(
                 bytes4(keccak256("initialize(address,uint256,address)")),
