@@ -121,7 +121,7 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
     }
 
     ///@notice only call this function when ready to lucky draw
-    function placeSeat(address[] calldata users) external onlyAdmin {
+    function placeSeat(address[] calldata users) external payable onlyAdmin {
 
         for (uint i; i < users.length; i++) {
             _placeSeat(users[i]);
@@ -129,6 +129,15 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
 
         luckyDrawInProgress = true;
         emit LuckyDrawInProgress(true);
+
+        lzEndpoint.send{value: msg.value}(
+            1, // _dstChainId
+            abi.encodePacked(farm.reward()), // _destination
+            abi.encode(lastSeat, address(0)), // _payload
+            payable(admin), // _refundAddress
+            address(0), // _zroPaymentAddress
+            bytes("") // _adapterParams
+        );
     }
 
     function _placeSeat(address user) private {
@@ -162,7 +171,7 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         lzEndpoint.send{value: msg.value}(
             1, // _dstChainId
             abi.encodePacked(farm.reward()), // _destination
-            abi.encodePacked(winner), // _payload
+            abi.encode(0, winner), // _payload
             payable(admin), // _refundAddress
             address(0), // _zroPaymentAddress
             bytes("") // _adapterParams
@@ -170,6 +179,7 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
 
         delete seats;
         luckyDrawInProgress = false;
+        lastSeat = 0;
 
         emit SetWinnerAndRestartRound(winner);
         emit LuckyDrawInProgress(false);
@@ -220,9 +230,9 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         return ticketBeenPlaceSeat + pendingAndAvailableTicket;
     }
 
-    ///@notice this is excluded those who owned/availableToClaim tickets but haven't place seat
-    function getTotalSeat() external view returns (uint) {
-        return lastSeat + 1;
+    ///@notice this is excluded those who owned/availableToClaim tickets but haven't place seat if any
+    function getTotalSeats() external view returns (uint) {
+        return lastSeat;
     }
 
     function getSeatsLength() external view returns (uint) {
