@@ -33,6 +33,13 @@ contract Reward is
     ILSSVMRouter constant router = ILSSVMRouter(0x2B2e8cDA09bBA9660dCA5cB6233787738Ad68329); // sudoswap
     address public admin;
 
+    event BuyNFTAndRewardWinner(address pool, uint NFTPrice, address rewardedWinner);
+    event SetRandomSeat(uint _randomSeat);
+    event SetTotalSeats(uint _totalSeats);
+    event SetWinner(address _winner);
+    event SetAdmin(address _admin);
+    event SetTrustedRemoteLookup(uint16 chainId, address trustedRemote);
+
     modifier onlyAuthorized {
         require(msg.sender == admin || msg.sender == owner(), "only authorized");
         _;
@@ -52,7 +59,8 @@ contract Reward is
     function buyNFTAndRewardWinner(address pool) external onlyAuthorized {
         ILSSVMRouter.PairSwapAny[] memory swapList = new ILSSVMRouter.PairSwapAny[](1);
         swapList[0] = ILSSVMRouter.PairSwapAny(pool, 1);
-        router.swapETHForAnyNFTs{value: address(this).balance}(
+        uint thisBalance = address(this).balance;
+        uint remainingValue = router.swapETHForAnyNFTs{value: thisBalance}(
             swapList, // swapList
             payable(address(this)), // ethRecipient
             winner, // nftRecipient
@@ -62,11 +70,13 @@ contract Reward is
         winner = address(0);
         randomSeat = 0;
         totalSeats = 0;
+
+        emit BuyNFTAndRewardWinner(pool, thisBalance - remainingValue, winner);
     }
 
-    function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
-        return IERC721ReceiverUpgradeable.onERC721Received.selector;
-    }
+    // function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+    //     return IERC721ReceiverUpgradeable.onERC721Received.selector;
+    // }
 
     function requestRandomWords() external onlyAuthorized {
         // Will revert if subscription is not set and funded.
@@ -85,6 +95,8 @@ contract Reward is
     ) internal override {
         uint randomNumber = randomWords[0];
         randomSeat = randomNumber % totalSeats;
+
+        emit SetRandomSeat(randomSeat);
     }
 
     function lzReceive(uint16 _srcChainId, bytes calldata _srcAddress, uint64, bytes memory _payload) override external {
@@ -94,19 +106,37 @@ contract Reward is
         (uint _totalSeats, address _winner) = abi.decode(_payload, (uint, address));
         if (_totalSeats != 0 && winner == address(0)) {
             totalSeats = _totalSeats;
+            emit SetTotalSeats(_totalSeats);
         } else {
             winner = _winner;
+            emit SetWinner(_winner);
         }
     }
 
     ///@notice only use this function if layerzero failed
     function setTotalSeats(uint _totalSeats) external onlyAuthorized {
         totalSeats = _totalSeats;
+
+        emit SetTotalSeats(_totalSeats);
     }
 
     ///@notice only use this function if layerzero failed
     function setWinner(address _winner) external onlyAuthorized {
         winner = _winner;
+
+        emit SetWinner(_winner);
+    }
+
+    function setAdmin(address _admin) external onlyOwner {
+        admin = _admin;
+
+        emit SetAdmin(_admin);
+    }
+
+    function setTrustedRemoteLookup(uint16 chainId, address trustedRemote) external onlyOwner {
+        trustedRemoteLookup[chainId] = abi.encodePacked(trustedRemote);
+
+        emit SetTrustedRemoteLookup(chainId, trustedRemote);
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
