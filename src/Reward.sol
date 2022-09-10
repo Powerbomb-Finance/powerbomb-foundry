@@ -27,7 +27,6 @@ contract Reward is
     address constant vrfCoordinator = 0x271682DEB8C4E0901D1a1550aD2e64D568E69909;
     VRFCoordinatorV2Interface private COORDINATOR;
     uint64 public s_subscriptionId;
-    uint256 public s_requestId;
     uint public randomSeat;
 
     ILSSVMRouter constant router = ILSSVMRouter(0x2B2e8cDA09bBA9660dCA5cB6233787738Ad68329); // sudoswap
@@ -52,11 +51,14 @@ contract Reward is
 
         COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
         s_subscriptionId = subscriptionId;
+        admin = msg.sender;
     }
 
     receive() external payable {}
 
     function buyNFTAndRewardWinner(address pool) external onlyAuthorized {
+        require(winner != address(0), "winner is zero address");
+
         ILSSVMRouter.PairSwapAny[] memory swapList = new ILSSVMRouter.PairSwapAny[](1);
         swapList[0] = ILSSVMRouter.PairSwapAny(pool, 1);
         uint thisBalance = address(this).balance;
@@ -80,7 +82,7 @@ contract Reward is
 
     function requestRandomWords() external onlyAuthorized {
         // Will revert if subscription is not set and funded.
-        s_requestId = COORDINATOR.requestRandomWords(
+        COORDINATOR.requestRandomWords(
             0x8af398995b04c28e9951adb9721ef74c74f93e6a478f39e7e0777be13527e7ef, // keyHash
             s_subscriptionId, // s_subscriptionId
             3, // requestConfirmations
