@@ -55,7 +55,6 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         __Ownable_init();
 
         admin = msg.sender;
-        // round = 1;
         farm = _farm;
 
         usdc.approve(address(farm), type(uint).max);
