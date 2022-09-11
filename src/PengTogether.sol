@@ -17,8 +17,8 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
     ILayerZeroEndpoint constant lzEndpoint = ILayerZeroEndpoint(0x3c2269811836af69497E5F486A85D7316753cf62);
 
     struct User {
-        uint depositBal;
-        uint lpTokenBal;
+        uint depositBal; // deposit balance without slippage, for calculate ticket
+        uint lpTokenBal; // lpToken amount owned after deposit into farm
         uint ticketBal;
         uint lastUpdateTimestamp;
     }
@@ -46,8 +46,8 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
     event SetFarm(address farm);
     event SetAdmin(address admin);
 
-    modifier onlyAdmin {
-        require(msg.sender == address(admin), "only admin");
+    modifier onlyAuthorized {
+        require(msg.sender == admin || msg.sender == owner(), "only authorized");
         _;
     }
 
@@ -88,6 +88,8 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         require(user.depositBal >= amount, "amount > depositBal");
         require(depositedBlock[msg.sender] != block.number, "same block deposit withdraw");
 
+        // moved to after user.depositBal -= amount to calculate tickets
+        // based on user.depositBal after withdrawal
         _updateTicketAmount(msg.sender);
 
         uint withdrawPerc = amount * 1e18 / user.depositBal;
@@ -95,7 +97,9 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         uint actualAmt = farm.withdraw(lpTokenAmt, amountOutMin);
 
         user.lpTokenBal -= lpTokenAmt;
-        user.depositBal -= amount; // must after update ticket & calculate lpTokenAmt to withdraw
+        user.depositBal -= amount;
+
+        // _updateTicketAmount(msg.sender);
 
         usdc.transfer(msg.sender, actualAmt);
         emit Withdraw(msg.sender, amount, lpTokenAmt, actualAmt);
@@ -109,10 +113,12 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         User storage user = userInfo[_user];
         uint depositHour = (block.timestamp - user.lastUpdateTimestamp) / 3600;
         uint depositInHundred = user.depositBal / 100e6;
-        user.ticketBal += depositHour * depositInHundred; // 1 deposit hour * $100 = 1 ticket
-        user.lastUpdateTimestamp = block.timestamp;
+        if (depositHour > 0 && depositInHundred > 0) {
+            user.ticketBal += depositHour * depositInHundred; // 1 deposit hour * $100 = 1 ticket
+            user.lastUpdateTimestamp = block.timestamp;
 
-        emit UpdateTicketAmount(_user, depositHour, depositInHundred);
+            emit UpdateTicketAmount(_user, depositHour, depositInHundred);
+        }
     }
 
     function placeSeat() external nonReentrant whenNotPaused {
@@ -121,7 +127,7 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
     }
 
     ///@notice only call this function when ready to lucky draw
-    function placeSeat(address[] calldata users) external payable onlyAdmin {
+    function placeSeat(address[] calldata users) external payable onlyAuthorized {
 
         for (uint i; i < users.length; i++) {
             _placeSeat(users[i]);
@@ -131,8 +137,8 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         emit LuckyDrawInProgress(true);
 
         lzEndpoint.send{value: msg.value}(
-            1, // _dstChainId
-            abi.encodePacked(farm.reward()), // _destination
+            101, // _dstChainId
+            abi.encodePacked(farm.reward(), address(this)), // _path
             abi.encode(lastSeat, address(0)), // _payload
             payable(admin), // _refundAddress
             address(0), // _zroPaymentAddress
@@ -144,19 +150,21 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         _updateTicketAmount(user);
 
         uint ticket = userInfo[user].ticketBal;
-        uint from = lastSeat;
-        uint to = from + ticket - 1;
+        if (ticket > 0) {
+            uint from = lastSeat;
+            uint to = from + ticket - 1;
 
-        seats.push(Seat({
-            user: user,
-            from: from,
-            to: to
-        }));
+            seats.push(Seat({
+                user: user,
+                from: from,
+                to: to
+            }));
 
-        userInfo[user].ticketBal = 0;
-        lastSeat += ticket;
+            userInfo[user].ticketBal = 0;
+            lastSeat += ticket;
 
-        emit PlaceSeat(user, from, to, seats.length - 1);
+            emit PlaceSeat(user, from, to, seats.length - 1);
+        }
     }
 
     function pauseContract() external onlyOwner {
@@ -167,10 +175,12 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         _unpause();
     }
 
-    function setWinnerAndRestartRound(address winner) external payable onlyAdmin {
+    function setWinnerAndRestartRound(address winner) external payable onlyAuthorized {
+        require(winner != address(0), "winner is zero address");
+
         lzEndpoint.send{value: msg.value}(
-            1, // _dstChainId
-            abi.encodePacked(farm.reward()), // _destination
+            101, // _dstChainId
+            abi.encodePacked(farm.reward(), address(this)), // _path
             abi.encode(0, winner), // _payload
             payable(admin), // _refundAddress
             address(0), // _zroPaymentAddress
@@ -198,6 +208,7 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         emit SetAdmin(_admin);
     }
 
+    ///@notice get user ticket that had been place seat
     function getUserTotalSeats(address _user) public view returns (uint ticket) {
         for (uint i; i < seats.length; i++) {
             Seat memory seat = seats[i];
@@ -207,6 +218,7 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         }
     }
 
+    ///@notice get user pending ticket (not yet place seat) and user available ticket to claim
     function getUserAvailableTickets(address _user) public view returns (uint ticket) {
         // get user pending ticket (not yet place seat)
         User memory user = userInfo[_user];
@@ -221,10 +233,7 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
     }
 
     function getUserTotalTickets(address _user) external view returns (uint) {
-        // get user ticket that had been place seat
         uint ticketBeenPlaceSeat = getUserTotalSeats(_user);
-
-        // get user pending ticket (not yet place seat) and user available ticket to claim
         uint pendingAndAvailableTicket = getUserAvailableTickets(_user);
 
         return ticketBeenPlaceSeat + pendingAndAvailableTicket;
@@ -254,10 +263,17 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         return farm.getAllPoolInUSD(); // 6 decimals
     }
 
+    ///@notice user deposit balance without slippage
+    function getUserDepositBalance(address account) external view returns (uint) {
+        return userInfo[account].depositBal;
+    }
+
+    ///@notice user lpToken balance after deposit into farm, 18 decimals
     function getUserBalance(address account) external view returns (uint) {
         return userInfo[account].lpTokenBal;
     }
 
+    ///@notice user actual balance in usd after deposit into farm (after slippage), 6 decimals
     function getUserBalanceInUSD(address account) external view returns (uint) {
         return userInfo[account].lpTokenBal * farm.getPricePerFullShareInUSD() / 1e18;
     }
