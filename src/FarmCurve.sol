@@ -30,12 +30,13 @@ contract FarmCurve is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     address public admin;
     address public vault;
     address public reward;
-    address public treasury; // pending usage
+    address public treasury;
 
     event Harvest(uint crvAmt, uint opAmt, uint wethAmt);
     event SetAdmin(address admin);
     event SetVault(address vault);
     event SetReward(address reward);
+    event SetTreasury(address treasury);
 
     modifier onlyVault {
         require(msg.sender == address(vault), "only vault");
@@ -71,7 +72,7 @@ contract FarmCurve is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function harvest() external payable {
-        require(msg.sender == admin, "only admin");
+        require(msg.sender == admin || msg.sender == owner(), "only admin or owner");
 
         minter.mint(address(gauge)); // to claim crv
         gauge.claim_rewards(); // to claim op
@@ -115,7 +116,7 @@ contract FarmCurve is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
         // bridge eth to ethereum
         stargateRouterETH.swapETH{value: msg.value + wethAmt}(
-            1, // _dstChainId
+            101, // _dstChainId
             admin, // _refundAddress
             abi.encodePacked(reward), // _toAddress
             wethAmt, // _amountLD
@@ -143,6 +144,12 @@ contract FarmCurve is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         reward = _reward;
 
         emit SetReward(_reward);
+    }
+
+    function setTreasury(address _treasury) external onlyOwner {
+        treasury = _treasury;
+
+        emit SetTreasury(_treasury);
     }
 
     function getPricePerFullShareInUSD() public view returns (uint) {
