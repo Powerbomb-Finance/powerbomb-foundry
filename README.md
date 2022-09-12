@@ -1,5 +1,17 @@
 # PengTogether
 
+## Contract integration
+
+User only interact with Vault contract.
+
+This contract only accept USDC (0x7F5c764cBc14f9669B88837ca1490cCa17c31607).
+
+`getUserBalanceInUSD(userAddr)` provider actual user balance in USD which show on UI.
+
+`getUserDepositBalance(userAddr)` is user actual deposit balance without slippage. This amount will be slightly higher than amount get from `getUserBalanceInUSD(userAddr)`. This can be used as the maximum amount user can withdraw.
+
+`amount` in withdraw function is the actual amount user want to withdraw. Amount user receive eventually will be slightly less than input amount due to slippage.
+
 ## Contract addresses
 
 Vault: 0x8EdF0c0f9C56B11A5bE56CB816A2e57c110f44b1 (Optimism)

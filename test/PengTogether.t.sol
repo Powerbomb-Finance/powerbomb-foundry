@@ -310,6 +310,7 @@ contract PengTogetherTest is Test {
         assertGt(vault.getAllPoolInUSD(), 0);
         assertGt(vault.getUserBalance(address(this)), 0);
         assertGt(vault.getUserBalanceInUSD(address(this)), 0);
+        assertEq(vault.getUserDepositBalance(address(this)), 1000e6);
 
         vm.roll(block.number + 1);
 
@@ -328,6 +329,7 @@ contract PengTogetherTest is Test {
         assertEq(vault.getAllPoolInUSD(), 0);
         assertEq(vault.getUserBalance(address(this)), 0);
         assertEq(vault.getUserBalanceInUSD(address(this)), 0);
+        assertEq(vault.getUserDepositBalance(address(this)), 0);
     }
 
     function testWithdrawAll() public {
