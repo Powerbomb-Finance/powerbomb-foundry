@@ -15,7 +15,7 @@ contract PengTogetherTest is Test {
     IWETH weth = IWETH(0x4200000000000000000000000000000000000006);
     IZap zap = IZap(0x167e42a1C7ab4Be03764A2222aAC57F5f6754411);
     address reward = address(1);
-    address treasury = address(0);
+    address treasury = address(this);
     PengTogether vault;
     FarmCurve farm;
 
@@ -325,20 +325,26 @@ contract PengTogetherTest is Test {
     }
 
     function testWithdrawAll() public {
-        deal(address(usdc), address(1), 1000e6);
+        deal(address(usdc), address(1), 2000e6);
 
         vm.startPrank(address(1));
         usdc.approve(address(vault), type(uint).max);
         vault.deposit(usdc, 1000e6, 0);
-
+        skip(86400);
+        vault.deposit(usdc, 1000e6, 0);
         skip(86400);
 
         vm.roll(block.number + 1);
+        // 1st deposit earn 240 tickets
+        // 2nd deposit until withdraw should earn another 480 tickets
+        // but since it is withdrawal, ticket calculate by balance left after withdrawal
+        // so 24 hours * $1000 = 240 tickets
+        // so total 240 + 240 = 480 tickets
         vault.withdraw(usdc, 1000e6, 0);
         vm.stopPrank();
 
-        // console.log(usdc.balanceOf(address(1))); // 999.352449
-        assertEq(vault.getUserAvailableTickets(address(1)), 240);
+        // console.log(usdc.balanceOf(address(1))); // 1998.691931
+        assertEq(vault.getUserAvailableTickets(address(1)), 480);
         assertEq(vault.getUserTotalSeats(address(1)), 0);
 
         address[] memory users = new address[](1);
@@ -346,7 +352,7 @@ contract PengTogetherTest is Test {
         vault.placeSeat{value: 0.1 ether}(users);
 
         assertEq(vault.getUserAvailableTickets(address(1)), 0);
-        assertEq(vault.getUserTotalSeats(address(1)), 240);
+        assertEq(vault.getUserTotalSeats(address(1)), 480);
     }
 
     function testHarvest() public {
@@ -355,6 +361,7 @@ contract PengTogetherTest is Test {
         vault.deposit(usdc, 100000e6, 0);
 
         skip(864000);
+        uint wethBef = weth.balanceOf(address(this));
         // farm.getPoolPendingReward(); // only can test with view
         vm.recordLogs();
         farm.harvest{value: 0.05 ether}();
@@ -363,15 +370,18 @@ contract PengTogetherTest is Test {
         assertEq(op.balanceOf(address(farm)), 0);
         assertEq(weth.balanceOf(address(farm)), 0);
         assertEq(address(farm).balance, 0);
+        assertGt(weth.balanceOf(address(this)), wethBef);
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
-        (uint crvAmt, uint opAmt, uint wethAmt) = abi.decode(entries[23].data, (uint, uint, uint));
-        // console.log(crvAmt); // 69784757243374937917
-        // console.log(opAmt); // 56337226462551425889
-        // console.log(wethAmt); // 92309897663666792
+        (uint crvAmt, uint opAmt, uint wethAmt, uint fee) = abi.decode(entries[24].data, (uint, uint, uint, uint));
+        // console.log(crvAmt); // 39471738946279452263
+        // console.log(opAmt); // 35611387480280085704
+        // console.log(wethAmt); // 48835593914989837
+        // console.log(fee); // 5426177101665537
         assertGt(crvAmt, 0);
         assertGt(opAmt, 0);
         assertGt(wethAmt, 0);
+        assertGt(fee, 0);
     }
 
     function testGlobalVariable() public {
@@ -386,7 +396,8 @@ contract PengTogetherTest is Test {
         assertEq(farm.admin(), address(this));
         assertEq(farm.vault(), address(vault));
         assertEq(farm.reward(), reward);
-        assertEq(farm.treasury(), treasury);
+        assertEq(farm.treasury(), address(this));
+        assertEq(farm.yieldFeePerc(), 1000);
     }
 
     function testSetter() public {
@@ -405,6 +416,8 @@ contract PengTogetherTest is Test {
         assertEq(farm.reward(), address(1));
         farm.setTreasury(address(1));
         assertEq(farm.treasury(), address(1));
+        farm.setYieldFeePerc(2000);
+        assertEq(farm.yieldFeePerc(), 2000);
     }
 
     function testAuthorization() public {
@@ -443,6 +456,8 @@ contract PengTogetherTest is Test {
         farm.setReward(address(0));
         vm.expectRevert("Ownable: caller is not the owner");
         farm.setTreasury(address(0));
+        vm.expectRevert("Ownable: caller is not the owner");
+        farm.setYieldFeePerc(0);
     }
 
     receive() external payable {}
