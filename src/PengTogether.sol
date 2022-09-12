@@ -89,7 +89,7 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
 
         // moved to after user.depositBal -= amount to calculate tickets
         // based on user.depositBal after withdrawal
-        _updateTicketAmount(msg.sender);
+        // _updateTicketAmount(msg.sender);
 
         uint withdrawPerc = amount * 1e18 / user.depositBal;
         uint lpTokenAmt = user.lpTokenBal * withdrawPerc / 1e18;
@@ -98,7 +98,7 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         user.lpTokenBal -= lpTokenAmt;
         user.depositBal -= amount;
 
-        // _updateTicketAmount(msg.sender);
+        _updateTicketAmount(msg.sender);
 
         usdc.transfer(msg.sender, actualAmt);
         emit Withdraw(msg.sender, amount, lpTokenAmt, actualAmt);
