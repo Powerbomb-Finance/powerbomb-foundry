@@ -31,12 +31,14 @@ contract FarmCurve is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     address public vault;
     address public reward;
     address public treasury;
+    uint public yieldFeePerc;
 
-    event Harvest(uint crvAmt, uint opAmt, uint wethAmt);
-    event SetAdmin(address admin);
-    event SetVault(address vault);
-    event SetReward(address reward);
-    event SetTreasury(address treasury);
+    event Harvest(uint crvAmt, uint opAmt, uint wethAmt, uint fee);
+    event SetAdmin(address _admin);
+    event SetVault(address _vault);
+    event SetReward(address _reward);
+    event SetTreasury(address _treasury);
+    event SetYieldFeePerc(uint _yieldFeePerc);
 
     modifier onlyVault {
         require(msg.sender == address(vault), "only vault");
@@ -47,6 +49,8 @@ contract FarmCurve is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         __Ownable_init();
 
         admin = msg.sender;
+        treasury = msg.sender;
+        yieldFeePerc = 1000;
 
         usdc.approve(address(zap), type(uint).max);
         lpToken.approve(address(gauge), type(uint).max);
@@ -112,6 +116,12 @@ contract FarmCurve is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             );
         }
 
+        // collect fee
+        uint fee = wethAmt * yieldFeePerc / 10000;
+        wethAmt -= fee;
+        weth.transfer(treasury, fee);
+
+        // unwrap weth to native eth
         weth.withdraw(wethAmt);
 
         // bridge eth to ethereum
@@ -123,7 +133,7 @@ contract FarmCurve is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             wethAmt * 995 / 1000 // _minAmountLD, 0.5% slippage
         );
 
-        emit Harvest(crvAmt, opAmt, wethAmt);
+        emit Harvest(crvAmt, opAmt, wethAmt, fee);
     }
 
     receive() external payable {}
@@ -150,6 +160,13 @@ contract FarmCurve is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         treasury = _treasury;
 
         emit SetTreasury(_treasury);
+    }
+
+    function setYieldFeePerc(uint _yieldFeePerc) external onlyOwner {
+        require(_yieldFeePerc < 3000, "yieldFeePerc > 3000");
+        yieldFeePerc = _yieldFeePerc;
+
+        emit SetYieldFeePerc(_yieldFeePerc);
     }
 
     function getPricePerFullShareInUSD() public view returns (uint) {
