@@ -1,5 +1,13 @@
 # PengTogether
 
+## Contract addresses
+
+Vault: 0x8EdF0c0f9C56B11A5bE56CB816A2e57c110f44b1 (Optimism)
+
+Farm: 0xB68F3D8E341B88df22a73034DbDE3c888f4bE9DE (Optimism)
+
+Reward: (Ethereum)
+
 ## Lucky Draw Progress
 
 1. Call `placeSeat(users)` on PengTogether Optimism contract

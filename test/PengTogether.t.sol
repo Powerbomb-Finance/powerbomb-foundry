@@ -15,29 +15,33 @@ contract PengTogetherTest is Test {
     IWETH weth = IWETH(0x4200000000000000000000000000000000000006);
     IZap zap = IZap(0x167e42a1C7ab4Be03764A2222aAC57F5f6754411);
     address reward = address(1);
-    address treasury = address(this);
+    address treasury = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
     PengTogether vault;
     FarmCurve farm;
+    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
 
     function setUp() public {
-        farm = new FarmCurve();
-        PbProxy proxy = new PbProxy(
-            address(farm),
-            abi.encodeWithSelector(bytes4(keccak256("initialize()")))
-        );
-        farm = FarmCurve(payable(address(proxy)));
+        // farm = new FarmCurve();
+        // PbProxy proxy = new PbProxy(
+        //     address(farm),
+        //     abi.encodeWithSelector(bytes4(keccak256("initialize()")))
+        // );
+        // farm = FarmCurve(payable(address(proxy)));
+        farm = FarmCurve(payable(0xB68F3D8E341B88df22a73034DbDE3c888f4bE9DE));
 
-        vault = new PengTogether();
-        proxy = new PbProxy(
-            address(vault),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address)")),
-                address(farm)
-            )
-        );
-        vault = PengTogether(address(proxy));
+        // vault = new PengTogether();
+        // proxy = new PbProxy(
+        //     address(vault),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(address)")),
+        //         address(farm)
+        //     )
+        // );
+        // vault = PengTogether(address(proxy));
+        vault = PengTogether(0x8EdF0c0f9C56B11A5bE56CB816A2e57c110f44b1);
 
-        farm.setVault(address(vault));
+        // farm.setVault(address(vault));
+        hoax(owner);
         farm.setReward(reward);
     }
 
@@ -235,6 +239,7 @@ contract PengTogetherTest is Test {
         address[] memory users = new address[](2);
         users[0] = address(1);
         users[1] = address(2);
+        hoax(owner);
         vault.placeSeat{value: 0.1 ether}(users);
 
         vm.expectRevert("lucky draw in progress");
@@ -254,7 +259,8 @@ contract PengTogetherTest is Test {
         assertEq(vault.getUserAvailableTickets(address(2)), 0);
         assertEq(vault.getUserTotalSeats(address(2)), 240);
 
-        vault.setWinnerAndRestartRound{value: 1 ether}(address(1));
+        hoax(owner);
+        vault.setWinnerAndRestartRound{value: 0.01 ether}(address(1));
 
         assertEq(vault.getSeatsLength(), 0);
         assertEq(vault.getUserTotalSeats(address(1)), 0);
@@ -349,6 +355,7 @@ contract PengTogetherTest is Test {
 
         address[] memory users = new address[](1);
         users[0] = address(1);
+        hoax(owner);
         vault.placeSeat{value: 0.1 ether}(users);
 
         assertEq(vault.getUserAvailableTickets(address(1)), 0);
@@ -361,16 +368,17 @@ contract PengTogetherTest is Test {
         vault.deposit(usdc, 100000e6, 0);
 
         skip(864000);
-        uint wethBef = weth.balanceOf(address(this));
+        uint wethBef = weth.balanceOf(treasury);
         // farm.getPoolPendingReward(); // only can test with view
         vm.recordLogs();
+        hoax(owner);
         farm.harvest{value: 0.05 ether}();
 
         assertEq(crv.balanceOf(address(farm)), 0);
         assertEq(op.balanceOf(address(farm)), 0);
         assertEq(weth.balanceOf(address(farm)), 0);
         assertEq(address(farm).balance, 0);
-        assertGt(weth.balanceOf(address(this)), wethBef);
+        assertGt(weth.balanceOf(treasury), wethBef);
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
         (uint crvAmt, uint opAmt, uint wethAmt, uint fee) = abi.decode(entries[24].data, (uint, uint, uint, uint));
@@ -389,18 +397,19 @@ contract PengTogetherTest is Test {
         assertEq(vault.getSeatsLength(), 0);
         assertEq(vault.getTotalSeats(), 0);
         assertEq(vault.luckyDrawInProgress(), false);
-        assertEq(vault.admin(), address(this));
+        assertEq(vault.admin(), owner);
         assertEq(address(vault.farm()), address(farm));
 
         // farm
-        assertEq(farm.admin(), address(this));
+        assertEq(farm.admin(), owner);
         assertEq(farm.vault(), address(vault));
         assertEq(farm.reward(), reward);
-        assertEq(farm.treasury(), address(this));
+        assertEq(farm.treasury(), treasury);
         assertEq(farm.yieldFeePerc(), 1000);
     }
 
     function testSetter() public {
+        startHoax(owner);
         // vault
         vault.setFarm(IFarm(address(1)));
         assertEq(address(vault.farm()), address(1));
@@ -422,9 +431,11 @@ contract PengTogetherTest is Test {
 
     function testAuthorization() public {
         // vault
-        assertEq(vault.owner(), address(this));
+        assertEq(vault.owner(), owner);
+        vm.startPrank(owner);
         vault.setAdmin(address(1));
         vault.transferOwnership(address(1));
+        vm.stopPrank();
         vm.expectRevert("only authorized");
         vault.placeSeat(new address[](1));
         vm.expectRevert("Ownable: caller is not the owner");
@@ -439,9 +450,11 @@ contract PengTogetherTest is Test {
         vault.setAdmin(address(0));
 
         // farm
-        assertEq(farm.owner(), address(this));
+        assertEq(farm.owner(), owner);
+        vm.startPrank(owner);
         farm.setAdmin(address(1));
         farm.transferOwnership(address(1));
+        vm.stopPrank();
         vm.expectRevert("only vault");
         farm.deposit(0, 0);
         vm.expectRevert("only vault");
