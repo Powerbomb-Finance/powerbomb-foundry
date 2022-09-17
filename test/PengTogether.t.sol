@@ -39,61 +39,64 @@ contract PengTogetherTest is Test {
         // );
         // vault = PengTogether(address(proxy));
         vault = PengTogether(0x8EdF0c0f9C56B11A5bE56CB816A2e57c110f44b1);
+        PengTogether vaultImpl = new PengTogether();
+        hoax(owner);
+        vault.upgradeTo(address(vaultImpl));
 
         // farm.setVault(address(vault));
         hoax(owner);
         farm.setReward(reward);
     }
 
-    function testDepositPlaceSeat2Account() public {
-        deal(address(usdc), address(1), 1000e6);
-        deal(address(usdc), address(2), 1000e6);
+    // function testDepositPlaceSeat2Account() public {
+    //     deal(address(usdc), address(1), 1000e6);
+    //     deal(address(usdc), address(2), 1000e6);
 
-        vm.startPrank(address(1));
-        usdc.approve(address(vault), type(uint).max);
-        vault.deposit(usdc, 1000e6, 0);
-        skip(3600);
-        vault.placeSeat();
-        vm.stopPrank();
+    //     vm.startPrank(address(1));
+    //     usdc.approve(address(vault), type(uint).max);
+    //     vault.deposit(usdc, 1000e6, 0);
+    //     skip(3600);
+    //     vault.placeSeat();
+    //     vm.stopPrank();
 
-        vm.startPrank(address(2));
-        usdc.approve(address(vault), type(uint).max);
-        vault.deposit(usdc, 1000e6, 0);
-        skip(3600);
-        vault.placeSeat();
-        vm.stopPrank();
+    //     vm.startPrank(address(2));
+    //     usdc.approve(address(vault), type(uint).max);
+    //     vault.deposit(usdc, 1000e6, 0);
+    //     skip(3600);
+    //     vault.placeSeat();
+    //     vm.stopPrank();
 
-        (address user, uint from, uint to) = vault.seats(0);
-        assertEq(user, address(1));
-        assertEq(from, 0);
-        assertEq(to, 9);
-        assertEq(vault.getSeatOwner(0), address(1));
-        assertEq(vault.getSeatOwner(4), address(1));
-        assertEq(vault.getSeatOwner(9), address(1));
+    //     (address user, uint from, uint to) = vault.seats(0);
+    //     assertEq(user, address(1));
+    //     assertEq(from, 0);
+    //     assertEq(to, 9);
+    //     assertEq(vault.getSeatOwner(0), address(1));
+    //     assertEq(vault.getSeatOwner(4), address(1));
+    //     assertEq(vault.getSeatOwner(9), address(1));
 
-        (user, from, to) = vault.seats(1);
-        assertEq(user, address(2));
-        assertEq(from, 10);
-        assertEq(to, 19);
-        assertEq(vault.getSeatOwner(10), address(2));
-        assertEq(vault.getSeatOwner(16), address(2));
-        assertEq(vault.getSeatOwner(19), address(2));
+    //     (user, from, to) = vault.seats(1);
+    //     assertEq(user, address(2));
+    //     assertEq(from, 10);
+    //     assertEq(to, 19);
+    //     assertEq(vault.getSeatOwner(10), address(2));
+    //     assertEq(vault.getSeatOwner(16), address(2));
+    //     assertEq(vault.getSeatOwner(19), address(2));
 
-        (uint depositBal,, uint ticketBal, uint lastUpdateTimestamp) = vault.userInfo(address(1));
-        assertEq(depositBal, 1000e6);
-        assertEq(ticketBal, 0);
-        assertGt(lastUpdateTimestamp, 0);
+    //     (uint depositBal,, uint ticketBal, uint lastUpdateTimestamp) = vault.userInfo(address(1));
+    //     assertEq(depositBal, 1000e6);
+    //     assertEq(ticketBal, 0);
+    //     assertGt(lastUpdateTimestamp, 0);
 
-        (depositBal,, ticketBal, lastUpdateTimestamp) = vault.userInfo(address(2));
-        assertEq(depositBal, 1000e6);
-        assertEq(ticketBal, 0);
-        assertGt(lastUpdateTimestamp, 0);
+    //     (depositBal,, ticketBal, lastUpdateTimestamp) = vault.userInfo(address(2));
+    //     assertEq(depositBal, 1000e6);
+    //     assertEq(ticketBal, 0);
+    //     assertGt(lastUpdateTimestamp, 0);
 
-        assertEq(vault.getUserTotalSeats(address(1)), 10);
-        assertEq(vault.getUserAvailableTickets(address(1)), 10);
-        assertEq(vault.getUserTotalSeats(address(2)), 10);
-        assertEq(vault.getUserAvailableTickets(address(2)), 0);
-    }
+    //     assertEq(vault.getUserTotalSeats(address(1)), 10);
+    //     assertEq(vault.getUserAvailableTickets(address(1)), 10);
+    //     assertEq(vault.getUserTotalSeats(address(2)), 10);
+    //     assertEq(vault.getUserAvailableTickets(address(2)), 0);
+    // }
 
     function testDeposit2TimesPlaceSeat() public {
         deal(address(usdc), address(1), 1500e6);
@@ -114,16 +117,16 @@ contract PengTogetherTest is Test {
         assertEq(vault.getUserTotalSeats(address(1)), 0);
         assertEq(vault.getUserAvailableTickets(address(1)), 25);
 
-        hoax(address(1));
-        vault.placeSeat();
+        // hoax(address(1));
+        // vault.placeSeat();
 
-        (address user, uint from, uint to) = vault.seats(0);
-        assertEq(user, address(1));
-        assertEq(from, 0);
-        assertEq(to, 24);
+        // (address user, uint from, uint to) = vault.seats(0);
+        // assertEq(user, address(1));
+        // assertEq(from, 0);
+        // assertEq(to, 24);
 
-        assertEq(vault.getUserTotalSeats(address(1)), 25);
-        assertEq(vault.getUserAvailableTickets(address(1)), 0);
+        // assertEq(vault.getUserTotalSeats(address(1)), 25);
+        // assertEq(vault.getUserAvailableTickets(address(1)), 0);
     }
 
     function testDeposit2AccountPlaceSeat() public {
@@ -144,20 +147,20 @@ contract PengTogetherTest is Test {
 
         assertEq(vault.getUserAvailableTickets(address(1)), vault.getUserAvailableTickets(address(2)));
 
-        hoax(address(1));
-        vault.placeSeat();
-        hoax(address(2));
-        vault.placeSeat();
+        // hoax(address(1));
+        // vault.placeSeat();
+        // hoax(address(2));
+        // vault.placeSeat();
 
-        (address user, uint from, uint to) = vault.seats(0);
-        assertEq(user, address(1));
-        assertEq(from, 0);
-        assertEq(to, 9);
+        // (address user, uint from, uint to) = vault.seats(0);
+        // assertEq(user, address(1));
+        // assertEq(from, 0);
+        // assertEq(to, 9);
 
-        (user, from, to) = vault.seats(1);
-        assertEq(user, address(2));
-        assertEq(from, 10);
-        assertEq(to, 19);
+        // (user, from, to) = vault.seats(1);
+        // assertEq(user, address(2));
+        // assertEq(from, 10);
+        // assertEq(to, 19);
 
         assertEq(vault.getUserTotalSeats(address(1)), vault.getUserTotalSeats(address(1)));
     }
@@ -185,40 +188,40 @@ contract PengTogetherTest is Test {
         assertEq(ticketBal, 2400);
     }
 
-    function testDepositPlaceSeat5Times() public {
-        deal(address(usdc), address(1), 5000e6);
+    // function testDepositPlaceSeat5Times() public {
+    //     deal(address(usdc), address(1), 5000e6);
 
-        vm.startPrank(address(1));
-        usdc.approve(address(vault), type(uint).max);
-        vault.deposit(usdc, 1000e6, 0);
-        skip(86400);
-        vault.placeSeat();
-        vault.deposit(usdc, 1000e6, 0);
-        skip(86400);
-        vault.placeSeat(); // (240*2) + (240*1) - 240 = 480
-        vault.deposit(usdc, 1000e6, 0);
-        skip(86400);
-        vault.deposit(usdc, 1000e6, 0);
-        skip(86400);
-        vault.placeSeat(); // (240*4) + (240*3) + (240*2) + (240*1) - 240 - 480 = 1680
-        vault.deposit(usdc, 1000e6, 0);
-        skip(86400);
-        vm.stopPrank();
+    //     vm.startPrank(address(1));
+    //     usdc.approve(address(vault), type(uint).max);
+    //     vault.deposit(usdc, 1000e6, 0);
+    //     skip(86400);
+    //     vault.placeSeat();
+    //     vault.deposit(usdc, 1000e6, 0);
+    //     skip(86400);
+    //     vault.placeSeat(); // (240*2) + (240*1) - 240 = 480
+    //     vault.deposit(usdc, 1000e6, 0);
+    //     skip(86400);
+    //     vault.deposit(usdc, 1000e6, 0);
+    //     skip(86400);
+    //     vault.placeSeat(); // (240*4) + (240*3) + (240*2) + (240*1) - 240 - 480 = 1680
+    //     vault.deposit(usdc, 1000e6, 0);
+    //     skip(86400);
+    //     vm.stopPrank();
 
-        assertEq(vault.getUserAvailableTickets(address(1)), 1200);
+    //     assertEq(vault.getUserAvailableTickets(address(1)), 1200);
 
-        (, uint from, uint to) = vault.seats(0);
-        assertEq(from, 0);
-        assertEq(to, 239);
+    //     (, uint from, uint to) = vault.seats(0);
+    //     assertEq(from, 0);
+    //     assertEq(to, 239);
 
-        (, from, to) = vault.seats(1);
-        assertEq(from, 240);
-        assertEq(to, 719);
+    //     (, from, to) = vault.seats(1);
+    //     assertEq(from, 240);
+    //     assertEq(to, 719);
 
-        (, from, to) = vault.seats(2);
-        assertEq(from, 720);
-        assertEq(to, 2399);
-    }
+    //     (, from, to) = vault.seats(2);
+    //     assertEq(from, 720);
+    //     assertEq(to, 2399);
+    // }
 
     function testRestartRound() public {
         deal(address(usdc), address(1), 500e6);
@@ -242,9 +245,9 @@ contract PengTogetherTest is Test {
         hoax(owner);
         vault.placeSeat{value: 0.1 ether}(users);
 
-        vm.expectRevert("lucky draw in progress");
-        hoax(address(1));
-        vault.placeSeat();
+        // vm.expectRevert("lucky draw in progress");
+        // hoax(address(1));
+        // vault.placeSeat();
 
         (, uint from, uint to) = vault.seats(0);
         assertEq(from, 0);
@@ -269,14 +272,14 @@ contract PengTogetherTest is Test {
         skip(3600);
         assertEq(vault.getUserAvailableTickets(address(1)), 5);
         assertEq(vault.getUserTotalSeats(address(1)), 0);
-        hoax(address(1));
-        // test able to place seat
-        vault.placeSeat();
-        assertEq(vault.getUserAvailableTickets(address(1)), 0);
-        assertEq(vault.getUserTotalSeats(address(1)), 5);
-        (, from, to) = vault.seats(0);
-        assertEq(from, 0);
-        assertEq(to, 4);
+        // hoax(address(1));
+        // // test able to place seat
+        // vault.placeSeat();
+        // assertEq(vault.getUserAvailableTickets(address(1)), 0);
+        // assertEq(vault.getUserTotalSeats(address(1)), 5);
+        // (, from, to) = vault.seats(0);
+        // assertEq(from, 0);
+        // assertEq(to, 4);
     }
 
     function testDepositNotEnoughHour() public {
@@ -291,6 +294,27 @@ contract PengTogetherTest is Test {
 
         assertEq(vault.getUserAvailableTickets(address(1)), 0);
         assertEq(vault.getUserTotalSeats(address(1)), 0);
+    }
+
+    function testDepositBalLessThan100WhenDraw() public {
+        deal(address(usdc), address(this), 1000e6);
+        usdc.approve(address(vault), type(uint).max);
+        vault.deposit(usdc, 1000e6, 0);
+        skip(3600);
+        vm.roll(block.number + 1);
+        vault.withdraw(usdc, 995e6, 0);
+
+        assertEq(vault.getUserAvailableTickets(address(this)), 10);
+
+        // draw
+        address[] memory users = new address[](1);
+        users[0] = address(this);
+        hoax(owner);
+        vault.placeSeat{value: 0.1 ether}(users);
+
+        // assertion check
+        assertEq(vault.getUserAvailableTickets(address(this)), 0);
+        assertEq(vault.getUserTotalSeats(address(this)), 0);
     }
 
     function testDepositAndWithdraw() public {
@@ -326,7 +350,7 @@ contract PengTogetherTest is Test {
         assertEq(usdc.balanceOf(address(vault)), 0);
         assertEq(usdc.balanceOf(address(farm)), 0);
         assertEq(lpToken.balanceOf(address(farm)), 0);
-        assertEq(vault.getAllPoolInUSD(), 0);
+        // assertEq(vault.getAllPoolInUSD(), 0);
         assertEq(vault.getUserBalance(address(this)), 0);
         assertEq(vault.getUserBalanceInUSD(address(this)), 0);
         assertEq(vault.getUserDepositBalance(address(this)), 0);
@@ -343,16 +367,11 @@ contract PengTogetherTest is Test {
         skip(86400);
 
         vm.roll(block.number + 1);
-        // 1st deposit earn 240 tickets
-        // 2nd deposit until withdraw should earn another 480 tickets
-        // but since it is withdrawal, ticket calculate by balance left after withdrawal
-        // so 24 hours * $1000 = 240 tickets
-        // so total 240 + 240 = 480 tickets
         vault.withdraw(usdc, 1000e6, 0);
         vm.stopPrank();
 
         // console.log(usdc.balanceOf(address(1))); // 1998.691931
-        assertEq(vault.getUserAvailableTickets(address(1)), 480);
+        assertEq(vault.getUserAvailableTickets(address(1)), 720);
         assertEq(vault.getUserTotalSeats(address(1)), 0);
 
         address[] memory users = new address[](1);
@@ -361,7 +380,7 @@ contract PengTogetherTest is Test {
         vault.placeSeat{value: 0.1 ether}(users);
 
         assertEq(vault.getUserAvailableTickets(address(1)), 0);
-        assertEq(vault.getUserTotalSeats(address(1)), 480);
+        assertEq(vault.getUserTotalSeats(address(1)), 720);
     }
 
     function testHarvest() public {
