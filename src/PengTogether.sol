@@ -87,9 +87,7 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         require(user.depositBal >= amount, "amount > depositBal");
         require(depositedBlock[msg.sender] != block.number, "same block deposit withdraw");
 
-        // moved to after user.depositBal -= amount to calculate tickets
-        // based on user.depositBal after withdrawal
-        // _updateTicketAmount(msg.sender);
+        _updateTicketAmount(msg.sender);
 
         uint withdrawPerc = amount * 1e18 / user.depositBal;
         uint lpTokenAmt = user.lpTokenBal * withdrawPerc / 1e18;
@@ -97,8 +95,6 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
 
         user.lpTokenBal -= lpTokenAmt;
         user.depositBal -= amount;
-
-        _updateTicketAmount(msg.sender);
 
         usdc.transfer(msg.sender, actualAmt);
         emit Withdraw(msg.sender, amount, lpTokenAmt, actualAmt);
@@ -120,10 +116,10 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         }
     }
 
-    function placeSeat() external nonReentrant whenNotPaused {
-        require(!luckyDrawInProgress, "lucky draw in progress");
-        _placeSeat(msg.sender);
-    }
+    // function placeSeat() external nonReentrant whenNotPaused {
+    //     require(!luckyDrawInProgress, "lucky draw in progress");
+    //     _placeSeat(msg.sender);
+    // }
 
     ///@notice only call this function when ready to lucky draw
     function placeSeat(address[] calldata users) external payable onlyAuthorized {
@@ -148,21 +144,28 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
     function _placeSeat(address user) private {
         _updateTicketAmount(user);
 
-        uint ticket = userInfo[user].ticketBal;
-        if (ticket > 0) {
-            uint from = lastSeat;
-            uint to = from + ticket - 1;
+        if (userInfo[user].depositBal > 99e6) {
+            uint ticket = userInfo[user].ticketBal;
+            if (ticket > 0) {
+                uint from = lastSeat;
+                uint to = from + ticket - 1;
 
-            seats.push(Seat({
-                user: user,
-                from: from,
-                to: to
-            }));
+                seats.push(Seat({
+                    user: user,
+                    from: from,
+                    to: to
+                }));
 
+                userInfo[user].ticketBal = 0;
+                lastSeat += ticket;
+
+                emit PlaceSeat(user, from, to, seats.length - 1);
+            }
+
+        } else {
+            // depositBal lesser than 100 on draw day
+            // not eligible for draw
             userInfo[user].ticketBal = 0;
-            lastSeat += ticket;
-
-            emit PlaceSeat(user, from, to, seats.length - 1);
         }
     }
 
