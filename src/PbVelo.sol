@@ -334,10 +334,42 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
             uint reserveToken0InETH = reserveToken0 * token0PriceInETH / 10 ** token0Decimals;
             totalReserveTokenInETH = reserveToken1 + reserveToken0InETH;
         } else {
-            (uint token0PriceInETH,) = router.getAmountOut(10 ** token0Decimals, address(token0), address(WETH));
-            uint reserveToken0InETH = reserveToken0 * token0PriceInETH / 10 ** token0Decimals;
 
-            (uint token1PriceInETH,) = router.getAmountOut(10 ** token1Decimals, address(token1), address(WETH));
+            IRouter.route[] memory routes = new IRouter.route[](2);
+            uint token0PriceInETH;
+            uint token1PriceInETH;
+            if (token0 == USDC && stable == true) {
+                (token0PriceInETH,) = router.getAmountOut(1e6, address(USDC), address(WETH));
+                routes[0] = IRouter.route({
+                    from: address(token1),
+                    to: address(USDC),
+                    stable: true
+                });
+                routes[1] = IRouter.route({
+                    from: address(USDC),
+                    to: address(WETH),
+                    stable: false
+                });
+                token1PriceInETH = router.getAmountsOut(10 ** token1Decimals, routes)[2];
+            } else if (token1 == USDC && stable == true) {
+                routes[0] = IRouter.route({
+                    from: address(token0),
+                    to: address(USDC),
+                    stable: false
+                });
+                routes[1] = IRouter.route({
+                    from: address(USDC),
+                    to: address(WETH),
+                    stable: false
+                });
+                token0PriceInETH = router.getAmountsOut(10 ** token0Decimals, routes)[2];
+                (token1PriceInETH,) = router.getAmountOut(1e6, address(USDC), address(WETH));
+            } else {
+                (token0PriceInETH,) = router.getAmountOut(10 ** token0Decimals, address(token0), address(WETH));
+                (token1PriceInETH,) = router.getAmountOut(10 ** token1Decimals, address(token1), address(WETH));
+            }
+
+            uint reserveToken0InETH = reserveToken0 * token0PriceInETH / 10 ** token0Decimals;
             uint reserveToken1InETH = reserveToken1 * token1PriceInETH / 10 ** token1Decimals;
 
             totalReserveTokenInETH = reserveToken0InETH + reserveToken1InETH;
@@ -383,7 +415,7 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         return gauge.balanceOf(address(this));
     }
 
-    function getAllPoolInUSD() public view returns (uint) {
+    function getAllPoolInUSD() external view returns (uint) {
         uint allPool = getAllPool();
         if (allPool == 0) return 0;
         return allPool * getPricePerFullShareInUSD() / 1e18; // 6 decimals

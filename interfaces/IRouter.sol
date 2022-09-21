@@ -49,7 +49,16 @@ interface IRouter {
         uint deadline
     ) external returns (uint amountA, uint amountB);
 
-    function getAmountOut(uint amountIn, address tokenIn, address tokenOut) external view returns (uint amount, bool stable);
+    function getAmountOut(
+        uint amountIn,
+        address tokenIn,
+        address tokenOut
+    ) external view returns (uint amount, bool stable);
+
+    function getAmountsOut(
+        uint amountIn,
+        route[] memory routes
+    ) external view returns (uint[] memory amounts);
 
     function quoteAddLiquidity(
         address tokenA,
