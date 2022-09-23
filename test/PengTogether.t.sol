@@ -28,6 +28,9 @@ contract PengTogetherTest is Test {
         // );
         // farm = FarmCurve(payable(address(proxy)));
         farm = FarmCurve(payable(0xB68F3D8E341B88df22a73034DbDE3c888f4bE9DE));
+        FarmCurve farmImpl = new FarmCurve();
+        hoax(owner);
+        farm.upgradeTo(address(farmImpl));
 
         // vault = new PengTogether();
         // proxy = new PbProxy(
@@ -392,25 +395,33 @@ contract PengTogetherTest is Test {
         uint wethBef = weth.balanceOf(treasury);
         // farm.getPoolPendingReward(); // only can test with view
         vm.recordLogs();
-        hoax(owner);
-        farm.harvest{value: 0.05 ether}();
+        farm.harvest();
 
         assertEq(crv.balanceOf(address(farm)), 0);
         assertEq(op.balanceOf(address(farm)), 0);
-        assertEq(weth.balanceOf(address(farm)), 0);
+        assertGt(weth.balanceOf(address(farm)), 0);
         assertEq(address(farm).balance, 0);
         assertGt(weth.balanceOf(treasury), wethBef);
 
-        Vm.Log[] memory entries = vm.getRecordedLogs();
-        (uint crvAmt, uint opAmt, uint wethAmt, uint fee) = abi.decode(entries[24].data, (uint, uint, uint, uint));
-        // console.log(crvAmt); // 39471738946279452263
-        // console.log(opAmt); // 35611387480280085704
-        // console.log(wethAmt); // 48835593914989837
-        // console.log(fee); // 5426177101665537
-        assertGt(crvAmt, 0);
-        assertGt(opAmt, 0);
-        assertGt(wethAmt, 0);
-        assertGt(fee, 0);
+        // Vm.Log[] memory entries = vm.getRecordedLogs();
+        // (uint crvAmt, uint opAmt, uint wethAmt, uint fee) = abi.decode(entries[24].data, (uint, uint, uint, uint));
+        // // console.log(crvAmt); // 39471738946279452263
+        // // console.log(opAmt); // 35611387480280085704
+        // // console.log(wethAmt); // 48835593914989837
+        // // console.log(fee); // 5426177101665537
+        // assertGt(crvAmt, 0);
+        // assertGt(opAmt, 0);
+        // assertGt(wethAmt, 0);
+        // assertGt(fee, 0);
+    }
+
+    function testUnwrapAndBridge() public {
+        deal(address(weth), address(farm), 1 ether);
+        hoax(owner);
+        farm.unwrapAndBridge{value: 0.05 ether}();
+
+        assertEq(weth.balanceOf(address(farm)), 0);
+        assertEq(address(farm).balance, 0);
     }
 
     function testGlobalVariable() public {
@@ -481,7 +492,7 @@ contract PengTogetherTest is Test {
         vm.expectRevert("only vault");
         farm.withdraw(0, 0);
         vm.expectRevert("only admin or owner");
-        farm.harvest();
+        farm.unwrapAndBridge();
         vm.expectRevert("Ownable: caller is not the owner");
         farm.setAdmin(address(0));
         vm.expectRevert("Ownable: caller is not the owner");
