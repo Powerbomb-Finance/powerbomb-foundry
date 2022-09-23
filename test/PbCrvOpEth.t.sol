@@ -34,13 +34,9 @@ contract PbCrvOpEthTest is Test {
         // );
         // vaultUSDC = PbCrvOpEth(address(proxy));
         vaultUSDC = PbCrvOpEth(0xb88C7a8e678B243a6851b9Fa82a1aA0986574631);
-
-        // // Upgrade
-        // PbCrvOpEth vaultUSDCImpl = new PbCrvOpEth();
-        // hoax(owner);
-        // vaultUSDC.upgradeTo(address(vaultUSDCImpl));
-        // hoax(owner);
-        // vaultUSDC.setApproval();
+        PbCrvOpEth vaultUSDCImpl = new PbCrvOpEth();
+        hoax(owner);
+        vaultUSDC.upgradeTo(address(vaultUSDCImpl));
 
         // Initialize aToken
         aUSDC = IERC20Upgradeable(vaultUSDC.aToken());
@@ -118,12 +114,15 @@ contract PbCrvOpEthTest is Test {
         testDeposit();
         // Assume reward
         skip(864000);
-        assertGt(vaultUSDC.getPoolPendingReward(), 0);
+        (uint crvReward, uint opReward) = vaultUSDC.getPoolPendingReward2();
+        assertGt(crvReward, 0);
+        assertGt(opReward, 0);
         // Harvest USDC reward
-        deal(address(CRV), address(vaultUSDC), CRV.balanceOf(address(vaultUSDC)));
+        deal(address(CRV), address(vaultUSDC), 1 ether);
         vaultUSDC.harvest();
         // Assertion check
         assertEq(CRV.balanceOf(address(vaultUSDC)), 0);
+        assertEq(OP.balanceOf(address(vaultUSDC)), 0);
         assertEq(USDC.balanceOf(address(vaultUSDC)), 0);
         assertGt(aUSDC.balanceOf(address(vaultUSDC)), 0);
         assertGt(USDC.balanceOf(owner), 0); // treasury fee
@@ -164,9 +163,9 @@ contract PbCrvOpEthTest is Test {
         assertEq(USDC.balanceOf(address(this)), userPendingRewardUSDC);
         (, uint rewardStartAtUSDC) = vaultUSDC.userInfo(address(this));
         assertGt(rewardStartAtUSDC, 0);
-        uint lastATokenAmtUSDC = vaultUSDC.lastATokenAmt();
-        assertLe(lastATokenAmtUSDC, 2);
-        assertLe(aUSDC.balanceOf(address(vaultUSDC)), 2);
+        // uint lastATokenAmtUSDC = vaultUSDC.lastATokenAmt();
+        // assertLe(lastATokenAmtUSDC, 2);
+        // assertLe(aUSDC.balanceOf(address(vaultUSDC)), 2);
         assertEq(USDC.balanceOf(address(vaultUSDC)), 0);
     }
 

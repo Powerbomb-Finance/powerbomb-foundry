@@ -53,14 +53,11 @@ contract PbCrvOpUsdTest is Test {
         // vaultETH = PbCrvOpUsd(address(proxy));
         vaultETH = PbCrvOpUsd(0xA8e39872452BA48b1F4c7e16b78668199d2C41Dd);
 
-        // // Upgrade
-        // PbCrvOpUsd vaultImpl = new PbCrvOpUsd();
-        // vm.startPrank(owner);
-        // vaultBTC.upgradeTo(address(vaultImpl));
-        // vaultBTC.setApproval();
-        // vaultETH.upgradeTo(address(vaultImpl));
-        // vaultETH.setApproval();
-        // vm.stopPrank();
+        PbCrvOpUsd vaultImpl = new PbCrvOpUsd();
+        vm.startPrank(owner);
+        vaultBTC.upgradeTo(address(vaultImpl));
+        vaultETH.upgradeTo(address(vaultImpl));
+        vm.stopPrank();
 
         // Initialize aToken
         aWBTC = IERC20Upgradeable(vaultBTC.aToken());
@@ -188,8 +185,12 @@ contract PbCrvOpUsdTest is Test {
         testDeposit();
         // Assume reward
         skip(864000);
-        assertGt(vaultBTC.getPoolPendingReward(), 0);
-        assertGt(vaultETH.getPoolPendingReward(), 0);
+        (uint crvReward, uint opReward) = vaultBTC.getPoolPendingReward2();
+        assertGt(crvReward, 0);
+        assertGt(opReward, 0);
+        (crvReward, opReward) = vaultETH.getPoolPendingReward2();
+        assertGt(crvReward, 0);
+        assertGt(opReward, 0);
         // Harvest BTC reward
         vaultBTC.harvest();
         // Harvest ETH reward
@@ -197,6 +198,8 @@ contract PbCrvOpUsdTest is Test {
         // Assertion check
         assertEq(CRV.balanceOf(address(vaultBTC)), 0);
         assertEq(CRV.balanceOf(address(vaultETH)), 0);
+        assertEq(OP.balanceOf(address(vaultETH)), 0);
+        assertEq(OP.balanceOf(address(vaultETH)), 0);
         assertEq(WBTC.balanceOf(address(vaultBTC)), 0);
         assertGt(aWBTC.balanceOf(address(vaultBTC)), 0);
         assertEq(WETH.balanceOf(address(vaultETH)), 0);
@@ -231,7 +234,7 @@ contract PbCrvOpUsdTest is Test {
         uint lastATokenAmtWBTC = vaultBTC.lastATokenAmt();
         uint userPendingVaultBTC = vaultBTC.getUserPendingReward(address(this));
         // aWETH
-        hoax(0x9CBF099ff424979439dFBa03F00B5961784c06ce);
+        hoax(0xa3fDC58439b4677A11b9b0C49caE0fCA9c23Ab8a);
         aWETH.transfer(address(vaultETH), 1e16);
         uint accRewardPerlpTokenWETH = vaultETH.accRewardPerlpToken();
         uint lastATokenAmtWETH = vaultETH.lastATokenAmt();

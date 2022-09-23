@@ -110,8 +110,8 @@ contract PbCrvOpEth is PbCrvBase {
         }
 
         // Claim CRV from Curve
-        // gauge.claim_rewards();
-        minter.mint(address(gauge));
+        minter.mint(address(gauge)); // to claim crv
+        gauge.claim_rewards(); // to claim op
 
         // Claim OP from Aave
         address[] memory assets = new address[](1);
@@ -119,20 +119,24 @@ contract PbCrvOpEth is PbCrvBase {
         rewardsController.claimRewards(assets, type(uint).max, address(this), address(OP));
 
         uint CRVAmt = CRV.balanceOf(address(this));
-        if (CRVAmt > 1 ether) {
+        uint OPAmt = OP.balanceOf(address(this));
+        if (CRVAmt > 1 ether || OPAmt > 1 ether) {
+            uint rewardTokenAmt;
+            
             // Swap CRV to rewardToken
-            ISwapRouter.ExactInputParams memory params = 
-                ISwapRouter.ExactInputParams({
-                    path: abi.encodePacked(address(CRV), uint24(3000), address(WETH), uint24(500), address(USDC)),
-                    recipient: address(this),
-                    deadline: block.timestamp,
-                    amountIn: CRVAmt,
-                    amountOutMinimum: 0
-                });
-            uint rewardTokenAmt = swapRouter.exactInput(params);
+            if (CRVAmt > 1 ether) {
+                ISwapRouter.ExactInputParams memory params = 
+                    ISwapRouter.ExactInputParams({
+                        path: abi.encodePacked(address(CRV), uint24(3000), address(WETH), uint24(500), address(USDC)),
+                        recipient: address(this),
+                        deadline: block.timestamp,
+                        amountIn: CRVAmt,
+                        amountOutMinimum: 0
+                    });
+                rewardTokenAmt = swapRouter.exactInput(params);
+            }
 
             // Swap OP to rewardToken
-            uint OPAmt = OP.balanceOf(address(this));
             if (OPAmt > 1 ether) {
                 rewardTokenAmt += swapRouter.exactInputSingle(
                     ISwapRouter.ExactInputSingleParams({
@@ -202,10 +206,6 @@ contract PbCrvOpEth is PbCrvBase {
         }
     }
 
-    function setApproval() external onlyOwner {
-        OP.safeApprove(address(swapRouter), type(uint).max);
-    }
-
     function getPricePerFullShareInUSD() public view override returns (uint) {
         return pool.get_virtual_price() / 1e12; // 6 decimals
     }
@@ -221,9 +221,15 @@ contract PbCrvOpEth is PbCrvBase {
         return allPool * getPricePerFullShareInUSD() * uint(latestPrice) / 1e26; // 6 decimals
     }
 
+    /// @dev to override base contract (compulsory)
+    function getPoolPendingReward() external pure override returns (uint) {
+        return 0;
+    }
+
     /// @dev Call this function off-chain by using view
-    function getPoolPendingReward() external override returns (uint) {
-        return gauge.claimable_tokens(address(this));
+    function getPoolPendingReward2() external returns (uint crvReward, uint opReward) {
+        crvReward = gauge.claimable_tokens(address(this));
+        opReward = gauge.claimable_reward(address(this), address(OP));
     }
 
     function getUserPendingReward(address account) external view override returns (uint) {

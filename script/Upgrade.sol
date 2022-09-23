@@ -17,15 +17,12 @@ contract Upgrade is Script {
 
         stratUsdBtc = PbCrvOpUsd(0x61F157E08b2B55eB3B0dD137c1D2A73C9AB5888e);
         stratUsdBtc.upgradeTo(address(stratUsdImpl));
-        stratUsdBtc.setApproval();
 
         stratUsdEth = PbCrvOpUsd(0xA8e39872452BA48b1F4c7e16b78668199d2C41Dd);
         stratUsdEth.upgradeTo(address(stratUsdImpl));
-        stratUsdEth.setApproval();
 
         PbCrvOpEth stratEthImpl = new PbCrvOpEth();
         stratEth = PbCrvOpEth(0xb88C7a8e678B243a6851b9Fa82a1aA0986574631);
         stratEth.upgradeTo(address(stratEthImpl));
-        stratEth.setApproval();
     }
 }
