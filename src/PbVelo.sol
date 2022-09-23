@@ -535,7 +535,7 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
     }
 
     function getPoolPendingReward() external view returns (uint) {
-        return gauge.earned(address(lpToken), address(this));
+        return gauge.earned(address(VELO), address(this)) + VELO.balanceOf(address(this));
     }
 
     /// @return aTokenAmt User pending reward (decimal follow reward token)
