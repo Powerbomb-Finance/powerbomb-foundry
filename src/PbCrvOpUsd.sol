@@ -251,8 +251,8 @@ contract PbCrvOpUsd is PbCrvBase {
 
     /// @dev Call this function off-chain by using view
     function getPoolPendingReward2() external returns (uint crvReward, uint opReward) {
-        crvReward = gauge.claimable_tokens(address(this));
-        opReward = gauge.claimable_reward(address(this), address(OP));
+        crvReward = gauge.claimable_tokens(address(this)) + CRV.balanceOf(address(this));
+        opReward = gauge.claimable_reward(address(this), address(OP)) + OP.balanceOf(address(this));
     }
 
     function getUserPendingReward(address account) external view override returns (uint) {
