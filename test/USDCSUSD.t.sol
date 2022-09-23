@@ -54,6 +54,9 @@ contract USDCSUSDTest is Test {
         // );
         // vaultETH = PbVelo(payable(address(proxy)));
         vaultETH = PbVelo(payable(0xee9857e5e1d0089075F75ABe5255fc30695d09FA));
+        // PbVelo vaultImpl = new PbVelo();
+        // hoax(owner);
+        // vaultETH.upgradeTo(address(vaultImpl));
 
         token0 = IERC20Upgradeable(vaultBTC.token0());
         token1 = IERC20Upgradeable(vaultBTC.token1());
@@ -62,268 +65,279 @@ contract USDCSUSDTest is Test {
         (, aWETH,,) = vaultETH.reward();
     }
 
-    function testDeposit() public {
-        // Deposit token0 for BTC reward
-        deal(address(token0), address(this), 10_000e6);
-        uint swapPerc = getSwapPerc(address(token0));
-        token0.approve(address(vaultBTC), type(uint).max);
-        (uint amountOut,) = router.getAmountOut(
-            token0.balanceOf(address(this)) * swapPerc / 1000, address(token0), address(token1));
-        vaultBTC.deposit(token0, token0.balanceOf(address(this)), swapPerc, amountOut);
-        // console.log(token0.balanceOf(address(this))); // 13.725266
-        // console.log(token1.balanceOf(address(this))); // 0
-
-        // Deposit token1 for ETH reward
-        // deal(address(token1), address(this), 10_000 ether);
-        address token1Holder = 0xa5f7a39E55D7878bC5bd754eE5d6BD7a7662355b;
-        hoax(token1Holder);
-        token1.transfer(address(this), 10000 ether);
-        swapPerc = getSwapPerc(address(token1));
-        token1.approve(address(vaultETH), type(uint).max);
-        (amountOut,) = router.getAmountOut(
-            token1.balanceOf(address(this)) * swapPerc / 1000, address(token1), address(token0));
-        vaultETH.deposit(token1, token1.balanceOf(address(this)), swapPerc, amountOut * 95 / 100);
-        // console.log(token0.balanceOf(address(this))); // 31.544241
-        // console.log(token1.balanceOf(address(this))); // 0
-
-        // Deposit LP for BTC reward
-        deal(address(lpToken), address(this), 0.0001 ether);
-        lpToken.approve(address(vaultBTC), type(uint).max);
-        vaultBTC.deposit(lpToken, lpToken.balanceOf(address(this)), 0, 0);
-
-        // Assertion check
-        assertGt(vaultBTC.getUserBalance(address(this)), 0);
-        assertGt(vaultETH.getUserBalance(address(this)), 0);
-        // console.log(vaultBTC.getUserBalance(address(this))); // 0.005088905044034681
-        // console.log(vaultETH.getUserBalance(address(this))); // 0.004990687230383350
-        assertGt(vaultBTC.getUserBalanceInUSD(address(this)), 0);
-        assertGt(vaultETH.getUserBalanceInUSD(address(this)), 0);
-        // console.log(vaultBTC.getUserBalanceInUSD(address(this)));
-        // console.log(vaultETH.getUserBalanceInUSD(address(this)));
-        assertGt(vaultBTC.getPricePerFullShareInUSD(), 0);
-        assertGt(vaultETH.getPricePerFullShareInUSD(), 0);
-        // console.log(vaultBTC.getPricePerFullShareInUSD());
-        // console.log(vaultETH.getPricePerFullShareInUSD());
-        assertGt(vaultBTC.getAllPool(), 0);
-        assertGt(vaultETH.getAllPool(), 0);
-        // console.log(vaultBTC.getAllPool());
-        // console.log(vaultETH.getAllPool());
-        assertGt(vaultBTC.getAllPoolInUSD(), 0);
-        assertGt(vaultETH.getAllPoolInUSD(), 0);
-        // console.log(vaultBTC.getAllPoolInUSD()); // 10146.139463
-        // console.log(vaultETH.getAllPoolInUSD()); // 9950.315091
-        assertEq(token0.balanceOf(address(vaultBTC)), 0);
-        assertEq(token1.balanceOf(address(vaultBTC)), 0);
-        assertEq(lpToken.balanceOf(address(vaultBTC)), 0);
-        assertEq(token0.balanceOf(address(vaultETH)), 0);
-        assertEq(token1.balanceOf(address(vaultETH)), 0);
-        assertEq(lpToken.balanceOf(address(vaultETH)), 0);
+    function test() public {
+        IERC20Upgradeable usdc = IERC20Upgradeable(0x7F5c764cBc14f9669B88837ca1490cCa17c31607);
+        deal(address(usdc), address(this), 1000e6);
+        usdc.approve(address(vaultETH), type(uint).max);
+        vaultETH.deposit(usdc, 1000e6, getSwapPerc(address(usdc)), 0);
+        console.log(vaultETH.getUserBalanceInUSD(address(this)));
+        console.log(token0.balanceOf(address(this)));
+        console.log(token1.balanceOf(address(this)));
+        console.log(lpToken.balanceOf(address(this)));
     }
 
-    function testWithdraw() public {
-        testDeposit();
-        vm.roll(block.number + 1);
+    // function testDeposit() public {
+    //     // Deposit token0 for BTC reward
+    //     deal(address(token0), address(this), 10_000e6);
+    //     uint swapPerc = getSwapPerc(address(token0));
+    //     token0.approve(address(vaultBTC), type(uint).max);
+    //     (uint amountOut,) = router.getAmountOut(
+    //         token0.balanceOf(address(this)) * swapPerc / 1000, address(token0), address(token1));
+    //     vaultBTC.deposit(token0, token0.balanceOf(address(this)), swapPerc, amountOut);
+    //     // console.log(token0.balanceOf(address(this))); // 13.725266
+    //     // console.log(token1.balanceOf(address(this))); // 0
 
-        // withdraw LP from ETH reward
-        vaultETH.withdraw(lpToken, 0.0001 ether, 0);
-        assertEq(lpToken.balanceOf(address(this)), 0.0001 ether);
+    //     // Deposit token1 for ETH reward
+    //     // deal(address(token1), address(this), 10_000 ether);
+    //     address token1Holder = 0xa5f7a39E55D7878bC5bd754eE5d6BD7a7662355b;
+    //     hoax(token1Holder);
+    //     token1.transfer(address(this), 10000 ether);
+    //     swapPerc = getSwapPerc(address(token1));
+    //     token1.approve(address(vaultETH), type(uint).max);
+    //     (amountOut,) = router.getAmountOut(
+    //         token1.balanceOf(address(this)) * swapPerc / 1000, address(token1), address(token0));
+    //     vaultETH.deposit(token1, token1.balanceOf(address(this)), swapPerc, amountOut * 95 / 100);
+    //     // console.log(token0.balanceOf(address(this))); // 31.544241
+    //     // console.log(token1.balanceOf(address(this))); // 0
 
-        // Withdraw token1 from BTC reward
-        uint userBalance = vaultBTC.getUserBalance(address(this));
-        (uint amount0,) = router.quoteRemoveLiquidity(address(token0), address(token1), vaultBTC.stable(), userBalance);
-        (uint amountOut,) = router.getAmountOut(amount0, address(token0), address(token1));
-        vaultBTC.withdraw(token1, userBalance, amountOut * 95 / 100);
+    //     // Deposit LP for BTC reward
+    //     deal(address(lpToken), address(this), 0.0001 ether);
+    //     lpToken.approve(address(vaultBTC), type(uint).max);
+    //     vaultBTC.deposit(lpToken, lpToken.balanceOf(address(this)), 0, 0);
 
-        // Withdraw token0 from ETH reward
-        userBalance = vaultETH.getUserBalance(address(this));
-        (,uint amount1) = router.quoteRemoveLiquidity(address(token0), address(token1), vaultETH.stable(), userBalance);
-        (amountOut,) = router.getAmountOut(amount1, address(token1), address(token0));
-        vaultETH.withdraw(token0, userBalance, amountOut * 95 / 100);
+    //     // Assertion check
+    //     assertGt(vaultBTC.getUserBalance(address(this)), 0);
+    //     assertGt(vaultETH.getUserBalance(address(this)), 0);
+    //     // console.log(vaultBTC.getUserBalance(address(this))); // 0.005088905044034681
+    //     // console.log(vaultETH.getUserBalance(address(this))); // 0.004990687230383350
+    //     assertGt(vaultBTC.getUserBalanceInUSD(address(this)), 0);
+    //     assertGt(vaultETH.getUserBalanceInUSD(address(this)), 0);
+    //     // console.log(vaultBTC.getUserBalanceInUSD(address(this)));
+    //     // console.log(vaultETH.getUserBalanceInUSD(address(this)));
+    //     assertGt(vaultBTC.getPricePerFullShareInUSD(), 0);
+    //     assertGt(vaultETH.getPricePerFullShareInUSD(), 0);
+    //     // console.log(vaultBTC.getPricePerFullShareInUSD());
+    //     // console.log(vaultETH.getPricePerFullShareInUSD());
+    //     assertGt(vaultBTC.getAllPool(), 0);
+    //     assertGt(vaultETH.getAllPool(), 0);
+    //     // console.log(vaultBTC.getAllPool());
+    //     // console.log(vaultETH.getAllPool());
+    //     assertGt(vaultBTC.getAllPoolInUSD(), 0);
+    //     assertGt(vaultETH.getAllPoolInUSD(), 0);
+    //     // console.log(vaultBTC.getAllPoolInUSD()); // 10146.139463
+    //     // console.log(vaultETH.getAllPoolInUSD()); // 9950.315091
+    //     assertEq(token0.balanceOf(address(vaultBTC)), 0);
+    //     assertEq(token1.balanceOf(address(vaultBTC)), 0);
+    //     assertEq(lpToken.balanceOf(address(vaultBTC)), 0);
+    //     assertEq(token0.balanceOf(address(vaultETH)), 0);
+    //     assertEq(token1.balanceOf(address(vaultETH)), 0);
+    //     assertEq(lpToken.balanceOf(address(vaultETH)), 0);
+    // }
 
-        // Assertion check
-        // assertEq(vaultBTC.getAllPool(), 0);
-        // assertEq(vaultBTC.getAllPoolInUSD(), 0);
-        assertEq(vaultBTC.getUserBalance(address(this)), 0);
-        assertEq(vaultBTC.getUserBalanceInUSD(address(this)), 0);
-        // assertEq(vaultETH.getAllPool(), 0);
-        // assertEq(vaultETH.getAllPoolInUSD(), 0);
-        assertEq(vaultETH.getUserBalance(address(this)), 0);
-        assertEq(vaultETH.getUserBalanceInUSD(address(this)), 0);
-        // console.log(lpToken.balanceOf(address(this))); // 0.000100000000000000
-        // console.log(token0.balanceOf(address(this))); // 9824.835166
-        // console.log(token1.balanceOf(address(this))); // 10171.201936729782409213
-        // assertEq(token0.balanceOf(address(vaultBTC)), 0);
-        // assertEq(token1.balanceOf(address(vaultBTC)), 0);
-        // assertEq(lpToken.balanceOf(address(vaultBTC)), 0);
-        // assertEq(token0.balanceOf(address(vaultETH)), 0);
-        // assertEq(token1.balanceOf(address(vaultETH)), 0);
-        // assertEq(lpToken.balanceOf(address(vaultETH)), 0);
-        assertGt(token0.balanceOf(address(this)), 0);
-        assertGt(token1.balanceOf(address(this)), 0);
-        assertGt(lpToken.balanceOf(address(this)), 0);
-    }
+    // function testWithdraw() public {
+    //     testDeposit();
+    //     vm.roll(block.number + 1);
 
-    function testHarvest() public {
-        testDeposit();
+    //     // withdraw LP from ETH reward
+    //     vaultETH.withdraw(lpToken, 0.0001 ether, 0);
+    //     assertEq(lpToken.balanceOf(address(this)), 0.0001 ether);
 
-        // Assume reward
-        skip(864000);
-        // deal(address(VELO), address(vaultBTC), 1000 ether);
-        // deal(address(VELO), address(vaultETH), 1000 ether);
-        deal(address(OP), address(vaultBTC), 13 ether);
-        deal(address(OP), address(vaultETH), 13 ether);
+    //     // Withdraw token1 from BTC reward
+    //     uint userBalance = vaultBTC.getUserBalance(address(this));
+    //     (uint amount0,) = router.quoteRemoveLiquidity(address(token0), address(token1), vaultBTC.stable(), userBalance);
+    //     (uint amountOut,) = router.getAmountOut(amount0, address(token0), address(token1));
+    //     vaultBTC.withdraw(token1, userBalance, amountOut * 95 / 100);
 
-        // Harvest
-        vaultBTC.harvest();
-        vaultETH.harvest();
+    //     // Withdraw token0 from ETH reward
+    //     userBalance = vaultETH.getUserBalance(address(this));
+    //     (,uint amount1) = router.quoteRemoveLiquidity(address(token0), address(token1), vaultETH.stable(), userBalance);
+    //     (amountOut,) = router.getAmountOut(amount1, address(token1), address(token0));
+    //     vaultETH.withdraw(token0, userBalance, amountOut * 95 / 100);
 
-        // Assertion check start
-        assertEq(VELO.balanceOf(address(vaultBTC)), 0);
-        assertEq(VELO.balanceOf(address(vaultETH)), 0);
-        assertEq(WBTC.balanceOf(address(vaultBTC)), 0);
-        assertGt(aWBTC.balanceOf(address(vaultBTC)), 0);
-        assertEq(WETH.balanceOf(address(vaultETH)), 0);
-        assertGt(aWETH.balanceOf(address(vaultETH)), 0);
-        assertGt(WBTC.balanceOf(owner), 0); // treasury fee
-        assertGt(WETH.balanceOf(owner), 0); // treasury fee
-        (,,uint lastATokenAmt, uint accRewardPerlpToken) = vaultBTC.reward();
-        assertGt(lastATokenAmt, 0);
-        assertGt(accRewardPerlpToken, 0);
-        (,,lastATokenAmt, accRewardPerlpToken) = vaultETH.reward();
-        assertGt(lastATokenAmt, 0);
-        assertGt(accRewardPerlpToken, 0);
+    //     // Assertion check
+    //     // assertEq(vaultBTC.getAllPool(), 0);
+    //     // assertEq(vaultBTC.getAllPoolInUSD(), 0);
+    //     assertEq(vaultBTC.getUserBalance(address(this)), 0);
+    //     assertEq(vaultBTC.getUserBalanceInUSD(address(this)), 0);
+    //     // assertEq(vaultETH.getAllPool(), 0);
+    //     // assertEq(vaultETH.getAllPoolInUSD(), 0);
+    //     assertEq(vaultETH.getUserBalance(address(this)), 0);
+    //     assertEq(vaultETH.getUserBalanceInUSD(address(this)), 0);
+    //     // console.log(lpToken.balanceOf(address(this))); // 0.000100000000000000
+    //     // console.log(token0.balanceOf(address(this))); // 9824.835166
+    //     // console.log(token1.balanceOf(address(this))); // 10171.201936729782409213
+    //     // assertEq(token0.balanceOf(address(vaultBTC)), 0);
+    //     // assertEq(token1.balanceOf(address(vaultBTC)), 0);
+    //     // assertEq(lpToken.balanceOf(address(vaultBTC)), 0);
+    //     // assertEq(token0.balanceOf(address(vaultETH)), 0);
+    //     // assertEq(token1.balanceOf(address(vaultETH)), 0);
+    //     // assertEq(lpToken.balanceOf(address(vaultETH)), 0);
+    //     assertGt(token0.balanceOf(address(this)), 0);
+    //     assertGt(token1.balanceOf(address(this)), 0);
+    //     assertGt(lpToken.balanceOf(address(this)), 0);
+    // }
 
-        // Assume aToken increase
-        // aWBTC
-        hoax(0xc4f24fa48D6DF95097b2577caC2cAf186bC92a00);
-        aWBTC.transfer(address(vaultBTC), 1e5);
-        (,,uint lastATokenAmtWBTC, uint accRewardPerlpTokenWBTC) = vaultBTC.reward();
-        uint userPendingVaultBTC = vaultBTC.getUserPendingReward(address(this));
-        // aWETH
-        hoax(0x9CBF099ff424979439dFBa03F00B5961784c06ce);
-        aWETH.transfer(address(vaultETH), 1e16);
-        (,,uint lastATokenAmtWETH, uint accRewardPerlpTokenWETH) = vaultBTC.reward();
-        uint userPendingVaultETH = vaultETH.getUserPendingReward(address(this));
+    // function testHarvest() public {
+    //     testDeposit();
 
-        // Harvest again
-        vaultBTC.harvest();
-        vaultETH.harvest();
-        // Assertion check
-        (,,lastATokenAmt, accRewardPerlpToken) = vaultBTC.reward();
-        assertGt(lastATokenAmt, lastATokenAmtWBTC);
-        assertGt(accRewardPerlpToken, accRewardPerlpTokenWBTC);
-        assertGt(vaultBTC.getUserPendingReward(address(this)), userPendingVaultBTC);
-        (,,lastATokenAmt, accRewardPerlpToken) = vaultETH.reward();
-        assertGt(lastATokenAmt, lastATokenAmtWETH);
-        assertGt(accRewardPerlpToken, accRewardPerlpTokenWETH);
-        assertGt(vaultETH.getUserPendingReward(address(this)), userPendingVaultETH);
-        // console.log(userPendingVaultBTC); // 332924 -> 79.47 USD
-        // console.log(userPendingVaultETH); // 46286086885960949 -> 79.68 USD
-    }
+    //     // Assume reward
+    //     skip(864000);
+    //     // deal(address(VELO), address(vaultBTC), 1000 ether);
+    //     // deal(address(VELO), address(vaultETH), 1000 ether);
+    //     deal(address(OP), address(vaultBTC), 13 ether);
+    //     deal(address(OP), address(vaultETH), 13 ether);
 
-    function testClaim() public {
-        testHarvest();
+    //     // Harvest
+    //     vaultBTC.harvest();
+    //     vaultETH.harvest();
 
-        // Record variable before claim
-        uint userPendingRewardWBTC = vaultBTC.getUserPendingReward(address(this));
-        uint userPendingRewardWETH = vaultETH.getUserPendingReward(address(this));
+    //     // Assertion check start
+    //     assertEq(VELO.balanceOf(address(vaultBTC)), 0);
+    //     assertEq(VELO.balanceOf(address(vaultETH)), 0);
+    //     assertEq(WBTC.balanceOf(address(vaultBTC)), 0);
+    //     assertGt(aWBTC.balanceOf(address(vaultBTC)), 0);
+    //     assertEq(WETH.balanceOf(address(vaultETH)), 0);
+    //     assertGt(aWETH.balanceOf(address(vaultETH)), 0);
+    //     assertGt(WBTC.balanceOf(owner), 0); // treasury fee
+    //     assertGt(WETH.balanceOf(owner), 0); // treasury fee
+    //     (,,uint lastATokenAmt, uint accRewardPerlpToken) = vaultBTC.reward();
+    //     assertGt(lastATokenAmt, 0);
+    //     assertGt(accRewardPerlpToken, 0);
+    //     (,,lastATokenAmt, accRewardPerlpToken) = vaultETH.reward();
+    //     assertGt(lastATokenAmt, 0);
+    //     assertGt(accRewardPerlpToken, 0);
 
-        // Reset reward token balance if any
-        deal(address(WBTC), address(this), 0);
-        deal(address(WETH), address(this), 0);
+    //     // Assume aToken increase
+    //     // aWBTC
+    //     hoax(0xc4f24fa48D6DF95097b2577caC2cAf186bC92a00);
+    //     aWBTC.transfer(address(vaultBTC), 1e5);
+    //     (,,uint lastATokenAmtWBTC, uint accRewardPerlpTokenWBTC) = vaultBTC.reward();
+    //     uint userPendingVaultBTC = vaultBTC.getUserPendingReward(address(this));
+    //     // aWETH
+    //     hoax(0x9CBF099ff424979439dFBa03F00B5961784c06ce);
+    //     aWETH.transfer(address(vaultETH), 1e16);
+    //     (,,uint lastATokenAmtWETH, uint accRewardPerlpTokenWETH) = vaultBTC.reward();
+    //     uint userPendingVaultETH = vaultETH.getUserPendingReward(address(this));
 
-        // Claim
-        vaultBTC.claim();
-        vaultETH.claim();
+    //     // Harvest again
+    //     vaultBTC.harvest();
+    //     vaultETH.harvest();
+    //     // Assertion check
+    //     (,,lastATokenAmt, accRewardPerlpToken) = vaultBTC.reward();
+    //     assertGt(lastATokenAmt, lastATokenAmtWBTC);
+    //     assertGt(accRewardPerlpToken, accRewardPerlpTokenWBTC);
+    //     assertGt(vaultBTC.getUserPendingReward(address(this)), userPendingVaultBTC);
+    //     (,,lastATokenAmt, accRewardPerlpToken) = vaultETH.reward();
+    //     assertGt(lastATokenAmt, lastATokenAmtWETH);
+    //     assertGt(accRewardPerlpToken, accRewardPerlpTokenWETH);
+    //     assertGt(vaultETH.getUserPendingReward(address(this)), userPendingVaultETH);
+    //     // console.log(userPendingVaultBTC); // 332924 -> 79.47 USD
+    //     // console.log(userPendingVaultETH); // 46286086885960949 -> 79.68 USD
+    // }
 
-        // Assertion check start
-        assertEq(WBTC.balanceOf(address(this)), userPendingRewardWBTC);
-        assertEq(WETH.balanceOf(address(this)), userPendingRewardWETH);
-        (, uint rewardStartAt) = vaultBTC.userInfo(address(this));
-        assertGt(rewardStartAt, 0);
-        (, rewardStartAt) = vaultETH.userInfo(address(this));
-        assertGt(rewardStartAt, 0);
-        (,,uint lastATokenAmt,) = vaultBTC.reward();
-        assertLe(lastATokenAmt, 2);
-        // (,,lastATokenAmt,) = vaultETH.reward();
-        // assertLe(lastATokenAmt, 2);
-        assertLe(aWBTC.balanceOf(address(vaultBTC)), 2);
-        // assertLe(aWETH.balanceOf(address(vaultETH)), 2);
-        assertEq(WBTC.balanceOf(address(vaultBTC)), 0);
-        assertEq(WETH.balanceOf(address(vaultETH)), 0);
-    }
+    // function testClaim() public {
+    //     testHarvest();
 
-    function testPauseContract() public {
-        deal(address(token0), address(this), 10000e6);
-        token0.approve(address(vaultBTC), type(uint).max);
-        // // Pause contract and test deposit
-        hoax(owner);
-        vaultBTC.pauseContract();
-        vm.expectRevert(bytes("Pausable: paused"));
-        vaultBTC.deposit(token0, 10000e6, 500, 0);
-        // Unpause contract and test deposit
-        hoax(owner);
-        vaultBTC.unPauseContract();
-        vaultBTC.deposit(token0, 10000e6, 500, 0);
-        vm.roll(block.number + 1);
-        // Pause contract and test withdraw
-        hoax(owner);
-        vaultBTC.pauseContract();
-        vaultBTC.withdraw(token0, vaultBTC.getUserBalance(address(this)), 0);
-    }
+    //     // Record variable before claim
+    //     uint userPendingRewardWBTC = vaultBTC.getUserPendingReward(address(this));
+    //     uint userPendingRewardWETH = vaultETH.getUserPendingReward(address(this));
 
-    function testUpgrade() public {
-        PbVelo vault_ = new PbVelo();
-        startHoax(owner);
-        vaultBTC.upgradeTo(address(vault_));
-        vaultETH.upgradeTo(address(vault_));
-    }
+    //     // Reset reward token balance if any
+    //     deal(address(WBTC), address(this), 0);
+    //     deal(address(WETH), address(this), 0);
 
-    function testSetter() public {
-        startHoax(owner);
-        vaultBTC.setYieldFeePerc(1000);
-        assertEq(vaultBTC.yieldFeePerc(), 1000);
-        vaultBTC.setTreasury(address(1));
-        assertEq(vaultBTC.treasury(), address(1));
-        vaultETH.setYieldFeePerc(1000);
-        assertEq(vaultETH.yieldFeePerc(), 1000);
-        vaultETH.setTreasury(address(1));
-        assertEq(vaultETH.treasury(), address(1));
-    }
+    //     // Claim
+    //     vaultBTC.claim();
+    //     vaultETH.claim();
 
-    function testAuthorization() public {
-        assertEq(vaultBTC.owner(), owner);
-        assertEq(vaultETH.owner(), owner);
-        // TransferOwnership
-        startHoax(owner);
-        vaultBTC.transferOwnership(address(1));
-        vaultETH.transferOwnership(address(1));
-        // Vault
-        vm.expectRevert(bytes("Initializable: contract is already initialized"));
-        vaultBTC.initialize(IGauge(address(0)), IERC20Upgradeable(address(0)), address(0));
-        vm.expectRevert(bytes("Initializable: contract is already initialized"));
-        vaultETH.initialize(IGauge(address(0)), IERC20Upgradeable(address(0)), address(0));
-        vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        vaultBTC.pauseContract();
-        vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        vaultETH.pauseContract();
-        vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        vaultBTC.unPauseContract();
-        vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        vaultETH.unPauseContract();
-        vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        vaultBTC.upgradeTo(address(0));
-        vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        vaultETH.upgradeTo(address(0));
-        vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        vaultBTC.setYieldFeePerc(0);
-        vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        vaultETH.setYieldFeePerc(0);
-        vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        vaultBTC.setTreasury(address(0));
-        vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        vaultETH.setTreasury(address(0));
-    }
+    //     // Assertion check start
+    //     assertEq(WBTC.balanceOf(address(this)), userPendingRewardWBTC);
+    //     assertEq(WETH.balanceOf(address(this)), userPendingRewardWETH);
+    //     (, uint rewardStartAt) = vaultBTC.userInfo(address(this));
+    //     assertGt(rewardStartAt, 0);
+    //     (, rewardStartAt) = vaultETH.userInfo(address(this));
+    //     assertGt(rewardStartAt, 0);
+    //     (,,uint lastATokenAmt,) = vaultBTC.reward();
+    //     assertLe(lastATokenAmt, 2);
+    //     // (,,lastATokenAmt,) = vaultETH.reward();
+    //     // assertLe(lastATokenAmt, 2);
+    //     assertLe(aWBTC.balanceOf(address(vaultBTC)), 2);
+    //     // assertLe(aWETH.balanceOf(address(vaultETH)), 2);
+    //     assertEq(WBTC.balanceOf(address(vaultBTC)), 0);
+    //     assertEq(WETH.balanceOf(address(vaultETH)), 0);
+    // }
+
+    // function testPauseContract() public {
+    //     deal(address(token0), address(this), 10000e6);
+    //     token0.approve(address(vaultBTC), type(uint).max);
+    //     // // Pause contract and test deposit
+    //     hoax(owner);
+    //     vaultBTC.pauseContract();
+    //     vm.expectRevert(bytes("Pausable: paused"));
+    //     vaultBTC.deposit(token0, 10000e6, 500, 0);
+    //     // Unpause contract and test deposit
+    //     hoax(owner);
+    //     vaultBTC.unPauseContract();
+    //     vaultBTC.deposit(token0, 10000e6, 500, 0);
+    //     vm.roll(block.number + 1);
+    //     // Pause contract and test withdraw
+    //     hoax(owner);
+    //     vaultBTC.pauseContract();
+    //     vaultBTC.withdraw(token0, vaultBTC.getUserBalance(address(this)), 0);
+    // }
+
+    // function testUpgrade() public {
+    //     PbVelo vault_ = new PbVelo();
+    //     startHoax(owner);
+    //     vaultBTC.upgradeTo(address(vault_));
+    //     vaultETH.upgradeTo(address(vault_));
+    // }
+
+    // function testSetter() public {
+    //     startHoax(owner);
+    //     vaultBTC.setYieldFeePerc(1000);
+    //     assertEq(vaultBTC.yieldFeePerc(), 1000);
+    //     vaultBTC.setTreasury(address(1));
+    //     assertEq(vaultBTC.treasury(), address(1));
+    //     vaultETH.setYieldFeePerc(1000);
+    //     assertEq(vaultETH.yieldFeePerc(), 1000);
+    //     vaultETH.setTreasury(address(1));
+    //     assertEq(vaultETH.treasury(), address(1));
+    // }
+
+    // function testAuthorization() public {
+    //     assertEq(vaultBTC.owner(), owner);
+    //     assertEq(vaultETH.owner(), owner);
+    //     // TransferOwnership
+    //     startHoax(owner);
+    //     vaultBTC.transferOwnership(address(1));
+    //     vaultETH.transferOwnership(address(1));
+    //     // Vault
+    //     vm.expectRevert(bytes("Initializable: contract is already initialized"));
+    //     vaultBTC.initialize(IGauge(address(0)), IERC20Upgradeable(address(0)), address(0));
+    //     vm.expectRevert(bytes("Initializable: contract is already initialized"));
+    //     vaultETH.initialize(IGauge(address(0)), IERC20Upgradeable(address(0)), address(0));
+    //     vm.expectRevert(bytes("Ownable: caller is not the owner"));
+    //     vaultBTC.pauseContract();
+    //     vm.expectRevert(bytes("Ownable: caller is not the owner"));
+    //     vaultETH.pauseContract();
+    //     vm.expectRevert(bytes("Ownable: caller is not the owner"));
+    //     vaultBTC.unPauseContract();
+    //     vm.expectRevert(bytes("Ownable: caller is not the owner"));
+    //     vaultETH.unPauseContract();
+    //     vm.expectRevert(bytes("Ownable: caller is not the owner"));
+    //     vaultBTC.upgradeTo(address(0));
+    //     vm.expectRevert(bytes("Ownable: caller is not the owner"));
+    //     vaultETH.upgradeTo(address(0));
+    //     vm.expectRevert(bytes("Ownable: caller is not the owner"));
+    //     vaultBTC.setYieldFeePerc(0);
+    //     vm.expectRevert(bytes("Ownable: caller is not the owner"));
+    //     vaultETH.setYieldFeePerc(0);
+    //     vm.expectRevert(bytes("Ownable: caller is not the owner"));
+    //     vaultBTC.setTreasury(address(0));
+    //     vm.expectRevert(bytes("Ownable: caller is not the owner"));
+    //     vaultETH.setTreasury(address(0));
+    // }
 
     function getSwapPerc(address tokenIn) internal view returns (uint swapPerc) {
         (uint reserveA, uint reserveB) = IPair(address(lpToken)).getReserves();
