@@ -75,9 +75,7 @@ contract FarmCurve is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         usdc.transfer(msg.sender, amountOut);
     }
 
-    function harvest() external payable {
-        require(msg.sender == admin || msg.sender == owner(), "only admin or owner");
-
+    function harvest() external {
         minter.mint(address(gauge)); // to claim crv
         gauge.claim_rewards(); // to claim op
         uint wethAmt;
@@ -121,7 +119,14 @@ contract FarmCurve is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         wethAmt -= fee;
         weth.transfer(treasury, fee);
 
+        emit Harvest(crvAmt, opAmt, wethAmt, fee);
+    }
+
+    function unwrapAndBridge() external payable {
+        require(msg.sender == admin || msg.sender == owner(), "only admin or owner");
+
         // unwrap weth to native eth
+        uint wethAmt = weth.balanceOf(address(this));
         weth.withdraw(wethAmt);
 
         // bridge eth to ethereum
@@ -132,8 +137,6 @@ contract FarmCurve is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             wethAmt, // _amountLD
             wethAmt * 995 / 1000 // _minAmountLD, 0.5% slippage
         );
-
-        emit Harvest(crvAmt, opAmt, wethAmt, fee);
     }
 
     receive() external payable {}
