@@ -48,200 +48,210 @@ contract WETHSETHTest is Test {
         (, aUSDC,,) = vaultUSDC.reward();
     }
 
-    function testDeposit() public {
-        // Deposit token0 for USDC reward
-        uint swapPerc = getSwapPerc(address(token0));
-        (uint amountOut,) = router.getAmountOut(
-            10 ether * swapPerc / 1000, address(token0), address(token1));
-        vaultUSDC.deposit{value: 10 ether}(token0, 10 ether, swapPerc, amountOut * 95 / 100);
-        // console.log(token0.balanceOf(address(this))); // 0.021111462207938377
-        // console.log(token1.balanceOf(address(this))); // 0
-
-        // Deposit token1 for USDC reward
-        // deal(address(token1), address(this), 10 ether);
-        address SETHHolder = 0x12478d1a60a910C9CbFFb90648766a2bDD5918f5;
-        hoax(SETHHolder);
-        token1.transfer(address(this), 10 ether);
-        swapPerc = getSwapPerc(address(token1));
-        token1.approve(address(vaultUSDC), type(uint).max);
-        (amountOut,) = router.getAmountOut(
-            token1.balanceOf(address(this)) * swapPerc / 1000, address(token1), address(token0));
-        vaultUSDC.deposit(token1, token1.balanceOf(address(this)), swapPerc, amountOut * 95 / 100);
-        // console.log(token0.balanceOf(address(this))); // 0.056510491632296631
-        // console.log(token1.balanceOf(address(this))); // 0
-
-        // Deposit LP for USDC reward
-        deal(address(lpToken), address(this), 1 ether);
-        lpToken.approve(address(vaultUSDC), type(uint).max);
-        vaultUSDC.deposit(lpToken, lpToken.balanceOf(address(this)), 0, 0);
-
-        // Assertion check
-        assertGt(vaultUSDC.getUserBalance(address(this)), 0);
-        // console.log(vaultUSDC.getUserBalance(address(this))); // 7.653347766553351280
-        assertGt(vaultUSDC.getUserBalanceInUSD(address(this)), 0);
-        // console.log(vaultUSDC.getUserBalanceInUSD(address(this))); // 39200.428922
-        assertGt(vaultUSDC.getPricePerFullShareInUSD(), 0);
-        // console.log(vaultUSDC.getPricePerFullShareInUSD());
-        assertGt(vaultUSDC.getAllPool(), 0);
-        // console.log(vaultUSDC.getAllPool());
-        assertGt(vaultUSDC.getAllPoolInUSD(), 0);
-        // console.log(vaultUSDC.getAllPoolInUSD());
-        assertEq(token0.balanceOf(address(vaultUSDC)), 0);
-        assertEq(token1.balanceOf(address(vaultUSDC)), 0);
-        assertEq(lpToken.balanceOf(address(vaultUSDC)), 0);
+    function test() public {
+        vaultUSDC.deposit{value: 4 ether}(WETH, 4 ether, getSwapPerc(address(WETH)), 0);
+        // console.log(vaultUSDC.getUserBalanceInUSD(address(this)));
+        console.log(address(token0));
+        console.log(token0.balanceOf(address(this)));
+        console.log(address(token1));
+        console.log(token1.balanceOf(address(this)));
+        // console.log(lpToken.balanceOf(address(this)));
     }
 
-    function testWithdraw() public {
-        testDeposit();
-        vm.roll(block.number + 1);
+    // function testDeposit() public {
+    //     // Deposit token0 for USDC reward
+    //     uint swapPerc = getSwapPerc(address(token0));
+    //     (uint amountOut,) = router.getAmountOut(
+    //         10 ether * swapPerc / 1000, address(token0), address(token1));
+    //     vaultUSDC.deposit{value: 10 ether}(token0, 10 ether, swapPerc, amountOut * 95 / 100);
+    //     // console.log(token0.balanceOf(address(this))); // 0.021111462207938377
+    //     // console.log(token1.balanceOf(address(this))); // 0
 
-        // withdraw LP from USDC reward
-        vaultUSDC.withdraw(lpToken, 1 ether, 0);
+    //     // Deposit token1 for USDC reward
+    //     // deal(address(token1), address(this), 10 ether);
+    //     address SETHHolder = 0x12478d1a60a910C9CbFFb90648766a2bDD5918f5;
+    //     hoax(SETHHolder);
+    //     token1.transfer(address(this), 10 ether);
+    //     swapPerc = getSwapPerc(address(token1));
+    //     token1.approve(address(vaultUSDC), type(uint).max);
+    //     (amountOut,) = router.getAmountOut(
+    //         token1.balanceOf(address(this)) * swapPerc / 1000, address(token1), address(token0));
+    //     vaultUSDC.deposit(token1, token1.balanceOf(address(this)), swapPerc, amountOut * 95 / 100);
+    //     // console.log(token0.balanceOf(address(this))); // 0.056510491632296631
+    //     // console.log(token1.balanceOf(address(this))); // 0
 
-        // // Withdraw token1 from USDC reward
-        uint userBalance = vaultUSDC.getUserBalance(address(this)) / 2;
-        (uint amount0,) = router.quoteRemoveLiquidity(address(token0), address(token1), vaultUSDC.stable(), userBalance);
-        (uint amountOut,) = router.getAmountOut(amount0, address(token0), address(token1));
-        vaultUSDC.withdraw(token1, userBalance, amountOut * 95 / 100);
+    //     // Deposit LP for USDC reward
+    //     deal(address(lpToken), address(this), 1 ether);
+    //     lpToken.approve(address(vaultUSDC), type(uint).max);
+    //     vaultUSDC.deposit(lpToken, lpToken.balanceOf(address(this)), 0, 0);
 
-        // Withdraw token0 from USDC reward
-        uint ethBal = address(this).balance;
-        userBalance = vaultUSDC.getUserBalance(address(this));
-        (,uint amount1) = router.quoteRemoveLiquidity(address(token0), address(token1), vaultUSDC.stable(), userBalance);
-        (amountOut,) = router.getAmountOut(amount1, address(token1), address(token0));
-        vaultUSDC.withdraw(token0, userBalance, amountOut * 95 / 100);
+    //     // Assertion check
+    //     assertGt(vaultUSDC.getUserBalance(address(this)), 0);
+    //     // console.log(vaultUSDC.getUserBalance(address(this))); // 7.653347766553351280
+    //     assertGt(vaultUSDC.getUserBalanceInUSD(address(this)), 0);
+    //     // console.log(vaultUSDC.getUserBalanceInUSD(address(this))); // 39200.428922
+    //     assertGt(vaultUSDC.getPricePerFullShareInUSD(), 0);
+    //     // console.log(vaultUSDC.getPricePerFullShareInUSD());
+    //     assertGt(vaultUSDC.getAllPool(), 0);
+    //     // console.log(vaultUSDC.getAllPool());
+    //     assertGt(vaultUSDC.getAllPoolInUSD(), 0);
+    //     // console.log(vaultUSDC.getAllPoolInUSD());
+    //     assertEq(token0.balanceOf(address(vaultUSDC)), 0);
+    //     assertEq(token1.balanceOf(address(vaultUSDC)), 0);
+    //     assertEq(lpToken.balanceOf(address(vaultUSDC)), 0);
+    // }
 
-        // Assertion check
-        assertEq(vaultUSDC.getAllPool(), 0);
-        assertEq(vaultUSDC.getAllPoolInUSD(), 0);
-        assertEq(vaultUSDC.getUserBalance(address(this)), 0);
-        assertEq(vaultUSDC.getUserBalanceInUSD(address(this)), 0);
-        // console.log(lpToken.balanceOf(address(this))); // 1.000000000000000000
-        // console.log(address(this).balance - ethBal); // 9.998889683603234682
-        // console.log(token1.balanceOf(address(this))); // 9.940934375666410565
-        assertEq(token0.balanceOf(address(vaultUSDC)), 0);
-        assertEq(token1.balanceOf(address(vaultUSDC)), 0);
-        assertEq(address(vaultUSDC).balance, 0);
-        assertEq(lpToken.balanceOf(address(vaultUSDC)), 0);
-        assertGt(address(this).balance - ethBal, 0);
-        // assertGt(token1.balanceOf(address(this)), 0);
-        assertGt(lpToken.balanceOf(address(this)), 0);
-    }
+    // function testWithdraw() public {
+    //     testDeposit();
+    //     vm.roll(block.number + 1);
 
-    receive() external payable {}
+    //     // withdraw LP from USDC reward
+    //     vaultUSDC.withdraw(lpToken, 1 ether, 0);
 
-    function testHarvest() public {
-        testDeposit();
+    //     // // Withdraw token1 from USDC reward
+    //     uint userBalance = vaultUSDC.getUserBalance(address(this)) / 2;
+    //     (uint amount0,) = router.quoteRemoveLiquidity(address(token0), address(token1), vaultUSDC.stable(), userBalance);
+    //     (uint amountOut,) = router.getAmountOut(amount0, address(token0), address(token1));
+    //     vaultUSDC.withdraw(token1, userBalance, amountOut * 95 / 100);
 
-        // Assume reward
-        skip(864000);
-        // deal(address(VELO), address(vaultUSDC), 1000 ether);
-        deal(address(OP), address(vaultUSDC), 13 ether);
+    //     // Withdraw token0 from USDC reward
+    //     uint ethBal = address(this).balance;
+    //     userBalance = vaultUSDC.getUserBalance(address(this));
+    //     (,uint amount1) = router.quoteRemoveLiquidity(address(token0), address(token1), vaultUSDC.stable(), userBalance);
+    //     (amountOut,) = router.getAmountOut(amount1, address(token1), address(token0));
+    //     vaultUSDC.withdraw(token0, userBalance, amountOut * 95 / 100);
 
-        // Harvest
-        vaultUSDC.harvest();
+    //     // Assertion check
+    //     assertEq(vaultUSDC.getAllPool(), 0);
+    //     assertEq(vaultUSDC.getAllPoolInUSD(), 0);
+    //     assertEq(vaultUSDC.getUserBalance(address(this)), 0);
+    //     assertEq(vaultUSDC.getUserBalanceInUSD(address(this)), 0);
+    //     // console.log(lpToken.balanceOf(address(this))); // 1.000000000000000000
+    //     // console.log(address(this).balance - ethBal); // 9.998889683603234682
+    //     // console.log(token1.balanceOf(address(this))); // 9.940934375666410565
+    //     assertEq(token0.balanceOf(address(vaultUSDC)), 0);
+    //     assertEq(token1.balanceOf(address(vaultUSDC)), 0);
+    //     assertEq(address(vaultUSDC).balance, 0);
+    //     assertEq(lpToken.balanceOf(address(vaultUSDC)), 0);
+    //     assertGt(address(this).balance - ethBal, 0);
+    //     // assertGt(token1.balanceOf(address(this)), 0);
+    //     assertGt(lpToken.balanceOf(address(this)), 0);
+    // }
 
-        // Assertion check start
-        assertEq(VELO.balanceOf(address(vaultUSDC)), 0);
-        assertEq(USDC.balanceOf(address(vaultUSDC)), 0);
-        assertGt(aUSDC.balanceOf(address(vaultUSDC)), 0);
-        // console.log(aUSDC.balanceOf(address(vaultUSDC))); // 118550456 127843902
-        assertGt(USDC.balanceOf(owner), 0); // treasury fee
-        (,,uint lastATokenAmt, uint accRewardPerlpToken) = vaultUSDC.reward();
-        assertGt(lastATokenAmt, 0);
-        assertGt(accRewardPerlpToken, 0);
+    // receive() external payable {}
 
-        // Assume aToken increase
-        // aUSDC
-        hoax(0x5F34c530Ffcc091bFb7228B20892612F79361C34);
-        aUSDC.transfer(address(vaultUSDC), 10e6);
-        (,,uint lastATokenAmtUSDC, uint accRewardPerlpTokenUSDC) = vaultUSDC.reward();
-        uint userPendingvaultUSDC = vaultUSDC.getUserPendingReward(address(this));
+    // function testHarvest() public {
+    //     testDeposit();
 
-        // Harvest again
-        vaultUSDC.harvest();
-        // Assertion check
-        (,,lastATokenAmt, accRewardPerlpToken) = vaultUSDC.reward();
-        assertGt(lastATokenAmt, lastATokenAmtUSDC);
-        assertGt(accRewardPerlpToken, accRewardPerlpTokenUSDC);
-        assertGt(vaultUSDC.getUserPendingReward(address(this)), userPendingvaultUSDC);
-        // console.log(userPendingvaultUSDC); // 79.131304
-    }
+    //     // Assume reward
+    //     skip(864000);
+    //     // deal(address(VELO), address(vaultUSDC), 1000 ether);
+    //     deal(address(OP), address(vaultUSDC), 13 ether);
 
-    function testClaim() public {
-        testHarvest();
+    //     // Harvest
+    //     vaultUSDC.harvest();
 
-        // Record variable before claim
-        uint userPendingRewardUSDC = vaultUSDC.getUserPendingReward(address(this));
+    //     // Assertion check start
+    //     assertEq(VELO.balanceOf(address(vaultUSDC)), 0);
+    //     assertEq(USDC.balanceOf(address(vaultUSDC)), 0);
+    //     assertGt(aUSDC.balanceOf(address(vaultUSDC)), 0);
+    //     // console.log(aUSDC.balanceOf(address(vaultUSDC))); // 118550456 127843902
+    //     assertGt(USDC.balanceOf(owner), 0); // treasury fee
+    //     (,,uint lastATokenAmt, uint accRewardPerlpToken) = vaultUSDC.reward();
+    //     assertGt(lastATokenAmt, 0);
+    //     assertGt(accRewardPerlpToken, 0);
 
-        // Reset reward token balance if any
-        deal(address(USDC), address(this), 0);
+    //     // Assume aToken increase
+    //     // aUSDC
+    //     hoax(0x5F34c530Ffcc091bFb7228B20892612F79361C34);
+    //     aUSDC.transfer(address(vaultUSDC), 10e6);
+    //     (,,uint lastATokenAmtUSDC, uint accRewardPerlpTokenUSDC) = vaultUSDC.reward();
+    //     uint userPendingvaultUSDC = vaultUSDC.getUserPendingReward(address(this));
 
-        // Claim
-        vaultUSDC.claim();
+    //     // Harvest again
+    //     vaultUSDC.harvest();
+    //     // Assertion check
+    //     (,,lastATokenAmt, accRewardPerlpToken) = vaultUSDC.reward();
+    //     assertGt(lastATokenAmt, lastATokenAmtUSDC);
+    //     assertGt(accRewardPerlpToken, accRewardPerlpTokenUSDC);
+    //     assertGt(vaultUSDC.getUserPendingReward(address(this)), userPendingvaultUSDC);
+    //     // console.log(userPendingvaultUSDC); // 79.131304
+    // }
 
-        // Assertion check start
-        assertEq(USDC.balanceOf(address(this)), userPendingRewardUSDC);
-        (, uint rewardStartAt) = vaultUSDC.userInfo(address(this));
-        assertGt(rewardStartAt, 0);
-        (,,uint lastATokenAmt,) = vaultUSDC.reward();
-        assertLe(lastATokenAmt, 2);
-        assertLe(aUSDC.balanceOf(address(vaultUSDC)), 2);
-        assertEq(USDC.balanceOf(address(vaultUSDC)), 0);
-    }
+    // function testClaim() public {
+    //     testHarvest();
 
-    function testPauseContract() public {
-        deal(address(token0), address(this), 10 ether);
-        token0.approve(address(vaultUSDC), type(uint).max);
-        // // Pause contract and test deposit
-        hoax(owner);
-        vaultUSDC.pauseContract();
-        vm.expectRevert(bytes("Pausable: paused"));
-        vaultUSDC.deposit(token0, 10 ether, 500, 0);
-        // Unpause contract and test deposit
-        hoax(owner);
-        vaultUSDC.unPauseContract();
-        vaultUSDC.deposit(token0, 10 ether, 500, 0);
-        vm.roll(block.number + 1);
-        // Pause contract and test withdraw
-        hoax(owner);
-        vaultUSDC.pauseContract();
-        vaultUSDC.withdraw(token0, vaultUSDC.getUserBalance(address(this)), 0);
-    }
+    //     // Record variable before claim
+    //     uint userPendingRewardUSDC = vaultUSDC.getUserPendingReward(address(this));
 
-    function testUpgrade() public {
-        PbVelo vault_ = new PbVelo();
-        startHoax(owner);
-        vaultUSDC.upgradeTo(address(vault_));
-    }
+    //     // Reset reward token balance if any
+    //     deal(address(USDC), address(this), 0);
 
-    function testSetter() public {
-        startHoax(owner);
-        vaultUSDC.setYieldFeePerc(1000);
-        assertEq(vaultUSDC.yieldFeePerc(), 1000);
-        vaultUSDC.setTreasury(address(1));
-        assertEq(vaultUSDC.treasury(), address(1));
-    }
+    //     // Claim
+    //     vaultUSDC.claim();
 
-    function testAuthorization() public {
-        assertEq(vaultUSDC.owner(), owner);
-        // TransferOwnership
-        startHoax(owner);
-        vaultUSDC.transferOwnership(address(1));
-        // Vault
-        vm.expectRevert(bytes("Initializable: contract is already initialized"));
-        vaultUSDC.initialize(IGauge(address(0)), IERC20Upgradeable(address(0)), address(0));
-        vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        vaultUSDC.pauseContract();
-        vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        vaultUSDC.unPauseContract();
-        vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        vaultUSDC.upgradeTo(address(0));
-        vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        vaultUSDC.setYieldFeePerc(0);
-        vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        vaultUSDC.setTreasury(address(0));
-    }
+    //     // Assertion check start
+    //     assertEq(USDC.balanceOf(address(this)), userPendingRewardUSDC);
+    //     (, uint rewardStartAt) = vaultUSDC.userInfo(address(this));
+    //     assertGt(rewardStartAt, 0);
+    //     (,,uint lastATokenAmt,) = vaultUSDC.reward();
+    //     assertLe(lastATokenAmt, 2);
+    //     assertLe(aUSDC.balanceOf(address(vaultUSDC)), 2);
+    //     assertEq(USDC.balanceOf(address(vaultUSDC)), 0);
+    // }
+
+    // function testPauseContract() public {
+    //     deal(address(token0), address(this), 10 ether);
+    //     token0.approve(address(vaultUSDC), type(uint).max);
+    //     // // Pause contract and test deposit
+    //     hoax(owner);
+    //     vaultUSDC.pauseContract();
+    //     vm.expectRevert(bytes("Pausable: paused"));
+    //     vaultUSDC.deposit(token0, 10 ether, 500, 0);
+    //     // Unpause contract and test deposit
+    //     hoax(owner);
+    //     vaultUSDC.unPauseContract();
+    //     vaultUSDC.deposit(token0, 10 ether, 500, 0);
+    //     vm.roll(block.number + 1);
+    //     // Pause contract and test withdraw
+    //     hoax(owner);
+    //     vaultUSDC.pauseContract();
+    //     vaultUSDC.withdraw(token0, vaultUSDC.getUserBalance(address(this)), 0);
+    // }
+
+    // function testUpgrade() public {
+    //     PbVelo vault_ = new PbVelo();
+    //     startHoax(owner);
+    //     vaultUSDC.upgradeTo(address(vault_));
+    // }
+
+    // function testSetter() public {
+    //     startHoax(owner);
+    //     vaultUSDC.setYieldFeePerc(1000);
+    //     assertEq(vaultUSDC.yieldFeePerc(), 1000);
+    //     vaultUSDC.setTreasury(address(1));
+    //     assertEq(vaultUSDC.treasury(), address(1));
+    // }
+
+    // function testAuthorization() public {
+    //     assertEq(vaultUSDC.owner(), owner);
+    //     // TransferOwnership
+    //     startHoax(owner);
+    //     vaultUSDC.transferOwnership(address(1));
+    //     // Vault
+    //     vm.expectRevert(bytes("Initializable: contract is already initialized"));
+    //     vaultUSDC.initialize(IGauge(address(0)), IERC20Upgradeable(address(0)), address(0));
+    //     vm.expectRevert(bytes("Ownable: caller is not the owner"));
+    //     vaultUSDC.pauseContract();
+    //     vm.expectRevert(bytes("Ownable: caller is not the owner"));
+    //     vaultUSDC.unPauseContract();
+    //     vm.expectRevert(bytes("Ownable: caller is not the owner"));
+    //     vaultUSDC.upgradeTo(address(0));
+    //     vm.expectRevert(bytes("Ownable: caller is not the owner"));
+    //     vaultUSDC.setYieldFeePerc(0);
+    //     vm.expectRevert(bytes("Ownable: caller is not the owner"));
+    //     vaultUSDC.setTreasury(address(0));
+    // }
 
     function getSwapPerc(address tokenIn) internal view returns (uint swapPerc) {
         (uint reserveA, uint reserveB) = IPair(address(lpToken)).getReserves();
