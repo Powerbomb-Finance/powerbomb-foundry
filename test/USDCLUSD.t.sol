@@ -54,9 +54,9 @@ contract USDCLUSDTest is Test {
         // );
         // vaultETH = PbVelo(payable(address(proxy)));
         vaultETH = PbVelo(payable(0xf12a8E2Fd857B134381c1B9F6027D4F0eE05295A));
-        // PbVelo vaultImpl = new PbVelo();
-        // hoax(owner);
-        // vaultETH.upgradeTo(address(vaultImpl));
+        PbVelo vaultImpl = new PbVelo();
+        hoax(owner);
+        vaultETH.upgradeTo(address(vaultImpl));
 
         token0 = IERC20Upgradeable(vaultBTC.token0());
         token1 = IERC20Upgradeable(vaultBTC.token1());
@@ -71,10 +71,8 @@ contract USDCLUSDTest is Test {
         usdc.approve(address(vaultETH), type(uint).max);
         vaultETH.deposit(usdc, 5000e6, getSwapPerc(address(usdc)), 0);
         // console.log(vaultETH.getUserBalanceInUSD(address(this)));
-        console.log(address(token0));
-        console.log(token0.balanceOf(address(this)));
-        console.log(address(token1));
-        console.log(token1.balanceOf(address(this)));
+        console.log(token0.balanceOf(address(this))); // 1
+        console.log(token1.balanceOf(address(this))); // 5.712829746101412048
         // console.log(lpToken.balanceOf(address(this)));
     }
 

@@ -54,9 +54,9 @@ contract USDCMAITest is Test {
         // );
         // vaultETH = PbVelo(payable(address(proxy)));
         vaultETH = PbVelo(payable(0x3BD8d78d77dfA391c5F73c10aDeaAdD9a7f7198C));
-        // PbVelo vaultImpl = new PbVelo();
-        // hoax(owner);
-        // vaultETH.upgradeTo(address(vaultImpl));
+        PbVelo vaultImpl = new PbVelo();
+        hoax(owner);
+        vaultETH.upgradeTo(address(vaultImpl));
 
         token0 = IERC20Upgradeable(vaultBTC.token0());
         token1 = IERC20Upgradeable(vaultBTC.token1());
@@ -71,10 +71,8 @@ contract USDCMAITest is Test {
         usdc.approve(address(vaultETH), type(uint).max);
         vaultETH.deposit(usdc, 5000e6, getSwapPerc(address(usdc)), 0);
         // console.log(vaultETH.getUserBalanceInUSD(address(this)));
-        console.log(address(token0));
-        console.log(token0.balanceOf(address(this)));
-        console.log(address(token1));
-        console.log(token1.balanceOf(address(this)));
+        console.log(token0.balanceOf(address(this))); // 2.288304
+        console.log(token1.balanceOf(address(this))); // 1
         // console.log(lpToken.balanceOf(address(this)));
     }
 

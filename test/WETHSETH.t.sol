@@ -41,6 +41,9 @@ contract WETHSETHTest is Test {
         // );
         // vaultUSDC = PbVelo(payable(address(proxy)));
         vaultUSDC = PbVelo(payable(0xcba7864134e1A5326b817676ad5302A009c84d68));
+        PbVelo vaultImpl = new PbVelo();
+        hoax(owner);
+        vaultUSDC.upgradeTo(address(vaultImpl));
 
         token0 = IERC20Upgradeable(vaultUSDC.token0());
         token1 = IERC20Upgradeable(vaultUSDC.token1());
@@ -51,10 +54,8 @@ contract WETHSETHTest is Test {
     function test() public {
         vaultUSDC.deposit{value: 4 ether}(WETH, 4 ether, getSwapPerc(address(WETH)), 0);
         // console.log(vaultUSDC.getUserBalanceInUSD(address(this)));
-        console.log(address(token0));
-        console.log(token0.balanceOf(address(this)));
-        console.log(address(token1));
-        console.log(token1.balanceOf(address(this)));
+        console.log(token0.balanceOf(address(this))); // 1
+        console.log(token1.balanceOf(address(this))); // 0.001986591509056049
         // console.log(lpToken.balanceOf(address(this)));
     }
 

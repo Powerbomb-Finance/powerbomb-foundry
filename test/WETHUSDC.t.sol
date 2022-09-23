@@ -57,9 +57,9 @@ contract WETHUSDCTest is Test {
         // );
         // vaultETH = PbVelo(payable(address(proxy)));
         vaultETH = PbVelo(payable(0xd0f9990a611018b5b30BFE1C5433bf5bba2a9868));
-        // PbVelo vaultImpl = new PbVelo();
-        // hoax(owner);
-        // vaultETH.upgradeTo(address(vaultImpl));
+        PbVelo vaultImpl = new PbVelo();
+        hoax(owner);
+        vaultETH.upgradeTo(address(vaultImpl));
 
         // proxy = new PbProxy(
         //     address(vaultImpl),
@@ -91,9 +91,7 @@ contract WETHUSDCTest is Test {
         usdc.approve(address(vaultETH), type(uint).max);
         vaultETH.deposit(usdc, 5000e6, getSwapPerc(address(usdc)), 0);
         // console.log(vaultETH.getUserBalanceInUSD(address(this)));
-        console.log(address(token0));
         console.log(token0.balanceOf(address(this)));
-        console.log(address(token1));
         console.log(token1.balanceOf(address(this)));
         // console.log(lpToken.balanceOf(address(this)));
     }

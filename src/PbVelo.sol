@@ -103,47 +103,160 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         require(token == token0 || token == token1 || token == lpToken, "Invalid token");
         require(amount > 0, "Invalid amount");
 
+        // harvest before new deposit
         uint currentPool = getAllPool();
         if (currentPool > 0) harvest();
 
+        // record for calculate leftover
         uint token0AmtBef = token0.balanceOf(address(this));
         uint token1AmtBef = token1.balanceOf(address(this));
 
         if (msg.value != 0) {
+            // eth deposit, wrap into weth
             require(token == WETH, "WETH only for ETH deposit");
             require(amount == msg.value, "Invalid ETH amount");
             WETH.deposit{value: msg.value}();
         } else {
+            // normal token deposit
             token.safeTransferFrom(msg.sender, address(this), amount);
         }
+        // record this to prevent deposit & withdraw in 1 tx
         depositedBlock[msg.sender] = block.number;
 
         uint lpTokenAmt;
         if (token != lpToken) {
             (uint amountA, uint amountB) = (0, 0);
             if (token == token0) {
+                // swap token0 to token1 based on swapPerc
                 amountA = amount * swapPerc / 1000;
                 amountB = swap(address(token0), address(token1), stable, amountA, amountOutMin);
                 amountA = amount - amountA;
             } else {
+                // swap token1 to token0 based on swapPerc
                 amountB = amount * swapPerc / 1000;
                 amountA = swap(address(token1), address(token0), stable, amountB, amountOutMin);
                 amountB = amount - amountB;
             }
-            (,,lpTokenAmt) = router.addLiquidity(
+            // add liquidity
+            (,, lpTokenAmt) = router.addLiquidity(
                 address(token0), address(token1), stable, amountA, amountB, 0, 0, address(this), block.timestamp
             );
 
-            uint token0AmtLeft = token0.balanceOf(address(this)) - token0AmtBef;
-            if (token0AmtLeft > 0) token0.safeTransfer(msg.sender, token0AmtLeft);
-            uint token1AmtLeft = token1.balanceOf(address(this)) - token1AmtBef;
-            if (token1AmtLeft > 0) token1.safeTransfer(msg.sender, token1AmtLeft);
+            // check if any leftover
+            {
+                uint token0AmtLeft = token0.balanceOf(address(this)) - token0AmtBef;
+                uint token1AmtLeft = token1.balanceOf(address(this)) - token1AmtBef;
+                if (token0AmtLeft > 0) {
+                    if (stable) {
+                        if (token0 == USDC || token1 == USDC) {
+                            if (token0AmtLeft > 10 * 10 ** uint(IERC20MetadataUpgradeable(address(token0)).decimals())) {
+                                // leftover for token0 > 10 USD, redo swap & add liquidity
+                                uint halfAmt0 = token0AmtLeft / 2; // swap half to token1
+                                uint amt1 = swap(address(token0), address(token1), stable, halfAmt0, 0);
+                                (,, uint _lpTokenAmt) = router.addLiquidity(
+                                    address(token0), address(token1), stable, halfAmt0, amt1, 0, 0, address(this), block.timestamp
+                                );
+                                // increase lpTokenAmt
+                                lpTokenAmt += _lpTokenAmt;
+                                // check leftover again and return to msg.sender if any
+                                uint token0AmtLeft_ = token0.balanceOf(address(this)) - token0AmtBef;
+                                if (token0AmtLeft_ > 0) token0.safeTransfer(msg.sender, token0AmtLeft_);
+                                uint token1AmtLeft_ = token1.balanceOf(address(this)) - token1AmtBef;
+                                if (token1AmtLeft_ > 0) token1.safeTransfer(msg.sender, token1AmtLeft_);
+
+                            } else {
+                                // leftover < 10 USD, return to msg.sender
+                                token0.safeTransfer(msg.sender, token0AmtLeft);
+                            }
+
+                        } else if (token0 == WETH || token1 == WETH) {
+                            (uint usdcAmt,) = router.getAmountOut(token0AmtLeft, address(WETH), address(USDC));
+                            if (usdcAmt > 10e6) {
+                                // leftover for token0 > 10 USD, redo swap & add liquidity
+                                uint halfAmt0 = token0AmtLeft / 2; // swap half to token1
+                                uint amt1 = swap(address(token0), address(token1), stable, halfAmt0, 0);
+                                (,, uint _lpTokenAmt) = router.addLiquidity(
+                                    address(token0), address(token1), stable, halfAmt0, amt1, 0, 0, address(this), block.timestamp
+                                );
+                                // increase lpTokenAmt
+                                lpTokenAmt += _lpTokenAmt;
+                                // check leftover again and return to msg.sender if any
+                                uint token0AmtLeft_ = token0.balanceOf(address(this)) - token0AmtBef;
+                                if (token0AmtLeft_ > 0) token0.safeTransfer(msg.sender, token0AmtLeft_);
+                                uint token1AmtLeft_ = token1.balanceOf(address(this)) - token1AmtBef;
+                                if (token1AmtLeft_ > 0) token1.safeTransfer(msg.sender, token1AmtLeft_);
+                            }
+
+                        } else {
+                            // not pair with usdc or weth, just return leftover to msg.sender
+                            token0.safeTransfer(msg.sender, token0AmtLeft);
+                        }
+
+                    } else { // not stable pair, just return leftover to msg.sender
+                        token0.safeTransfer(msg.sender, token0AmtLeft);
+                    }
+                }
+
+                if (token1AmtLeft > 0) {
+                    if (stable) {
+                        if (token0 == USDC || token1 == USDC) {
+                            if (token1AmtLeft > 10 * 10 ** uint(IERC20MetadataUpgradeable(address(token1)).decimals())) {
+                                // leftover for token1 > 10 USD, redo swap & add liquidity
+                                uint halfAmt1 = token1AmtLeft / 2; // swap half to token0
+                                uint amt0 = swap(address(token1), address(token0), stable, halfAmt1, 0);
+                                (,, uint _lpTokenAmt) = router.addLiquidity(
+                                    address(token0), address(token1), stable, amt0, halfAmt1, 0, 0, address(this), block.timestamp
+                                );
+                                // increase lpTokenAmt
+                                lpTokenAmt += _lpTokenAmt;
+                                // check leftover again and return to msg.sender if any
+                                uint token0AmtLeft_ = token0.balanceOf(address(this)) - token0AmtBef;
+                                if (token0AmtLeft_ > 0) token0.safeTransfer(msg.sender, token0AmtLeft_);
+                                uint token1AmtLeft_ = token1.balanceOf(address(this)) - token1AmtBef;
+                                if (token1AmtLeft_ > 0) token1.safeTransfer(msg.sender, token1AmtLeft_);
+
+                            } else {
+                                // leftover < 10 USD, return to msg.sender
+                                token1.safeTransfer(msg.sender, token1AmtLeft);
+                            }
+
+                        } else if (token0 == WETH || token1 == WETH) {
+                            (uint usdcAmt,) = router.getAmountOut(token1AmtLeft, address(WETH), address(USDC));
+                            if (usdcAmt > 10e6) {
+                                // leftover for token1 > 10 USD, redo swap & add liquidity
+                                uint halfAmt1 = token1AmtLeft / 2; // swap half to token0
+                                uint amt0 = swap(address(token1), address(token0), stable, halfAmt1, 0);
+                                (,, uint _lpTokenAmt) = router.addLiquidity(
+                                    address(token0), address(token1), stable, amt0, halfAmt1, 0, 0, address(this), block.timestamp
+                                );
+                                // increase lpTokenAmt
+                                lpTokenAmt += _lpTokenAmt;
+                                // check leftover again and return to msg.sender if any
+                                uint token0AmtLeft_ = token0.balanceOf(address(this)) - token0AmtBef;
+                                if (token0AmtLeft_ > 0) token0.safeTransfer(msg.sender, token0AmtLeft_);
+                                uint token1AmtLeft_ = token1.balanceOf(address(this)) - token1AmtBef;
+                                if (token1AmtLeft_ > 0) token1.safeTransfer(msg.sender, token1AmtLeft_);
+                            }
+
+                        } else {
+                            // not pair with usdc or weth, just return leftover to msg.sender
+                            token1.safeTransfer(msg.sender, token1AmtLeft);
+                        }
+
+                    } else { // not stable pair, just return leftover to msg.sender
+                        token1.safeTransfer(msg.sender, token1AmtLeft);
+                    }
+                }
+            }
 
         } else {
+            // deposit lp token
             lpTokenAmt = amount;
         }
 
+        // deposit lp token into gauge
         gauge.deposit(lpTokenAmt, 0);
+        // record user state
         User storage user = userInfo[msg.sender];
         user.lpTokenBalance += lpTokenAmt;
         user.rewardStartAt += (lpTokenAmt * reward.accRewardPerlpToken / 1e36);
