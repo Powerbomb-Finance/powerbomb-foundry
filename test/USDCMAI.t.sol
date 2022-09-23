@@ -67,11 +67,11 @@ contract USDCMAITest is Test {
 
     function test() public {
         IERC20Upgradeable usdc = IERC20Upgradeable(0x7F5c764cBc14f9669B88837ca1490cCa17c31607);
-        deal(address(usdc), address(this), 5000e6);
+        deal(address(usdc), address(this), 100000e6);
         usdc.approve(address(vaultETH), type(uint).max);
-        vaultETH.deposit(usdc, 5000e6, getSwapPerc(address(usdc)), 0);
+        vaultETH.deposit(usdc, 100000e6, getSwapPerc(address(usdc)), 0);
         // console.log(vaultETH.getUserBalanceInUSD(address(this)));
-        console.log(token0.balanceOf(address(this))); // 2.288304
+        console.log(token0.balanceOf(address(this))); // 241.468400
         console.log(token1.balanceOf(address(this))); // 1
         // console.log(lpToken.balanceOf(address(this)));
     }

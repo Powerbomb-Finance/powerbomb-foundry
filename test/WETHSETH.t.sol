@@ -52,10 +52,10 @@ contract WETHSETHTest is Test {
     }
 
     function test() public {
-        vaultUSDC.deposit{value: 4 ether}(WETH, 4 ether, getSwapPerc(address(WETH)), 0);
+        vaultUSDC.deposit{value: 67 ether}(WETH, 67 ether, getSwapPerc(address(WETH)), 0);
         // console.log(vaultUSDC.getUserBalanceInUSD(address(this)));
-        console.log(token0.balanceOf(address(this))); // 1
-        console.log(token1.balanceOf(address(this))); // 0.001986591509056049
+        console.log(token0.balanceOf(address(this))); // 0
+        console.log(token1.balanceOf(address(this))); // 0.096089631088693583
         // console.log(lpToken.balanceOf(address(this)));
     }
 

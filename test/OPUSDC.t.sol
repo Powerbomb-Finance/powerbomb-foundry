@@ -57,9 +57,9 @@ contract OPUSDCTest is Test {
         // );
         // vaultETH = PbVelo(payable(address(proxy)));
         vaultETH = PbVelo(payable(0xFAcB839BF8f09f2e7B4b6C83349B5bbFD62fd659));
-        // PbVelo vaultImpl = new PbVelo();
-        // hoax(owner);
-        // vaultETH.upgradeTo(address(vaultImpl));
+        PbVelo vaultImpl = new PbVelo();
+        hoax(owner);
+        vaultETH.upgradeTo(address(vaultImpl));
 
         // proxy = new PbProxy(
         //     address(vaultImpl),
@@ -72,9 +72,9 @@ contract OPUSDCTest is Test {
         // );
         // vaultUSDC = PbVelo(payable(address(proxy)));
         vaultUSDC = PbVelo(payable(0x176CC5Ff9BDBf4daFB955003E6f8229f47Ef1E55));
-        PbVelo vaultImpl = new PbVelo();
-        hoax(owner);
-        vaultUSDC.upgradeTo(address(vaultImpl));
+        // PbVelo vaultImpl = new PbVelo();
+        // hoax(owner);
+        // vaultUSDC.upgradeTo(address(vaultImpl));
 
         token0 = IERC20Upgradeable(vaultBTC.token0());
         token1 = IERC20Upgradeable(vaultBTC.token1());
@@ -90,11 +90,11 @@ contract OPUSDCTest is Test {
 
     function test() public {
         IERC20Upgradeable usdc = IERC20Upgradeable(0x7F5c764cBc14f9669B88837ca1490cCa17c31607);
-        deal(address(usdc), address(this), 5000e6);
+        deal(address(usdc), address(this), 100000e6);
         usdc.approve(address(vaultETH), type(uint).max);
-        vaultETH.deposit(usdc, 5000e6, getSwapPerc(address(usdc)), 0);
+        vaultETH.deposit(usdc, 100000e6, getSwapPerc(address(usdc)), 0);
         // console.log(vaultETH.getUserBalanceInUSD(address(this)));
-        console.log(token0.balanceOf(address(this))); // 2.404303602682398848
+        console.log(token0.balanceOf(address(this))); // 1136.747654887152060979
         console.log(token1.balanceOf(address(this)));
         // console.log(lpToken.balanceOf(address(this)));
     }
