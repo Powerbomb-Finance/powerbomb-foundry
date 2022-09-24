@@ -33,21 +33,6 @@ contract FarmCurve is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     address public treasury;
     uint public yieldFeePerc;
 
-    struct User {
-        uint depositBal; // deposit balance without slippage, for calculate ticket
-        uint lpTokenBal; // lpToken amount owned after deposit into farm
-        uint ticketBal;
-        uint lastUpdateTimestamp;
-    }
-    mapping(address => User) public userInfo;
-
-    struct Seat {
-        address user;
-        uint from;
-        uint to;
-    }
-    Seat[] public seats;
-
     event Harvest(uint crvAmt, uint opAmt, uint wethAmt, uint fee);
     event SetAdmin(address _admin);
     event SetVault(address _vault);
