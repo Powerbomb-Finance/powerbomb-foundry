@@ -12,26 +12,26 @@ contract Deploy is Script {
     function run() public {
         vm.startBroadcast();
 
-        FarmCurve farm = new FarmCurve();
-        PbProxy farmProxy = new PbProxy(
-            address(farm),
-            abi.encodeWithSelector(bytes4(keccak256("initialize()")))
-        );
-        farm = FarmCurve(payable(address(farmProxy)));
-        console.log("farm:", address(farm));
+        // FarmCurve farm = new FarmCurve();
+        // PbProxy farmProxy = new PbProxy(
+        //     address(farm),
+        //     abi.encodeWithSelector(bytes4(keccak256("initialize()")))
+        // );
+        // farm = FarmCurve(payable(address(farmProxy)));
+        // console.log("farm:", address(farm));
 
-        PengTogether vault = new PengTogether();
-        PbProxy vaultProxy = new PbProxy(
-            address(vault),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address)")),
-                address(farm)
-            )
-        );
-        vault = PengTogether(address(vaultProxy));
-        console.log("vault:", address(vault));
+        // PengTogether vault = new PengTogether();
+        // PbProxy vaultProxy = new PbProxy(
+        //     address(vault),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(address)")),
+        //         address(farm)
+        //     )
+        // );
+        // vault = PengTogether(address(vaultProxy));
+        // console.log("vault:", address(vault));
 
-        farm.setVault(address(vault));
+        // farm.setVault(address(vault));
 
 
         // address pengTogetherVault = 0x1EFB578eCe71D99f5994a79815aA09A8f87F7429;

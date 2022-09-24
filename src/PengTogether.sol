@@ -8,64 +8,56 @@ import "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import "openzeppelin-contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-import "interface/IFarm.sol";
-import "interface/ILayerZeroEndpoint.sol";
 import "../interface/IZap.sol";
 import "../interface/IMinter.sol";
 import "../interface/IPool.sol";
 import "../interface/IGauge.sol";
 import "../interface/ISwapRouter.sol";
 import "../interface/IRecord.sol";
+import "../interface/IWETH.sol";
+import "../interface/IStargateRouterETH.sol";
 
 contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
 
     IERC20Upgradeable constant usdc = IERC20Upgradeable(0x7F5c764cBc14f9669B88837ca1490cCa17c31607);
-    ILayerZeroEndpoint constant lzEndpoint = ILayerZeroEndpoint(0x3c2269811836af69497E5F486A85D7316753cf62);
+    IERC20Upgradeable constant crv = IERC20Upgradeable(0x0994206dfE8De6Ec6920FF4D779B0d950605Fb53);
+    IERC20Upgradeable constant op = IERC20Upgradeable(0x4200000000000000000000000000000000000042);
+    IWETH constant weth = IWETH(0x4200000000000000000000000000000000000006);
     IPool constant pool = IPool(0x061b87122Ed14b9526A813209C8a59a633257bAb);
+    IERC20Upgradeable constant lpToken = IERC20Upgradeable(0x061b87122Ed14b9526A813209C8a59a633257bAb);
     IZap constant zap = IZap(0x167e42a1C7ab4Be03764A2222aAC57F5f6754411);
     IGauge constant gauge = IGauge(0xc5aE4B5F86332e70f3205a8151Ee9eD9F71e0797);
-    IRecord public record;
-
-    struct User {
-        uint depositBal; // deposit balance without slippage, for calculate ticket
-        uint lpTokenBal; // lpToken amount owned after deposit into farm
-        uint ticketBal;
-        uint lastUpdateTimestamp;
-    }
-    mapping(address => User) public userInfo;
+    IMinter constant minter = IMinter(0xabC000d88f23Bb45525E447528DBF656A9D55bf5);
+    ISwapRouter constant swapRouter = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
+    IStargateRouterETH constant stargateRouterETH = IStargateRouterETH(0xB49c4e680174E331CB0A7fF3Ab58afC9738d5F8b);
     mapping(address => uint) internal depositedBlock;
-
-    struct Seat {
-        address user;
-        uint from;
-        uint to;
-    }
-    Seat[] public seats;
-
-    uint private lastSeat;
-    bool public luckyDrawInProgress;
+    uint public yieldFeePerc;
+    address public treasury;
+    IRecord public record;
+    address public reward; // on ethereum
     address public admin;
-    IFarm public farm;
 
     event Deposit(address indexed user, uint amount, uint lpTokenAmt);
     event Withdraw(address indexed user, uint amount, uint lpTokenAmt, uint actualAmt);
-    event UpdateTicketAmount(address indexed user, uint depositHour, uint depositInHundred);
-    event LuckyDrawInProgress(bool inProgress);
-    event PlaceSeat(address indexed user, uint from, uint to, uint seatIndex);
-    event SetWinnerAndRestartRound(address winner);
-    event SetFarm(address farm);
+    event Harvest(uint crvAmt, uint opAmt, uint wethAmt, uint fee);
     event SetAdmin(address admin);
-
-    modifier onlyAuthorized {
-        require(msg.sender == admin || msg.sender == owner(), "only authorized");
-        _;
-    }
+    event SetTreasury(address _treasury);
+    event SetReward(address _reward);
+    event SetYieldFeePerc(uint _yieldFeePerc);
 
     function initialize(IRecord _record) external initializer {
         __Ownable_init();
 
         admin = msg.sender;
+        treasury = msg.sender;
+        yieldFeePerc = 1000;
         record = _record;
+
+        usdc.approve(address(zap), type(uint).max);
+        lpToken.approve(address(gauge), type(uint).max);
+        lpToken.approve(address(zap), type(uint).max);
+        crv.approve(address(swapRouter), type(uint).max);
+        op.approve(address(swapRouter), type(uint).max);
     }
 
     function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin) external nonReentrant whenNotPaused {
@@ -74,22 +66,12 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
 
         usdc.transferFrom(msg.sender, address(this), amount);
 
-        // uint lpTokenAmt = farm.deposit(amount, amountOutMin);
         uint[4] memory amounts;
         amounts[2] = amount;
         uint lpTokenAmt = zap.add_liquidity(address(pool), amounts, amountOutMin);
         gauge.deposit(lpTokenAmt);
 
-        // User storage user = userInfo[msg.sender];
-        // if (user.lastUpdateTimestamp == 0) { // first record
-        //     user.lastUpdateTimestamp = block.timestamp;
-        // } else {
-        //     _updateTicketAmount(msg.sender);
-        // }
-        // user.depositBal += amount; // must after update ticket
-        // user.lpTokenBal += lpTokenAmt;
-
-        updateUser(true, msg.sender, amount, lpTokenAmt);
+        record.updateUser(true, msg.sender, amount, lpTokenAmt);
         depositedBlock[msg.sender] = block.number;
 
         emit Deposit(msg.sender, amount, lpTokenAmt);
@@ -97,91 +79,86 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
 
     function withdraw(IERC20Upgradeable token, uint amount, uint amountOutMin) external nonReentrant {
         require(token == usdc, "usdc only");
-        User storage user = userInfo[msg.sender];
-        require(user.depositBal >= amount, "amount > depositBal");
+        (uint depositBal, uint lpTokenBal,,) = record.userInfo(msg.sender);
+        require(depositBal >= amount, "amount > depositBal");
         require(depositedBlock[msg.sender] != block.number, "same block deposit withdraw");
 
-        _updateTicketAmount(msg.sender);
+        uint withdrawPerc = amount * 1e18 / depositBal;
+        uint lpTokenAmt = lpTokenBal * withdrawPerc / 1e18;
+        gauge.withdraw(lpTokenAmt);
+        uint actualAmt = zap.remove_liquidity_one_coin(address(pool), lpTokenAmt, 2, amountOutMin);
 
-        uint withdrawPerc = amount * 1e18 / user.depositBal;
-        uint lpTokenAmt = user.lpTokenBal * withdrawPerc / 1e18;
-        uint actualAmt = farm.withdraw(lpTokenAmt, amountOutMin);
-
-        user.lpTokenBal -= lpTokenAmt;
-        user.depositBal -= amount;
+        record.updateUser(false, msg.sender, amount, lpTokenAmt);
 
         usdc.transfer(msg.sender, actualAmt);
         emit Withdraw(msg.sender, amount, lpTokenAmt, actualAmt);
     }
 
-    // function updateTicketAmount() external {
-    //     _updateTicketAmount(msg.sender);
-    // }
+    function harvest() external {
+        minter.mint(address(gauge)); // to claim crv
+        gauge.claim_rewards(); // to claim op
+        uint wethAmt;
 
-    function _updateTicketAmount(address _user) private {
-        User storage user = userInfo[_user];
-        uint depositHour = (block.timestamp - user.lastUpdateTimestamp) / 3600;
-        uint depositInHundred = user.depositBal / 100e6;
-        if (depositHour > 0 && depositInHundred > 0) {
-            user.ticketBal += depositHour * depositInHundred; // 1 deposit hour * $100 = 1 ticket
-            user.lastUpdateTimestamp = block.timestamp;
-
-            emit UpdateTicketAmount(_user, depositHour, depositInHundred);
+        // swap crv to weth
+        uint crvAmt = crv.balanceOf(address(this));
+        if (crvAmt > 1 ether) {
+            wethAmt = swapRouter.exactInputSingle(
+                ISwapRouter.ExactInputSingleParams({
+                    tokenIn: address(crv),
+                    tokenOut: address(weth),
+                    fee: 3000,
+                    recipient: address(this),
+                    deadline: block.timestamp,
+                    amountIn: crvAmt,
+                    amountOutMinimum: 0,
+                    sqrtPriceLimitX96: 0
+                })
+            );
         }
+
+        // swap op to weth
+        uint opAmt = op.balanceOf(address(this));
+        if (opAmt > 1 ether) {
+            wethAmt += swapRouter.exactInputSingle(
+                ISwapRouter.ExactInputSingleParams({
+                    tokenIn: address(op),
+                    tokenOut: address(weth),
+                    fee: 3000,
+                    recipient: address(this),
+                    deadline: block.timestamp,
+                    amountIn: opAmt,
+                    amountOutMinimum: 0,
+                    sqrtPriceLimitX96: 0
+                })
+            );
+        }
+
+        // collect fee
+        uint fee = wethAmt * yieldFeePerc / 10000;
+        wethAmt -= fee;
+        weth.transfer(treasury, fee);
+
+        emit Harvest(crvAmt, opAmt, wethAmt, fee);
     }
 
-    // function placeSeat() external nonReentrant whenNotPaused {
-    //     require(!luckyDrawInProgress, "lucky draw in progress");
-    //     _placeSeat(msg.sender);
-    // }
+    function unwrapAndBridge() external payable {
+        require(msg.sender == admin || msg.sender == owner(), "only admin or owner");
 
-    ///@notice only call this function when ready to lucky draw
-    function placeSeat(address[] calldata users) external payable onlyAuthorized {
+        // unwrap weth to native eth
+        uint wethAmt = weth.balanceOf(address(this));
+        weth.withdraw(wethAmt);
 
-        for (uint i; i < users.length; i++) {
-            _placeSeat(users[i]);
-        }
-
-        luckyDrawInProgress = true;
-        emit LuckyDrawInProgress(true);
-
-        lzEndpoint.send{value: msg.value}(
+        // bridge eth to ethereum
+        stargateRouterETH.swapETH{value: msg.value + wethAmt}(
             101, // _dstChainId
-            abi.encodePacked(farm.reward(), address(this)), // _path
-            abi.encode(lastSeat, address(0)), // _payload
-            payable(admin), // _refundAddress
-            address(0), // _zroPaymentAddress
-            bytes("") // _adapterParams
+            admin, // _refundAddress
+            abi.encodePacked(reward), // _toAddress
+            wethAmt, // _amountLD
+            wethAmt * 995 / 1000 // _minAmountLD, 0.5% slippage
         );
     }
 
-    function _placeSeat(address user) private {
-        _updateTicketAmount(user);
-
-        if (userInfo[user].depositBal > 99e6) {
-            uint ticket = userInfo[user].ticketBal;
-            if (ticket > 0) {
-                uint from = lastSeat;
-                uint to = from + ticket - 1;
-
-                seats.push(Seat({
-                    user: user,
-                    from: from,
-                    to: to
-                }));
-
-                userInfo[user].ticketBal = 0;
-                lastSeat += ticket;
-
-                emit PlaceSeat(user, from, to, seats.length - 1);
-            }
-
-        } else {
-            // depositBal lesser than 100 on draw day
-            // not eligible for draw
-            userInfo[user].ticketBal = 0;
-        }
-    }
+    receive() external payable {}
 
     function pauseContract() external onlyOwner {
         _pause();
@@ -191,107 +168,66 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         _unpause();
     }
 
-    function setWinnerAndRestartRound(address winner) external payable onlyAuthorized {
-        require(winner != address(0), "winner is zero address");
-
-        lzEndpoint.send{value: msg.value}(
-            101, // _dstChainId
-            abi.encodePacked(farm.reward(), address(this)), // _path
-            abi.encode(0, winner), // _payload
-            payable(admin), // _refundAddress
-            address(0), // _zroPaymentAddress
-            bytes("") // _adapterParams
-        );
-
-        delete seats;
-        luckyDrawInProgress = false;
-        lastSeat = 0;
-
-        emit SetWinnerAndRestartRound(winner);
-        emit LuckyDrawInProgress(false);
-    }
-
-    function setFarm(IFarm _farm) external onlyOwner {
-        farm = _farm;
-        usdc.approve(address(farm), type(uint).max);
-
-        emit SetFarm(address(_farm));
-    }
-
     function setAdmin(address _admin) external onlyOwner {
         admin = _admin;
 
         emit SetAdmin(_admin);
     }
 
-    ///@notice get user ticket that had been place seat
-    function getUserTotalSeats(address _user) public view returns (uint ticket) {
-        for (uint i; i < seats.length; i++) {
-            Seat memory seat = seats[i];
-            if (seat.user == _user) {
-                ticket += seat.to - seat.from + 1; // because seat start with 0
-            }
-        }
+    function setTreasury(address _treasury) external onlyOwner {
+        treasury = _treasury;
+
+        emit SetTreasury(_treasury);
     }
 
-    ///@notice get user pending ticket (not yet place seat) and user available ticket to claim
-    function getUserAvailableTickets(address _user) public view returns (uint ticket) {
-        // get user pending ticket (not yet place seat)
-        User memory user = userInfo[_user];
-        uint pendingTicket = user.ticketBal;
+    function setReward(address _reward) external onlyOwner {
+        reward = _reward;
 
-        // get user available ticket to claim
-        uint depositHour = (block.timestamp - user.lastUpdateTimestamp) / 3600;
-        uint depositInHundred = user.depositBal / 100e6;
-        uint availableTicket = depositHour * depositInHundred;
-
-        return pendingTicket + availableTicket;
+        emit SetReward(_reward);
     }
 
-    function getUserTotalTickets(address _user) external view returns (uint) {
-        uint ticketBeenPlaceSeat = getUserTotalSeats(_user);
-        uint pendingAndAvailableTicket = getUserAvailableTickets(_user);
+    function setYieldFeePerc(uint _yieldFeePerc) external onlyOwner {
+        require(_yieldFeePerc < 3000, "yieldFeePerc > 3000");
+        yieldFeePerc = _yieldFeePerc;
 
-        return ticketBeenPlaceSeat + pendingAndAvailableTicket;
+        emit SetYieldFeePerc(_yieldFeePerc);
     }
 
-    ///@notice this is excluded those who owned/availableToClaim tickets but haven't place seat if any
-    function getTotalSeats() external view returns (uint) {
-        return lastSeat;
+    function getPricePerFullShareInUSD() public view returns (uint) {
+        return pool.get_virtual_price() / 1e12; // 6 decimals
     }
 
-    function getSeatsLength() external view returns (uint) {
-        return seats.length;
-    }
-
-    function getSeatOwner(uint seatNum) external view returns (address owner) {
-        Seat[] memory _seats = seats;
-        for (uint i; i < _seats.length; i++) {
-            Seat memory seat = _seats[i];
-            if (seatNum >= seat.from && seatNum <= seat.to) {
-                owner = seat.user;
-                break;
-            }
-        }
+    function getAllPool() public view returns (uint) {
+        return gauge.balanceOf(address(this)); // lpToken, 18 decimals
     }
 
     function getAllPoolInUSD() external view returns (uint) {
-        return farm.getAllPoolInUSD(); // 6 decimals
+        uint allPool = getAllPool();
+        if (allPool == 0) return 0;
+        return allPool * getPricePerFullShareInUSD() / 1e18; // 6 decimals
+    }
+
+    /// @dev Call this function off-chain by using view
+    function getPoolPendingReward() external returns (uint crvReward, uint opReward) {
+        crvReward = gauge.claimable_tokens(address(this));
+        opReward = gauge.claimable_reward(address(this), address(op));
     }
 
     ///@notice user deposit balance without slippage
-    function getUserDepositBalance(address account) external view returns (uint) {
-        return userInfo[account].depositBal;
+    function getUserDepositBalance(address account) external view returns (uint depositBal) {
+        // return userInfo[account].depositBal;
+        (depositBal,,,) = record.userInfo(account);
     }
 
     ///@notice user lpToken balance after deposit into farm, 18 decimals
-    function getUserBalance(address account) external view returns (uint) {
-        return userInfo[account].lpTokenBal;
+    function getUserBalance(address account) external view returns (uint lpTokenBal) {
+        (, lpTokenBal,,) = record.userInfo(account);
     }
 
     ///@notice user actual balance in usd after deposit into farm (after slippage), 6 decimals
     function getUserBalanceInUSD(address account) external view returns (uint) {
-        return userInfo[account].lpTokenBal * farm.getPricePerFullShareInUSD() / 1e18;
+        (, uint lpTokenBal,,) = record.userInfo(account);
+        return lpTokenBal * getPricePerFullShareInUSD() / 1e18;
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
