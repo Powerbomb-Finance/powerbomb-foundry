@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.16;
+pragma solidity 0.8.17;
 
 import "openzeppelin-contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -32,6 +32,21 @@ contract FarmCurve is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     address public reward;
     address public treasury;
     uint public yieldFeePerc;
+
+    struct User {
+        uint depositBal; // deposit balance without slippage, for calculate ticket
+        uint lpTokenBal; // lpToken amount owned after deposit into farm
+        uint ticketBal;
+        uint lastUpdateTimestamp;
+    }
+    mapping(address => User) public userInfo;
+
+    struct Seat {
+        address user;
+        uint from;
+        uint to;
+    }
+    Seat[] public seats;
 
     event Harvest(uint crvAmt, uint opAmt, uint wethAmt, uint fee);
     event SetAdmin(address _admin);

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.16;
+pragma solidity 0.8.17;
 
 import "openzeppelin-contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "openzeppelin-contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
@@ -10,11 +10,21 @@ import "openzeppelin-contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import "interface/IFarm.sol";
 import "interface/ILayerZeroEndpoint.sol";
+import "../interface/IZap.sol";
+import "../interface/IMinter.sol";
+import "../interface/IPool.sol";
+import "../interface/IGauge.sol";
+import "../interface/ISwapRouter.sol";
+import "../interface/IRecord.sol";
 
 contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
 
     IERC20Upgradeable constant usdc = IERC20Upgradeable(0x7F5c764cBc14f9669B88837ca1490cCa17c31607);
     ILayerZeroEndpoint constant lzEndpoint = ILayerZeroEndpoint(0x3c2269811836af69497E5F486A85D7316753cf62);
+    IPool constant pool = IPool(0x061b87122Ed14b9526A813209C8a59a633257bAb);
+    IZap constant zap = IZap(0x167e42a1C7ab4Be03764A2222aAC57F5f6754411);
+    IGauge constant gauge = IGauge(0xc5aE4B5F86332e70f3205a8151Ee9eD9F71e0797);
+    IRecord public record;
 
     struct User {
         uint depositBal; // deposit balance without slippage, for calculate ticket
@@ -51,13 +61,11 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         _;
     }
 
-    function initialize(IFarm _farm) external initializer {
+    function initialize(IRecord _record) external initializer {
         __Ownable_init();
 
         admin = msg.sender;
-        farm = _farm;
-
-        usdc.approve(address(farm), type(uint).max);
+        record = _record;
     }
 
     function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin) external nonReentrant whenNotPaused {
@@ -66,16 +74,22 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
 
         usdc.transferFrom(msg.sender, address(this), amount);
 
-        uint lpTokenAmt = farm.deposit(amount, amountOutMin);
+        // uint lpTokenAmt = farm.deposit(amount, amountOutMin);
+        uint[4] memory amounts;
+        amounts[2] = amount;
+        uint lpTokenAmt = zap.add_liquidity(address(pool), amounts, amountOutMin);
+        gauge.deposit(lpTokenAmt);
 
-        User storage user = userInfo[msg.sender];
-        if (user.lastUpdateTimestamp == 0) { // first record
-            user.lastUpdateTimestamp = block.timestamp;
-        } else {
-            _updateTicketAmount(msg.sender);
-        }
-        user.depositBal += amount; // must after update ticket
-        user.lpTokenBal += lpTokenAmt;
+        // User storage user = userInfo[msg.sender];
+        // if (user.lastUpdateTimestamp == 0) { // first record
+        //     user.lastUpdateTimestamp = block.timestamp;
+        // } else {
+        //     _updateTicketAmount(msg.sender);
+        // }
+        // user.depositBal += amount; // must after update ticket
+        // user.lpTokenBal += lpTokenAmt;
+
+        updateUser(true, msg.sender, amount, lpTokenAmt);
         depositedBlock[msg.sender] = block.number;
 
         emit Deposit(msg.sender, amount, lpTokenAmt);
