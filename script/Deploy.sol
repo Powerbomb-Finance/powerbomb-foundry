@@ -2,53 +2,72 @@
 pragma solidity 0.8.17;
 
 import "forge-std/Script.sol";
-import "../src/PengTogether.sol";
-import "../src/FarmCurve.sol";
-import "../src/Reward.sol";
+
 import "../src/PbProxy.sol";
 
+import "../src/PengTogether.sol";
+import "../src/Record.sol";
+
+import "../src/Reward.sol";
+import "../src/Dao.sol";
+
 contract Deploy is Script {
+
+    PengTogether vault = PengTogether(payable(0x68ca3a3BBD306293e693871E45Fe908C04387614)); // Optimism
+    Record record = Record(0x176B6aD5063bFFBca9867DE6B3a1Eb27A306e40d); // Optimism
+    address dao = 0x28BCc4202cd179499bF618DBfd1bFE37278E1A12;
+    address reward = 0xF7A1f8918301D9C09105812eB045AA168aB3BFea;
 
     function run() public {
         vm.startBroadcast();
 
-        // FarmCurve farm = new FarmCurve();
-        // PbProxy farmProxy = new PbProxy(
-        //     address(farm),
+        // PbProxy proxy;
+
+        // Record record = new Record();
+        // proxy = new PbProxy(
+        //     address(record),
         //     abi.encodeWithSelector(bytes4(keccak256("initialize()")))
         // );
-        // farm = FarmCurve(payable(address(farmProxy)));
-        // console.log("farm:", address(farm));
+        // record = Record(address(proxy));
 
         // PengTogether vault = new PengTogether();
-        // PbProxy vaultProxy = new PbProxy(
+        // proxy = new PbProxy(
         //     address(vault),
         //     abi.encodeWithSelector(
         //         bytes4(keccak256("initialize(address)")),
-        //         address(farm)
+        //         address(record)
         //     )
         // );
-        // vault = PengTogether(address(vaultProxy));
-        // console.log("vault:", address(vault));
+        // vault = PengTogether(payable(address(proxy)));
 
-        // farm.setVault(address(vault));
+        // record.setVault(address(vault));
 
+        // Dao dao = new Dao();
+        // proxy = new PbProxy(
+        //     address(dao),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(address,uint64,address)")),
+        //         address(record), // record on Optimism
+        //         414, // subscriptionId,
+        //         0x524cAB2ec69124574082676e6F654a18df49A048 // lil pudgy
+        //     )
+        // );
+        // dao = Dao(address(proxy));
 
-        // address pengTogetherVault = 0x1EFB578eCe71D99f5994a79815aA09A8f87F7429;
-        // uint64 subscriptionId = 22001;
         // Reward reward = new Reward();
-        // PbProxy rewardProxy = new PbProxy(
+        // proxy = new PbProxy(
         //     address(reward),
         //     abi.encodeWithSelector(
-        //         bytes4(keccak256("initialize(address,uint64)")),
-        //         pengTogetherVault,
-        //         subscriptionId
+        //         bytes4(keccak256("initialize(address,address)")),
+        //         address(dao),
+        //         address(vault) // pengTogetherVault on Optimism
         //     )
         // );
-        // reward = Reward(payable(address(rewardProxy)));
-        // console.log("reward:", address(reward));
+        // reward = Reward(payable(address(proxy)));
 
-        // FarmCurve farm = FarmCurve(payable(0xA6cFCa9EB181728082D35419B58Ba7eE4c9c8d38));
-        // farm.setReward(address(reward));
+        // dao.setReward(address(reward));
+
+        record.setDao(dao);
+        vault.setReward(reward);
     }
 }
