@@ -29,7 +29,7 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     address public vault;
     address public dao; // on ethereum
     address public admin;
-    uint private lastSeat;
+    uint public lastSeat;
     bool public drawInProgress;
 
     event UpdateTicketAmount(address indexed user, uint depositHour, uint depositInHundred);

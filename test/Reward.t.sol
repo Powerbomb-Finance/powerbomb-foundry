@@ -10,38 +10,39 @@ import "../src/PbProxy.sol";
 
 contract RewardTest is Test {
     IERC721 lilPudgy = IERC721(0x524cAB2ec69124574082676e6F654a18df49A048);
-    address pengTogetherVault = address(1);
-    address record = address(2);
-    uint64 s_subscriptionId = 0;
-    Reward reward;
-    Dao dao;
+    address pengTogetherVault = 0x68ca3a3BBD306293e693871E45Fe908C04387614;
+    address record = 0x176B6aD5063bFFBca9867DE6B3a1Eb27A306e40d;
+    uint64 s_subscriptionId = 414;
+    Reward reward = Reward(payable(0xF7A1f8918301D9C09105812eB045AA168aB3BFea));
+    Dao dao = Dao(0x28BCc4202cd179499bF618DBfd1bFE37278E1A12);
+    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
 
     function setUp() public {
-        PbProxy proxy;
-        dao = new Dao();
-        proxy = new PbProxy(
-            address(dao),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address,uint64,address)")),
-                record,
-                s_subscriptionId, // subscriptionId,
-                address(lilPudgy)
-            )
-        );
-        dao = Dao(address(proxy));
+        // PbProxy proxy;
+        // dao = new Dao();
+        // proxy = new PbProxy(
+        //     address(dao),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(address,uint64,address)")),
+        //         record,
+        //         s_subscriptionId, // subscriptionId,
+        //         address(lilPudgy)
+        //     )
+        // );
+        // dao = Dao(address(proxy));
 
-        reward = new Reward();
-        proxy = new PbProxy(
-            address(reward),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address,address)")),
-                address(dao),
-                pengTogetherVault // pengTogetherVault
-            )
-        );
-        reward = Reward(payable(address(proxy)));
+        // reward = new Reward();
+        // proxy = new PbProxy(
+        //     address(reward),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(address,address)")),
+        //         address(dao),
+        //         pengTogetherVault // pengTogetherVault
+        //     )
+        // );
+        // reward = Reward(payable(address(proxy)));
 
-        dao.setReward(address(reward));
+        // dao.setReward(address(reward));
     }
 
     function testAll() public {
@@ -61,10 +62,10 @@ contract RewardTest is Test {
         assertEq(dao.totalSeats(), 1234);
 
         // assume get random number from chainlink
-        // dao.requestRandomWords(); // will revert if subscription is not set and funded
+        dao.requestRandomWords(); // will revert if subscription is not set and funded
         // try call requestRandomWords() again after call requestRandomWords() before call fulfillRandomWords()
-        // vm.expectRevert("rng in progress");
-        // dao.requestRandomWords();
+        vm.expectRevert("rng in progress");
+        dao.requestRandomWords();
         hoax(0x271682DEB8C4E0901D1a1550aD2e64D568E69909);
         uint[] memory randomWords = new uint[](1);
         randomWords[0] = 12345678901234567;
@@ -101,6 +102,7 @@ contract RewardTest is Test {
         // console.log(poolWithFloorPrice); // 0xd644ea091556e825660cd75945f1843d32b00cce
         assertLe(floorPrice, address(reward).balance);
         assertEq(poolWithFloorPrice != address(0), true);
+        hoax(owner);
         reward.buyNFT(poolWithFloorPrice);
         // reward.buyNFT(0xd644eA091556e825660cd75945f1843d32b00cCe);
         assertEq(lilPudgy.balanceOf(address(reward)), 0);
@@ -130,7 +132,7 @@ contract RewardTest is Test {
     function testGlobalVariable() public {
         // reward
         assertEq(reward.trustedRemoteLookup(111), abi.encodePacked(pengTogetherVault));
-        assertEq(reward.admin(), address(this));
+        assertEq(reward.admin(), owner);
         assertEq(reward.dao(), address(dao));
 
         // dao
@@ -146,6 +148,7 @@ contract RewardTest is Test {
 
     function testSetter() public {
         // reward
+        startHoax(owner);
         reward.setTrustedRemoteLookup(111, address(5));
         assertEq(reward.trustedRemoteLookup(111), abi.encodePacked(address(5)));
         reward.setAdmin(address(7707));
@@ -166,9 +169,11 @@ contract RewardTest is Test {
 
     function testAuthorization() public {
         // reward
-        assertEq(reward.owner(), address(this));
+        assertEq(reward.owner(), owner);
+        vm.startPrank(owner);
         reward.setAdmin(address(2));
         reward.transferOwnership(address(1));
+        vm.stopPrank();
         vm.expectRevert("Initializable: contract is already initialized");
         reward.initialize(address(0), address(0));
         vm.expectRevert("only authorized");
@@ -183,7 +188,8 @@ contract RewardTest is Test {
         reward.upgradeTo(address(0));
 
         // dao
-        assertEq(dao.owner(), address(this));
+        assertEq(dao.owner(), owner);
+        hoax(owner);
         dao.transferOwnership(address(1));
         vm.expectRevert("Initializable: contract is already initialized");
         dao.initialize(address(0), 0, address(0));

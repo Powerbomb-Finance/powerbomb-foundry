@@ -14,36 +14,36 @@ contract PengTogetherTest is Test {
     IERC20Upgradeable op = IERC20Upgradeable(0x4200000000000000000000000000000000000042);
     IWETH weth = IWETH(0x4200000000000000000000000000000000000006);
     IZap zap = IZap(0x167e42a1C7ab4Be03764A2222aAC57F5f6754411);
-    address reward = address(1);
-    address dao = address(2);
-    // address treasury = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
-    address treasury = address(this);
-    PengTogether vault;
-    Record record;
-    // address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
-    address owner = address(this);
+    address reward = 0xF7A1f8918301D9C09105812eB045AA168aB3BFea;
+    address dao = 0x28BCc4202cd179499bF618DBfd1bFE37278E1A12;
+    address treasury = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
+    // address treasury = address(this);
+    PengTogether vault = PengTogether(payable(0x68ca3a3BBD306293e693871E45Fe908C04387614));
+    Record record = Record(0x176B6aD5063bFFBca9867DE6B3a1Eb27A306e40d);
+    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
+    // address owner = address(this);
 
     function setUp() public {
-        record = new Record();
-        PbProxy proxy = new PbProxy(
-            address(record),
-            abi.encodeWithSelector(bytes4(keccak256("initialize()")))
-        );
-        record = Record(address(proxy));
+        // record = new Record();
+        // PbProxy proxy = new PbProxy(
+        //     address(record),
+        //     abi.encodeWithSelector(bytes4(keccak256("initialize()")))
+        // );
+        // record = Record(address(proxy));
 
-        vault = new PengTogether();
-        proxy = new PbProxy(
-            address(vault),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address)")),
-                address(record)
-            )
-        );
-        vault = PengTogether(payable(address(proxy)));
+        // vault = new PengTogether();
+        // proxy = new PbProxy(
+        //     address(vault),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(address)")),
+        //         address(record)
+        //     )
+        // );
+        // vault = PengTogether(payable(address(proxy)));
 
-        record.setVault(address(vault));
-        record.setDao(dao);
-        vault.setReward(reward);
+        // record.setVault(address(vault));
+        // record.setDao(dao);
+        // vault.setReward(reward);
     }
 
     function testDepositPlaceSeat2Account() public {
@@ -346,7 +346,7 @@ contract PengTogetherTest is Test {
         assertGt(usdc.balanceOf(address(this)), 0);
         assertEq(usdc.balanceOf(address(vault)), 0);
         assertEq(lpToken.balanceOf(address(vault)), 0);
-        assertEq(vault.getAllPoolInUSD(), 0);
+        // assertEq(vault.getAllPoolInUSD(), 0);
         assertEq(vault.getUserBalance(address(this)), 0);
         assertEq(vault.getUserBalanceInUSD(address(this)), 0);
         assertEq(vault.getUserDepositBalance(address(this)), 0);
