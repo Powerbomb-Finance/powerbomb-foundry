@@ -54,6 +54,8 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
     }
     mapping(address => User) public userInfo;
     mapping(address => uint) internal depositedBlock;
+    uint public swapThreshold;
+    uint public accRewardTokenAmt;
 
     event Deposit(address indexed tokenDeposit, uint amountToken, uint amountlpToken);
     event Withdraw(address indexed tokenWithdraw, uint amountToken);
@@ -61,6 +63,7 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
     event Claim(address receiver, uint claimedATokenAmt, uint claimedRewardTokenAmt);
     event SetTreasury(address oldTreasury, address newTreasury);
     event SetYieldFeePerc(uint oldYieldFeePerc, uint newYieldFeePerc);
+    event SetSwapThreshold(uint oldSwapThreshold, uint newSwapThreshold);
 
     function initialize(
         IGauge _gauge,
@@ -151,18 +154,7 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
                         if (token0 == USDC || token1 == USDC) {
                             if (token0AmtLeft > 10 * 10 ** uint(IERC20MetadataUpgradeable(address(token0)).decimals())) {
                                 // leftover for token0 > 10 USD, redo swap & add liquidity
-                                uint halfAmt0 = token0AmtLeft / 2; // swap half to token1
-                                uint amt1 = swap(address(token0), address(token1), stable, halfAmt0, 0);
-                                (,, uint _lpTokenAmt) = router.addLiquidity(
-                                    address(token0), address(token1), stable, halfAmt0, amt1, 0, 0, address(this), block.timestamp
-                                );
-                                // increase lpTokenAmt
-                                lpTokenAmt += _lpTokenAmt;
-                                // check leftover again and return to msg.sender if any
-                                uint token0AmtLeft_ = token0.balanceOf(address(this)) - token0AmtBef;
-                                if (token0AmtLeft_ > 0) token0.safeTransfer(msg.sender, token0AmtLeft_);
-                                uint token1AmtLeft_ = token1.balanceOf(address(this)) - token1AmtBef;
-                                if (token1AmtLeft_ > 0) token1.safeTransfer(msg.sender, token1AmtLeft_);
+                                lpTokenAmt += _reAddLiquidity(token0AmtLeft, token0, token0AmtBef, token1AmtBef);
 
                             } else {
                                 // leftover < 10 USD, return to msg.sender
@@ -173,18 +165,11 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
                             (uint usdcAmt,) = router.getAmountOut(token0AmtLeft, address(WETH), address(USDC));
                             if (usdcAmt > 10e6) {
                                 // leftover for token0 > 10 USD, redo swap & add liquidity
-                                uint halfAmt0 = token0AmtLeft / 2; // swap half to token1
-                                uint amt1 = swap(address(token0), address(token1), stable, halfAmt0, 0);
-                                (,, uint _lpTokenAmt) = router.addLiquidity(
-                                    address(token0), address(token1), stable, halfAmt0, amt1, 0, 0, address(this), block.timestamp
-                                );
-                                // increase lpTokenAmt
-                                lpTokenAmt += _lpTokenAmt;
-                                // check leftover again and return to msg.sender if any
-                                uint token0AmtLeft_ = token0.balanceOf(address(this)) - token0AmtBef;
-                                if (token0AmtLeft_ > 0) token0.safeTransfer(msg.sender, token0AmtLeft_);
-                                uint token1AmtLeft_ = token1.balanceOf(address(this)) - token1AmtBef;
-                                if (token1AmtLeft_ > 0) token1.safeTransfer(msg.sender, token1AmtLeft_);
+                                lpTokenAmt += _reAddLiquidity(token0AmtLeft, token0, token0AmtBef, token1AmtBef);
+
+                            } else {
+                                // leftover < 10 USD, return to msg.sender
+                                token0.safeTransfer(msg.sender, token0AmtLeft);
                             }
 
                         } else {
@@ -192,8 +177,32 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
                             token0.safeTransfer(msg.sender, token0AmtLeft);
                         }
 
-                    } else { // not stable pair, just return leftover to msg.sender
-                        token0.safeTransfer(msg.sender, token0AmtLeft);
+                    } else { // not stable pair
+                        if (token0 == USDC) {
+                            if (token0AmtLeft > 10e6) {
+                                // leftover for USDC > 10 USD, redo swap & add liquidity
+                                lpTokenAmt += _reAddLiquidity(token0AmtLeft, USDC, token0AmtBef, token1AmtBef);
+
+                            } else {
+                                // leftover < 10 USD, return to msg.sender
+                                USDC.safeTransfer(msg.sender, token0AmtLeft);
+                            }
+
+                        } else if (token1 == USDC) {
+                            (uint usdcAmt,) = router.getAmountOut(token0AmtLeft, address(token0), address(USDC));
+                            if (usdcAmt > 10e6) {
+                                // leftover for token0 > 10 USD, redo swap & add liquidity
+                                lpTokenAmt += _reAddLiquidity(token0AmtLeft, token0, token0AmtBef, token1AmtBef);
+
+                            } else {
+                                // leftover < 10 USD, return to msg.sender
+                                token0.safeTransfer(msg.sender, token0AmtLeft);
+                            }
+
+                        } else {
+                            // not pair with usdc, just return leftover to msg.sender
+                            token0.safeTransfer(msg.sender, token0AmtLeft);
+                        }
                     }
                 }
 
@@ -202,18 +211,7 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
                         if (token0 == USDC || token1 == USDC) {
                             if (token1AmtLeft > 10 * 10 ** uint(IERC20MetadataUpgradeable(address(token1)).decimals())) {
                                 // leftover for token1 > 10 USD, redo swap & add liquidity
-                                uint halfAmt1 = token1AmtLeft / 2; // swap half to token0
-                                uint amt0 = swap(address(token1), address(token0), stable, halfAmt1, 0);
-                                (,, uint _lpTokenAmt) = router.addLiquidity(
-                                    address(token0), address(token1), stable, amt0, halfAmt1, 0, 0, address(this), block.timestamp
-                                );
-                                // increase lpTokenAmt
-                                lpTokenAmt += _lpTokenAmt;
-                                // check leftover again and return to msg.sender if any
-                                uint token0AmtLeft_ = token0.balanceOf(address(this)) - token0AmtBef;
-                                if (token0AmtLeft_ > 0) token0.safeTransfer(msg.sender, token0AmtLeft_);
-                                uint token1AmtLeft_ = token1.balanceOf(address(this)) - token1AmtBef;
-                                if (token1AmtLeft_ > 0) token1.safeTransfer(msg.sender, token1AmtLeft_);
+                                lpTokenAmt += _reAddLiquidity(token1AmtLeft, token1, token0AmtBef, token1AmtBef);
 
                             } else {
                                 // leftover < 10 USD, return to msg.sender
@@ -224,18 +222,11 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
                             (uint usdcAmt,) = router.getAmountOut(token1AmtLeft, address(WETH), address(USDC));
                             if (usdcAmt > 10e6) {
                                 // leftover for token1 > 10 USD, redo swap & add liquidity
-                                uint halfAmt1 = token1AmtLeft / 2; // swap half to token0
-                                uint amt0 = swap(address(token1), address(token0), stable, halfAmt1, 0);
-                                (,, uint _lpTokenAmt) = router.addLiquidity(
-                                    address(token0), address(token1), stable, amt0, halfAmt1, 0, 0, address(this), block.timestamp
-                                );
-                                // increase lpTokenAmt
-                                lpTokenAmt += _lpTokenAmt;
-                                // check leftover again and return to msg.sender if any
-                                uint token0AmtLeft_ = token0.balanceOf(address(this)) - token0AmtBef;
-                                if (token0AmtLeft_ > 0) token0.safeTransfer(msg.sender, token0AmtLeft_);
-                                uint token1AmtLeft_ = token1.balanceOf(address(this)) - token1AmtBef;
-                                if (token1AmtLeft_ > 0) token1.safeTransfer(msg.sender, token1AmtLeft_);
+                                lpTokenAmt += _reAddLiquidity(token1AmtLeft, token1, token0AmtBef, token1AmtBef);
+
+                            } else {
+                                // leftover < 10 USD, return to msg.sender
+                                token1.safeTransfer(msg.sender, token1AmtLeft);
                             }
 
                         } else {
@@ -243,8 +234,32 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
                             token1.safeTransfer(msg.sender, token1AmtLeft);
                         }
 
-                    } else { // not stable pair, just return leftover to msg.sender
-                        token1.safeTransfer(msg.sender, token1AmtLeft);
+                    } else { // not stable pair
+                        if (token0 == USDC) {
+                            (uint usdcAmt,) = router.getAmountOut(token1AmtLeft, address(token1), address(USDC));
+                            if (usdcAmt > 10e6) {
+                                // leftover for token0 > 10 USD, redo swap & add liquidity
+                                lpTokenAmt += _reAddLiquidity(token1AmtLeft, token1, token0AmtBef, token1AmtBef);
+
+                            } else {
+                                // leftover < 10 USD, return to msg.sender
+                                token1.safeTransfer(msg.sender, token0AmtLeft);
+                            }
+
+                        } else if (token1 == USDC) {
+                            if (token1AmtLeft > 10e6) {
+                                // leftover for USDC > 10 USD, redo swap & add liquidity
+                                lpTokenAmt += _reAddLiquidity(token1AmtLeft, USDC, token0AmtBef, token1AmtBef);
+
+                            } else {
+                                // leftover < 10 USD, return to msg.sender
+                                USDC.safeTransfer(msg.sender, token1AmtLeft);
+                            }
+
+                        } else {
+                            // not pair with usdc, just return leftover to msg.sender
+                            token0.safeTransfer(msg.sender, token1AmtLeft);
+                        }
                     }
                 }
             }
@@ -262,6 +277,28 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         user.rewardStartAt += (lpTokenAmt * reward.accRewardPerlpToken / 1e36);
 
         emit Deposit(address(token), amount, lpTokenAmt);
+    }
+
+    function _reAddLiquidity(
+        uint amount,
+        IERC20Upgradeable tokenIn,
+        uint token0AmtBef,
+        uint token1AmtBef
+    ) private returns (uint) {
+        IERC20Upgradeable tokenOut = tokenIn == token0 ? token1 : token0;
+        uint amountIn = amount / 2;
+        uint amountOut = swap(address(tokenIn), address(tokenOut), stable, amountIn, 0);
+        (,, uint lpTokenAmt) = router.addLiquidity(
+            address(tokenIn), address(tokenOut), stable, amountIn, amountOut, 0, 0, address(this), block.timestamp
+        );
+
+        // check leftover again and return to msg.sender if any
+        uint token0AmtLeft_ = token0.balanceOf(address(this)) - token0AmtBef;
+        if (token0AmtLeft_ > 0) token0.safeTransfer(msg.sender, token0AmtLeft_);
+        uint token1AmtLeft_ = token1.balanceOf(address(this)) - token1AmtBef;
+        if (token1AmtLeft_ > 0) token1.safeTransfer(msg.sender, token1AmtLeft_);
+
+        return lpTokenAmt;
     }
 
     function withdraw(
@@ -336,7 +373,7 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         uint OPAmt = OP.balanceOf(address(this));
         WETHAmt += getAmountOut(OPAmt, address(OP), address(WETH));
 
-        if (WETHAmt > 1e16) { // 0.01 WETH, ~$15 on 28 July 2022
+        if (WETHAmt > swapThreshold) {
             // Swap VELO to WETH
             WETHAmt = swap(address(VELO), address(WETH), false, VELOAmt, 0);
 
@@ -382,6 +419,7 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
             // Update lastATokenAmt
             reward.lastATokenAmt = reward.aToken.balanceOf(address(this));
 
+            accRewardTokenAmt += rewardTokenAmt;
             emit Harvest(VELOAmt, rewardTokenAmt, fee);
         }
     }
@@ -508,6 +546,11 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         require(_yieldFeePerc <= 1000, "Fee cannot over 10%");
         emit SetYieldFeePerc(yieldFeePerc, _yieldFeePerc);
         yieldFeePerc = _yieldFeePerc;
+    }
+
+    function setSwapThreshold(uint _swapThreshold) external onlyOwner {
+        emit SetSwapThreshold(swapThreshold, _swapThreshold);
+        swapThreshold = _swapThreshold;
     }
 
     function getAmountOut(uint amountIn, address tokenIn, address tokenOut) internal view returns (uint amountOut) {
