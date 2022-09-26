@@ -47,6 +47,9 @@ contract Upgrade is Script {
         vault = PbVelo(payable(0xFAcB839BF8f09f2e7B4b6C83349B5bbFD62fd659));
         vault.upgradeTo(address(vaultImpl));
 
+        vault = PbVelo(payable(0x176CC5Ff9BDBf4daFB955003E6f8229f47Ef1E55));
+        vault.upgradeTo(address(vaultImpl));
+
         vault = PbVelo(payable(0xa0Ea9A553cB47658e62Dee4D7b49F7c8Da234B69));
         vault.upgradeTo(address(vaultImpl));
 
