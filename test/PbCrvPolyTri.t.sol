@@ -24,7 +24,7 @@ contract PbCrvPolyTriTest is Test {
     address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
 
     function setUp() public {
-        PbCrvPolyTri vaultImpl = new PbCrvPolyTri();
+        // PbCrvPolyTri vaultImpl = new PbCrvPolyTri();
 
         // // Deploy implementation contract
         // PbCrvPolyTri vaultImpl = new PbCrvPolyTri();
@@ -39,8 +39,8 @@ contract PbCrvPolyTriTest is Test {
         // );
         // vaultBTC = PbCrvPolyTri(address(proxy));
         vaultBTC = PbCrvPolyTri(address(0x8799c7fEfB44B8c885b489eB38Fb067c75EbA2ab));
-        hoax(owner);
-        vaultBTC.upgradeTo(address(vaultImpl));
+        // hoax(owner);
+        // vaultBTC.upgradeTo(address(vaultImpl));
 
         // // Deploy ETH reward proxy contract
         // proxy = new PbProxy(
@@ -53,8 +53,8 @@ contract PbCrvPolyTriTest is Test {
         // );
         // vaultETH = PbCrvPolyTri(address(proxy));
         vaultETH = PbCrvPolyTri(address(0x5abbEB3323D4B19C4C371C9B056390239FC0Bf43));
-        hoax(owner);
-        vaultETH.upgradeTo(address(vaultImpl));
+        // hoax(owner);
+        // vaultETH.upgradeTo(address(vaultImpl));
 
         // // Deploy USDC reward proxy contract
         // proxy = new PbProxy(
@@ -67,8 +67,8 @@ contract PbCrvPolyTriTest is Test {
         // );
         // vaultUSDC = PbCrvPolyTri(address(proxy));
         vaultUSDC = PbCrvPolyTri(address(0x7331f946809406F455623d0e69612151655e8261));
-        hoax(owner);
-        vaultUSDC.upgradeTo(address(vaultImpl));
+        // hoax(owner);
+        // vaultUSDC.upgradeTo(address(vaultImpl));
 
         // Initialize aToken
         aWBTC = IERC20Upgradeable(vaultBTC.aToken());
@@ -78,10 +78,19 @@ contract PbCrvPolyTriTest is Test {
 
     // function test() public {
     //     deal(address(USDC), address(this), 10000e6);
+    //     USDC.approve(address(vaultBTC), type(uint).max);
+    //     vaultBTC.deposit(USDC, USDC.balanceOf(address(this)), 0);
+    //     console.log(vaultBTC.getAllPoolInUSD()); // 
+
+    //     deal(address(USDC), address(this), 10000e6);
     //     USDC.approve(address(vaultETH), type(uint).max);
     //     vaultETH.deposit(USDC, USDC.balanceOf(address(this)), 0);
-    //     // vaultETH.getAllPoolInUSD();
-    //     console.log(vaultETH.getAllPoolInUSD()); // 9597.808094 9981.685395
+    //     console.log(vaultETH.getAllPoolInUSD()); // 9981.685395
+
+    //     deal(address(USDC), address(this), 10000e6);
+    //     USDC.approve(address(vaultUSDC), type(uint).max);
+    //     vaultUSDC.deposit(USDC, USDC.balanceOf(address(this)), 0);
+    //     console.log(vaultUSDC.getAllPoolInUSD()); // 
     // }
 
     function testDeposit() public {

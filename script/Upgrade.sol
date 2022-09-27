@@ -2,27 +2,25 @@
 pragma solidity 0.8.15;
 
 import "forge-std/Script.sol";
-import "src/PbCrvOpUsd.sol";
-import "src/PbCrvOpEth.sol";
+// import "src/PbCrvOpUsd.sol";
+// import "src/PbCrvOpEth.sol";
+import "src/PbCrvPolyTri.sol";
 
 contract Upgrade is Script {
-    PbCrvOpUsd stratUsdBtc;
-    PbCrvOpUsd stratUsdEth;
-    PbCrvOpEth stratEth;
+    PbCrvPolyTri vault;
     
     function run() public {
         vm.startBroadcast();
 
-        PbCrvOpUsd stratUsdImpl = new PbCrvOpUsd();
+        PbCrvPolyTri vaultImpl = new PbCrvPolyTri();
 
-        stratUsdBtc = PbCrvOpUsd(0x61F157E08b2B55eB3B0dD137c1D2A73C9AB5888e);
-        stratUsdBtc.upgradeTo(address(stratUsdImpl));
+        vault = PbCrvPolyTri(0x8799c7fEfB44B8c885b489eB38Fb067c75EbA2ab);
+        vault.upgradeTo(address(vaultImpl));
 
-        stratUsdEth = PbCrvOpUsd(0xA8e39872452BA48b1F4c7e16b78668199d2C41Dd);
-        stratUsdEth.upgradeTo(address(stratUsdImpl));
+        vault = PbCrvPolyTri(0x5abbEB3323D4B19C4C371C9B056390239FC0Bf43);
+        vault.upgradeTo(address(vaultImpl));
 
-        PbCrvOpEth stratEthImpl = new PbCrvOpEth();
-        stratEth = PbCrvOpEth(0xb88C7a8e678B243a6851b9Fa82a1aA0986574631);
-        stratEth.upgradeTo(address(stratEthImpl));
+        vault = PbCrvPolyTri(0x7331f946809406F455623d0e69612151655e8261);
+        vault.upgradeTo(address(vaultImpl));
     }
 }
