@@ -4,6 +4,7 @@ pragma solidity 0.8.15;
 import "./PbCrvBase.sol";
 import "../interface/IRouter.sol";
 import "../interface/IMinter.sol";
+import "forge-std/console.sol";
 
 contract PbCrvPolyTri is PbCrvBase {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -206,8 +207,13 @@ contract PbCrvPolyTri is PbCrvBase {
         // Get total USD for each asset (18 decimals)
         IPool realPool = IPool(pool.pool()); // global variable pool is actually zap contract
         uint total3CRVInUSD = realPool.balances(0) * IPool(pool.base_pool()).get_virtual_price() / 1e18;
+        // console.log(total3CRVInUSD); // 9,575,414.969771019820472644
         uint totalWBTCInUSD = realPool.balances(1) * realPool.price_oracle(0) / 1e8;
+        // console.log(totalWBTCInUSD); // 8,916,890.975429266954182123
+        console.log(realPool.price_oracle(0)); // 19042.320442555422616305
         uint totalWETHInUSD = realPool.balances(2) * realPool.price_oracle(1) / 1e18;
+        // console.log(totalWETHInUSD); // 8,936,193.306469461272851157
+        console.log(realPool.price_oracle(1)); // 1305.150467950210832203
         uint totalAssetsInUSD = total3CRVInUSD + totalWBTCInUSD + totalWETHInUSD;
         // Calculate price per full share
         return totalAssetsInUSD * 1e6 / lpToken.totalSupply(); // 6 decimals
