@@ -45,8 +45,8 @@ contract OPUSDCTest is Test {
         // );
         // vaultBTC = PbVelo(payable(address(proxy)));
         vaultBTC = PbVelo(payable(0x2510E5054eeEbED40C3C580ae3241F5457b630D9));
-        hoax(owner);
-        vaultBTC.upgradeTo(address(vaultImpl));
+        // hoax(owner);
+        // vaultBTC.upgradeTo(address(vaultImpl));
 
         // proxy = new PbProxy(
         //     address(vaultImpl),
@@ -59,8 +59,8 @@ contract OPUSDCTest is Test {
         // );
         // vaultETH = PbVelo(payable(address(proxy)));
         vaultETH = PbVelo(payable(0xFAcB839BF8f09f2e7B4b6C83349B5bbFD62fd659));
-        hoax(owner);
-        vaultETH.upgradeTo(address(vaultImpl));
+        // hoax(owner);
+        // vaultETH.upgradeTo(address(vaultImpl));
 
         // proxy = new PbProxy(
         //     address(vaultImpl),
@@ -73,8 +73,8 @@ contract OPUSDCTest is Test {
         // );
         // vaultUSDC = PbVelo(payable(address(proxy)));
         vaultUSDC = PbVelo(payable(0x176CC5Ff9BDBf4daFB955003E6f8229f47Ef1E55));
-        hoax(owner);
-        vaultUSDC.upgradeTo(address(vaultImpl));
+        // hoax(owner);
+        // vaultUSDC.upgradeTo(address(vaultImpl));
 
         vm.startPrank(owner);
         vaultBTC.setSwapThreshold(0.001 ether);
