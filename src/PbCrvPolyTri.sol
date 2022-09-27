@@ -4,7 +4,7 @@ pragma solidity 0.8.15;
 import "./PbCrvBase.sol";
 import "../interface/IRouter.sol";
 import "../interface/IMinter.sol";
-import "forge-std/console.sol";
+import "../interface/IChainlink.sol";
 
 contract PbCrvPolyTri is PbCrvBase {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -14,6 +14,8 @@ contract PbCrvPolyTri is PbCrvBase {
     IERC20Upgradeable constant USDT = IERC20Upgradeable(0xc2132D05D31c914a87C6611C10748AEb04B58e8F);
     IERC20Upgradeable constant WBTC = IERC20Upgradeable(0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6);
     IERC20Upgradeable constant WETH = IERC20Upgradeable(0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619);
+    IChainlink constant BTCPriceOracle = IChainlink(0xc907E116054Ad103354f2D350FD2514433D57F6f);
+    IChainlink constant ETHPriceOracle = IChainlink(0xF9680D99D6C9589e2a93a78A04A279e509205945);
     IRouter constant router = IRouter(0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506);
     IMinter constant minter = IMinter(0xabC000d88f23Bb45525E447528DBF656A9D55bf5);
 
@@ -149,6 +151,9 @@ contract PbCrvPolyTri is PbCrvBase {
             // Update lastATokenAmt
             lastATokenAmt = aToken.balanceOf(address(this));
 
+            // Update accumulate reward token amount
+            accRewardTokenAmt += rewardTokenAmt;
+
             emit Harvest(CRVAmt, rewardTokenAmt, fee);
         }
     }
@@ -207,13 +212,14 @@ contract PbCrvPolyTri is PbCrvBase {
         // Get total USD for each asset (18 decimals)
         IPool realPool = IPool(pool.pool()); // global variable pool is actually zap contract
         uint total3CRVInUSD = realPool.balances(0) * IPool(pool.base_pool()).get_virtual_price() / 1e18;
-        // console.log(total3CRVInUSD); // 9,575,414.969771019820472644
-        uint totalWBTCInUSD = realPool.balances(1) * realPool.price_oracle(0) / 1e8;
-        // console.log(totalWBTCInUSD); // 8,916,890.975429266954182123
-        console.log(realPool.price_oracle(0)); // 19042.320442555422616305
-        uint totalWETHInUSD = realPool.balances(2) * realPool.price_oracle(1) / 1e18;
-        // console.log(totalWETHInUSD); // 8,936,193.306469461272851157
-        console.log(realPool.price_oracle(1)); // 1305.150467950210832203
+        // Get BTC price from Chainlink
+        (, int BTCPrice,,,) = BTCPriceOracle.latestRoundData();
+        // realPool.balances(1) is 8 decimals, uint(BTCPrice) is 8 decimals, make result 18 decimals by * 1e2
+        uint totalWBTCInUSD = realPool.balances(1) * uint(BTCPrice) * 1e2;
+        // Get ETH price from Chainlink
+        (, int ETHPrice,,,) = ETHPriceOracle.latestRoundData();
+        // realPool.balances(2) is 18 decimals, uint(ETHPrice) is 8 decimals, make result 18 decimals by / 1e18
+        uint totalWETHInUSD = realPool.balances(2) * uint(ETHPrice) / 1e8;
         uint totalAssetsInUSD = total3CRVInUSD + totalWBTCInUSD + totalWETHInUSD;
         // Calculate price per full share
         return totalAssetsInUSD * 1e6 / lpToken.totalSupply(); // 6 decimals

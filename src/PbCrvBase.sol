@@ -36,6 +36,8 @@ abstract contract PbCrvBase is Initializable, UUPSUpgradeable, OwnableUpgradeabl
     mapping(address => User) public userInfo;
     mapping(address => uint) internal depositedBlock;
 
+    uint public accRewardTokenAmt;
+
     event Deposit(address indexed account, address indexed tokenDeposit, uint amountToken, uint amountlpToken);
     event Withdraw(address indexed account, address indexed tokenWithdraw, uint amountlpToken, uint amountToken);
     event Harvest(uint harvestedfarmTokenAmt, uint swappedRewardTokenAfterFee, uint fee);
