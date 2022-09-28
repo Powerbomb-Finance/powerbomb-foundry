@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.15;
+pragma solidity 0.8.17;
 
 interface IZap {
     function add_liquidity(address _pool, uint[4] memory _deposit_amounts, uint _min_mint_amount) external returns (uint);
