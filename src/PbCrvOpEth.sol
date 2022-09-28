@@ -166,6 +166,9 @@ contract PbCrvOpEth is PbCrvBase {
             // Update lastATokenAmt
             lastATokenAmt = aToken.balanceOf(address(this));
 
+            // Update accumulate reward token amount
+            accRewardTokenAmt += rewardTokenAmt;
+
             emit Harvest(CRVAmt, rewardTokenAmt, fee);
         }
     }
