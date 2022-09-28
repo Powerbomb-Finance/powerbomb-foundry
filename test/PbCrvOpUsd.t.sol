@@ -191,6 +191,8 @@ contract PbCrvOpUsdTest is Test {
         (crvReward, opReward) = vaultETH.getPoolPendingReward2();
         assertGt(crvReward, 0);
         assertGt(opReward, 0);
+        deal(address(CRV), address(vaultBTC), 1 ether);
+        deal(address(CRV), address(vaultETH), 1 ether);
         // Harvest BTC reward
         vaultBTC.harvest();
         // Harvest ETH reward

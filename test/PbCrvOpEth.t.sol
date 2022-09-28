@@ -35,8 +35,8 @@ contract PbCrvOpEthTest is Test {
         // vaultUSDC = PbCrvOpEth(address(proxy));
         vaultUSDC = PbCrvOpEth(0xb88C7a8e678B243a6851b9Fa82a1aA0986574631);
         PbCrvOpEth vaultUSDCImpl = new PbCrvOpEth();
-        hoax(owner);
-        vaultUSDC.upgradeTo(address(vaultUSDCImpl));
+        // hoax(owner);
+        // vaultUSDC.upgradeTo(address(vaultUSDCImpl));
 
         // Initialize aToken
         aUSDC = IERC20Upgradeable(vaultUSDC.aToken());
