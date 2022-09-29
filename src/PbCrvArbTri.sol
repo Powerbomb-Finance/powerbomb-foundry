@@ -5,6 +5,7 @@ import "./PbCrvBase.sol";
 import "../interface/IChainlink.sol";
 import "../interface/ISwapRouter.sol";
 import "../interface/IWETH.sol";
+import "../interface/IMinter.sol";
 
 contract PbCrvArbTri is PbCrvBase {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -14,6 +15,7 @@ contract PbCrvArbTri is PbCrvBase {
     IERC20Upgradeable constant WETH = IERC20Upgradeable(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1);
     IChainlink constant USDTPriceOracle = IChainlink(0x3f3f5dF88dC9F13eac63DF89EC16ef6e7E25DdE7);
     ISwapRouter constant swapRouter = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
+    IMinter constant minter = IMinter(0xabC000d88f23Bb45525E447528DBF656A9D55bf5);
 
     function initialize(IERC20Upgradeable _rewardToken, address _treasury) external initializer {
         __Ownable_init();
@@ -120,7 +122,8 @@ contract PbCrvArbTri is PbCrvBase {
             lastATokenAmt = aTokenAmt;
         }
 
-        gauge.claim_rewards();
+        // gauge.claim_rewards();
+        minter.mint(address(gauge));
 
         uint CRVAmt = CRV.balanceOf(address(this));
         if (CRVAmt > 1e18) {
@@ -155,6 +158,9 @@ contract PbCrvArbTri is PbCrvBase {
 
             // Update lastATokenAmt
             lastATokenAmt = aToken.balanceOf(address(this));
+
+            // Update accumulate reward token amount
+            accRewardTokenAmt += rewardTokenAmt;
 
             emit Harvest(CRVAmt, rewardTokenAmt, fee);
         }
@@ -211,6 +217,13 @@ contract PbCrvArbTri is PbCrvBase {
         return swapRouter.exactInput(params);
     }
 
+    function switchGauge() external onlyOwner {
+        gauge.withdraw(gauge.balanceOf(address(this)));
+        gauge = IGauge(0x555766f3da968ecBefa690Ffd49A2Ac02f47aa5f);
+        lpToken.approve(address(gauge), type(uint).max);
+        gauge.deposit(lpToken.balanceOf(address(this)));
+    }
+
     function getPricePerFullShareInUSD() public view override returns (uint) {
         (, int answer,,,) = USDTPriceOracle.latestRoundData();
         // Get total USD for each asset (18 decimals)
@@ -234,7 +247,7 @@ contract PbCrvArbTri is PbCrvBase {
 
     /// @dev Call this function off-chain by using view
     function getPoolPendingReward() external override returns (uint) {
-        return gauge.claimable_reward_write(address(this), address(CRV));
+        return gauge.claimable_tokens(address(this)); // crv, 18 decimals
     }
 
     function getUserPendingReward(address account) external view override returns (uint) {

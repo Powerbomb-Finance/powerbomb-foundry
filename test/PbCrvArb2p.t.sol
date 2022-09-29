@@ -21,8 +21,9 @@ contract PbCrvArb2pTest is Test {
     address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
 
     function setUp() public {
-        // // Deploy implementation contract
+        // Deploy implementation contract
         // PbCrvArb2p vaultImpl = new PbCrvArb2p();
+
         // // Deploy BTC reward proxy contract
         // PbProxy proxy = new PbProxy(
         //     address(vaultImpl),
@@ -34,6 +35,9 @@ contract PbCrvArb2pTest is Test {
         // );
         // vaultBTC = PbCrvArb2p(address(proxy));
         vaultBTC = PbCrvArb2p(0xE616e7e282709d8B05821a033B43a358a6ea8408);
+        // hoax(owner);
+        // vaultBTC.upgradeTo(address(vaultImpl));
+
         // // Deploy ETH reward proxy contract
         // proxy = new PbProxy(
         //     address(vaultImpl),
@@ -45,9 +49,17 @@ contract PbCrvArb2pTest is Test {
         // );
         // vaultETH = PbCrvArb2p(address(proxy));
         vaultETH = PbCrvArb2p(0xBE6A4db3480EFccAb2281F30fe97b897BeEf408c);
+        // hoax(owner);
+        // vaultETH.upgradeTo(address(vaultImpl));
+
         // Initialize aToken
         aWBTC = IERC20Upgradeable(vaultBTC.aToken());
         aWETH = IERC20Upgradeable(vaultETH.aToken());
+
+        // vm.startPrank(owner);
+        // vaultBTC.switchGauge();
+        // vaultETH.switchGauge();
+        // vm.stopPrank();
     }
 
     function testDeposit() public {
@@ -116,7 +128,10 @@ contract PbCrvArb2pTest is Test {
     function testHarvest() public {
         testDeposit();
         // Assume reward
-        deal(address(CRV), address(gauge), CRV.balanceOf(address(gauge)) + 10000 ether);
+        // deal(address(CRV), address(gauge), CRV.balanceOf(address(gauge)) + 10000 ether);
+        skip(864000);
+        assertGt(vaultBTC.getPoolPendingReward(), 0);
+        assertGt(vaultETH.getPoolPendingReward(), 0);
         // Harvest BTC reward
         vaultBTC.harvest();
         // Harvest ETH reward
@@ -134,15 +149,17 @@ contract PbCrvArb2pTest is Test {
         assertGt(vaultETH.accRewardPerlpToken(), 0);
         assertGt(vaultBTC.lastATokenAmt(), 0);
         assertGt(vaultETH.lastATokenAmt(), 0);
+        assertGt(vaultBTC.accRewardTokenAmt(), 0);
+        assertGt(vaultETH.accRewardTokenAmt(), 0);
         // Assume aToken increase
         // aWBTC
-        hoax(0x0eaE0b9EE583524098bca227478cc43413b7F4B9);
+        hoax(0x004c718103feD0bf75f2A02C3Da7eA2332137fAC);
         aWBTC.transfer(address(vaultBTC), 1e5);
         uint accRewardPerlpTokenWBTC = vaultBTC.accRewardPerlpToken();
         uint lastATokenAmtWBTC = vaultBTC.lastATokenAmt();
         uint userPendingVaultBTC = vaultBTC.getUserPendingReward(address(this));
         // aWETH
-        hoax(0x7576B7a1D278E3004dd37BBEB90E0b08cA70a1b9);
+        hoax(0x4196c40De33062ce03070f058922BAA99B28157B);
         aWETH.transfer(address(vaultETH), 1e16);
         uint accRewardPerlpTokenWETH = vaultETH.accRewardPerlpToken();
         uint lastATokenAmtWETH = vaultETH.lastATokenAmt();

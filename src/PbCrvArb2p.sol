@@ -3,6 +3,7 @@ pragma solidity 0.8.17;
 
 import "./PbCrvBase.sol";
 import "../interface/ISwapRouter.sol";
+import "../interface/IMinter.sol";
 
 contract PbCrvArb2p is PbCrvBase {
     using SafeERC20Upgradeable for IERC20Upgradeable;
@@ -12,6 +13,7 @@ contract PbCrvArb2p is PbCrvBase {
     IERC20Upgradeable constant WETH = IERC20Upgradeable(0x82aF49447D8a07e3bd95BD0d56f35241523fBab1);
     IERC20Upgradeable constant WBTC = IERC20Upgradeable(0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f);
     ISwapRouter constant swapRouter = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
+    IMinter constant minter = IMinter(0xabC000d88f23Bb45525E447528DBF656A9D55bf5);
 
     function initialize(IERC20Upgradeable _rewardToken, address _treasury) external initializer {
         __Ownable_init();
@@ -99,7 +101,8 @@ contract PbCrvArb2p is PbCrvBase {
             lastATokenAmt = aTokenAmt;
         }
 
-        gauge.claim_rewards();
+        // gauge.claim_rewards();
+        minter.mint(address(gauge));
 
         uint CRVAmt = CRV.balanceOf(address(this));
         if (CRVAmt > 1e18) {
@@ -143,6 +146,9 @@ contract PbCrvArb2p is PbCrvBase {
             // Update lastATokenAmt
             lastATokenAmt = aToken.balanceOf(address(this));
 
+            // Update accumulate reward token amount
+            accRewardTokenAmt += rewardTokenAmt;
+
             emit Harvest(CRVAmt, rewardTokenAmt, fee);
         }
     }
@@ -183,6 +189,13 @@ contract PbCrvArb2p is PbCrvBase {
         }
     }
 
+    function switchGauge() external onlyOwner {
+        gauge.withdraw(gauge.balanceOf(address(this)));
+        gauge = IGauge(0xCE5F24B7A95e9cBa7df4B54E911B4A3Dc8CDAf6f);
+        lpToken.approve(address(gauge), type(uint).max);
+        gauge.deposit(lpToken.balanceOf(address(this)));
+    }
+
     function getPricePerFullShareInUSD() public view override returns (uint) {
         return pool.get_virtual_price() / 1e12; // 6 decimals
     }
@@ -199,7 +212,7 @@ contract PbCrvArb2p is PbCrvBase {
 
     /// @dev Call this function off-chain by using view
     function getPoolPendingReward() external override returns (uint) {
-        return gauge.claimable_reward_write(address(this), address(CRV));
+        return gauge.claimable_tokens(address(this)); // crv, 18 decimals
     }
 
     function getUserPendingReward(address account) external view override returns (uint) {

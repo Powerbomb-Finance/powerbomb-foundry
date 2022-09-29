@@ -22,8 +22,9 @@ contract PbCrvArbTriTest is Test {
     address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
 
     function setUp() public {
-        // // Deploy implementation contract
+        // Deploy implementation contract
         // PbCrvArbTri vaultImpl = new PbCrvArbTri();
+
         // // Deploy BTC reward proxy contract
         // PbProxy proxy = new PbProxy(
         //     address(vaultImpl),
@@ -35,6 +36,9 @@ contract PbCrvArbTriTest is Test {
         // );
         // vaultBTC = PbCrvArbTri(address(proxy));
         vaultBTC = PbCrvArbTri(payable(0x5bA0139444AD6f28cC28d88c719Ae85c81C307a5));
+        // hoax(owner);
+        // vaultBTC.upgradeTo(address(vaultImpl));
+
         // // Deploy ETH reward proxy contract
         // proxy = new PbProxy(
         //     address(vaultImpl),
@@ -46,6 +50,9 @@ contract PbCrvArbTriTest is Test {
         // );
         // vaultETH = PbCrvArbTri(address(proxy));
         vaultETH = PbCrvArbTri(payable(0xb88C7a8e678B243a6851b9Fa82a1aA0986574631));
+        // hoax(owner);
+        // vaultETH.upgradeTo(address(vaultImpl));
+
         // // Deploy USDT reward proxy contract
         // proxy = new PbProxy(
         //     address(vaultImpl),
@@ -57,17 +64,18 @@ contract PbCrvArbTriTest is Test {
         // );
         // vaultUSDT = PbCrvArbTri(address(proxy));
         vaultUSDT = PbCrvArbTri(payable(0x8Ae32c034dAcd85a79CFd135050FCb8e6D4207D8));
+        // hoax(owner);
+        // vaultUSDT.upgradeTo(address(vaultImpl));
+
         // Initialize aToken
         aWBTC = IERC20Upgradeable(vaultBTC.aToken());
         aWETH = IERC20Upgradeable(vaultETH.aToken());
         aUSDT = IERC20Upgradeable(vaultUSDT.aToken());
 
-        // // Upgrade
-        // PbCrvArbTri vaultImpl = new PbCrvArbTri();
         // vm.startPrank(owner);
-        // vaultBTC.upgradeTo(address(vaultImpl));
-        // vaultETH.upgradeTo(address(vaultImpl));
-        // vaultUSDT.upgradeTo(address(vaultImpl));
+        // vaultBTC.switchGauge();
+        // vaultETH.switchGauge();
+        // vaultUSDT.switchGauge();
         // vm.stopPrank();
     }
 
@@ -161,7 +169,11 @@ contract PbCrvArbTriTest is Test {
     function testHarvest() public {
         testDeposit();
         // Assume reward
-        deal(address(CRV), address(gauge), CRV.balanceOf(address(gauge)) + 10000 ether);
+        // deal(address(CRV), address(gauge), CRV.balanceOf(address(gauge)) + 10000 ether);
+        skip(864000);
+        assertGt(vaultBTC.getPoolPendingReward(), 0);
+        assertGt(vaultETH.getPoolPendingReward(), 0);
+        assertGt(vaultUSDT.getPoolPendingReward(), 0);
         // Harvest BTC reward
         vaultBTC.harvest();
         // Harvest ETH reward
@@ -187,21 +199,24 @@ contract PbCrvArbTriTest is Test {
         assertGt(vaultBTC.lastATokenAmt(), 0);
         assertGt(vaultETH.lastATokenAmt(), 0);
         assertGt(vaultUSDT.lastATokenAmt(), 0);
+        assertGt(vaultBTC.accRewardTokenAmt(), 0);
+        assertGt(vaultETH.accRewardTokenAmt(), 0);
+        assertGt(vaultUSDT.accRewardTokenAmt(), 0);
         // Assume aToken increase
         // aWBTC
-        hoax(0x0eaE0b9EE583524098bca227478cc43413b7F4B9);
+        hoax(0x004c718103feD0bf75f2A02C3Da7eA2332137fAC);
         aWBTC.transfer(address(vaultBTC), 1e5);
         uint accRewardPerlpTokenWBTC = vaultBTC.accRewardPerlpToken();
         uint lastATokenAmtWBTC = vaultBTC.lastATokenAmt();
         uint userPendingVaultBTC = vaultBTC.getUserPendingReward(address(this));
         // aWETH
-        hoax(0x7576B7a1D278E3004dd37BBEB90E0b08cA70a1b9);
+        hoax(0x4196c40De33062ce03070f058922BAA99B28157B);
         aWETH.transfer(address(vaultETH), 1e16);
         uint accRewardPerlpTokenWETH = vaultETH.accRewardPerlpToken();
         uint lastATokenAmtWETH = vaultETH.lastATokenAmt();
         uint userPendingVaultETH = vaultETH.getUserPendingReward(address(this));
-        // // aUSDT
-        hoax(0x4FB361C9ce167D4049a50b42Cf1Db57161820CBd);
+        // aUSDT
+        hoax(0x1E6310BCe96E5C2AF939942CCC46462D06a88eE0);
         aUSDT.transfer(address(vaultUSDT), 10e6);
         uint accRewardPerlpTokenUSDT = vaultUSDT.accRewardPerlpToken();
         uint lastATokenAmtUSDT = vaultUSDT.lastATokenAmt();
