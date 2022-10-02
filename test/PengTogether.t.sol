@@ -18,7 +18,7 @@ contract PengTogetherTest is Test {
     address dao = 0x28BCc4202cd179499bF618DBfd1bFE37278E1A12;
     address treasury = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
     // address treasury = address(this);
-    PengTogether vault = PengTogether(payable(0x68ca3a3BBD306293e693871E45Fe908C04387614));
+    PengTogether vault;
     Record record = Record(0x176B6aD5063bFFBca9867DE6B3a1Eb27A306e40d);
     address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
     // address owner = address(this);
@@ -40,6 +40,10 @@ contract PengTogetherTest is Test {
         //     )
         // );
         // vault = PengTogether(payable(address(proxy)));
+        vault = PengTogether(payable(0x68ca3a3BBD306293e693871E45Fe908C04387614));
+        // PengTogether vaultImpl = new PengTogether();
+        // hoax(owner);
+        // vault.upgradeTo(address(vaultImpl));
 
         // record.setVault(address(vault));
         // record.setDao(dao);

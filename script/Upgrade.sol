@@ -3,7 +3,6 @@ pragma solidity 0.8.17;
 
 import "forge-std/Script.sol";
 import "../src/PengTogether.sol";
-import "../src/FarmCurve.sol";
 import "../src/Reward.sol";
 
 contract Upgrade is Script {
