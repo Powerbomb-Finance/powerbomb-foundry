@@ -19,6 +19,7 @@ contract Reward is
     mapping(uint16 => bytes) public trustedRemoteLookup; // PengTogether contract on Optimism
     address public admin;
     address public dao;
+    uint public nftSwapped;
 
     event BuyNFT(address pool, uint NFTPrice);
     event SetTrustedRemoteLookup(uint16 chainId, address trustedRemote);
@@ -49,7 +50,13 @@ contract Reward is
             block.timestamp // deadline
         );
 
+        nftSwapped += 1;
+
         emit BuyNFT(pool, thisBalance - remainingValue);
+    }
+
+    function setNftSwapped(uint _nftSwapped) external onlyOwner {
+        nftSwapped = _nftSwapped;
     }
 
     function setTrustedRemoteLookup(uint16 chainId, address trustedRemote) external onlyOwner {
