@@ -36,6 +36,7 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
     IRecord public record;
     address public reward; // on ethereum
     address public admin;
+    uint public accWethYield;
 
     event Deposit(address indexed user, uint amount, uint lpTokenAmt);
     event Withdraw(address indexed user, uint amount, uint lpTokenAmt, uint actualAmt);
@@ -138,6 +139,9 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         wethAmt -= fee;
         weth.transfer(treasury, fee);
 
+        // add up accumulate weth yield
+        accWethYield += wethAmt;
+
         emit Harvest(crvAmt, opAmt, wethAmt, fee);
     }
 
@@ -191,6 +195,10 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         yieldFeePerc = _yieldFeePerc;
 
         emit SetYieldFeePerc(_yieldFeePerc);
+    }
+
+    function setAccWethYield(uint _accWethYield) external onlyOwner {
+        accWethYield = _accWethYield;
     }
 
     function getPricePerFullShareInUSD() public view returns (uint) {
