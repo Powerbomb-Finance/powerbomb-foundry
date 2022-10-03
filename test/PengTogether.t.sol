@@ -31,9 +31,9 @@ contract PengTogetherTest is Test {
         // );
         // record = Record(address(proxy));
         record = Record(0x176B6aD5063bFFBca9867DE6B3a1Eb27A306e40d);
-        Record recordImpl = new Record();
-        hoax(owner);
-        record.upgradeTo(address(recordImpl));
+        // Record recordImpl = new Record();
+        // hoax(owner);
+        // record.upgradeTo(address(recordImpl));
 
         // vault = new PengTogether();
         // proxy = new PbProxy(
