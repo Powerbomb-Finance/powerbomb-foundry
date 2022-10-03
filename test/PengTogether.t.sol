@@ -30,6 +30,10 @@ contract PengTogetherTest is Test {
         //     abi.encodeWithSelector(bytes4(keccak256("initialize()")))
         // );
         // record = Record(address(proxy));
+        record = Record(0x176B6aD5063bFFBca9867DE6B3a1Eb27A306e40d);
+        Record recordImpl = new Record();
+        hoax(owner);
+        record.upgradeTo(address(recordImpl));
 
         // vault = new PengTogether();
         // proxy = new PbProxy(
@@ -49,6 +53,14 @@ contract PengTogetherTest is Test {
         // record.setDao(dao);
         // vault.setReward(reward);
     }
+
+    // function test() public {
+    //     address userAddr = 0xA21169327f599936C1a198bF5D2E7Cc89944cd88;
+    //     // record.getUserTotalTickets(userAddr);
+    //     // hoax(userAddr);
+    //     // vault.deposit(usdc, 100e6, 0);
+    //     console.log(record.getUserTotalTickets(userAddr));
+    // }
 
     function testDepositPlaceSeat2Account() public {
         deal(address(usdc), address(1), 1000e6);

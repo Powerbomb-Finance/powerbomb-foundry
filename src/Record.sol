@@ -85,10 +85,9 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         uint depositInHundred = user.depositBal / 100e6;
         if (depositHour > 0 && depositInHundred > 0) {
             user.ticketBal += depositHour * depositInHundred; // 1 deposit hour * $100 = 1 ticket
-            user.lastUpdateTimestamp = block.timestamp;
-
             emit UpdateTicketAmount(_user, depositHour, depositInHundred);
         }
+        user.lastUpdateTimestamp = block.timestamp;
     }
 
     ///@notice only call this function when ready to draw
