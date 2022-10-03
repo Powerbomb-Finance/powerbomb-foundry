@@ -32,7 +32,7 @@ contract OPUSDCTest is Test {
     // address owner = address(this);
 
     function setUp() public {
-        PbVelo vaultImpl = new PbVelo();
+        // PbVelo vaultImpl = new PbVelo();
 
         // PbProxy proxy = new PbProxy(
         //     address(vaultImpl),
@@ -76,11 +76,11 @@ contract OPUSDCTest is Test {
         // hoax(owner);
         // vaultUSDC.upgradeTo(address(vaultImpl));
 
-        vm.startPrank(owner);
-        vaultBTC.setSwapThreshold(0.001 ether);
-        vaultETH.setSwapThreshold(0.001 ether);
-        vaultUSDC.setSwapThreshold(0.001 ether);
-        vm.stopPrank();
+        // vm.startPrank(owner);
+        // vaultBTC.setSwapThreshold(0.001 ether);
+        // vaultETH.setSwapThreshold(0.001 ether);
+        // vaultUSDC.setSwapThreshold(0.001 ether);
+        // vm.stopPrank();
 
         token0 = IERC20Upgradeable(vaultBTC.token0());
         token1 = IERC20Upgradeable(vaultBTC.token1());

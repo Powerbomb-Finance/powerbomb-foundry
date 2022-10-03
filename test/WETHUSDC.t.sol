@@ -32,7 +32,7 @@ contract WETHUSDCTest is Test {
     // address owner = address(this);
 
     function setUp() public {
-        PbVelo vaultImpl = new PbVelo();
+        // PbVelo vaultImpl = new PbVelo();
 
         // PbProxy proxy = new PbProxy(
         //     address(vaultImpl),
@@ -45,8 +45,8 @@ contract WETHUSDCTest is Test {
         // );
         // vaultBTC = PbVelo(payable(address(proxy)));
         vaultBTC = PbVelo(payable(0xa0Ea9A553cB47658e62Dee4D7b49F7c8Da234B69));
-        hoax(owner);
-        vaultBTC.upgradeTo(address(vaultImpl));
+        // hoax(owner);
+        // vaultBTC.upgradeTo(address(vaultImpl));
 
         // proxy = new PbProxy(
         //     address(vaultImpl),
@@ -59,8 +59,8 @@ contract WETHUSDCTest is Test {
         // );
         // vaultETH = PbVelo(payable(address(proxy)));
         vaultETH = PbVelo(payable(0xd0f9990a611018b5b30BFE1C5433bf5bba2a9868));
-        hoax(owner);
-        vaultETH.upgradeTo(address(vaultImpl));
+        // hoax(owner);
+        // vaultETH.upgradeTo(address(vaultImpl));
 
         // proxy = new PbProxy(
         //     address(vaultImpl),
@@ -73,14 +73,14 @@ contract WETHUSDCTest is Test {
         // );
         // vaultUSDC = PbVelo(payable(address(proxy)));
         vaultUSDC = PbVelo(payable(0x0F0fFF5EA56b0eA2246A926F13181e33Be9FbAEA));
-        hoax(owner);
-        vaultUSDC.upgradeTo(address(vaultImpl));
+        // hoax(owner);
+        // vaultUSDC.upgradeTo(address(vaultImpl));
 
-        vm.startPrank(owner);
-        vaultBTC.setSwapThreshold(0.001 ether);
-        vaultETH.setSwapThreshold(0.001 ether);
-        vaultUSDC.setSwapThreshold(0.001 ether);
-        vm.stopPrank();
+        // vm.startPrank(owner);
+        // vaultBTC.setSwapThreshold(0.001 ether);
+        // vaultETH.setSwapThreshold(0.001 ether);
+        // vaultUSDC.setSwapThreshold(0.001 ether);
+        // vm.stopPrank();
 
         token0 = IERC20Upgradeable(vaultBTC.token0());
         token1 = IERC20Upgradeable(vaultBTC.token1());
@@ -94,16 +94,16 @@ contract WETHUSDCTest is Test {
         deal(address(USDC), address(owner), 0);
     }
 
-    function test() public {
-        IERC20Upgradeable usdc = IERC20Upgradeable(0x7F5c764cBc14f9669B88837ca1490cCa17c31607);
-        deal(address(usdc), address(this), 100000e6);
-        usdc.approve(address(vaultETH), type(uint).max);
-        vaultETH.deposit(usdc, 100000e6, getSwapPerc(address(usdc)), 0);
-        // console.log(vaultETH.getUserBalanceInUSD(address(this)));
-        console.log(token0.balanceOf(address(this))); // 1
-        console.log(token1.balanceOf(address(this))); // 0.023970
-        // console.log(lpToken.balanceOf(address(this)));
-    }
+    // function test() public {
+    //     IERC20Upgradeable usdc = IERC20Upgradeable(0x7F5c764cBc14f9669B88837ca1490cCa17c31607);
+    //     deal(address(usdc), address(this), 100000e6);
+    //     usdc.approve(address(vaultETH), type(uint).max);
+    //     vaultETH.deposit(usdc, 100000e6, getSwapPerc(address(usdc)), 0);
+    //     // console.log(vaultETH.getUserBalanceInUSD(address(this)));
+    //     console.log(token0.balanceOf(address(this))); // 1
+    //     console.log(token1.balanceOf(address(this))); // 0.023970
+    //     // console.log(lpToken.balanceOf(address(this)));
+    // }
 
     function testDeposit() public {
         // Deposit token0 for BTC reward

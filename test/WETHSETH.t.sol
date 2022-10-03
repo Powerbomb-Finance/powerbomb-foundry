@@ -28,7 +28,7 @@ contract WETHSETHTest is Test {
     // address owner = address(this);
 
     function setUp() public {
-        PbVelo vaultImpl = new PbVelo();
+        // PbVelo vaultImpl = new PbVelo();
 
         // PbProxy proxy = new PbProxy(
         //     address(vaultImpl),
@@ -41,12 +41,12 @@ contract WETHSETHTest is Test {
         // );
         // vaultUSDC = PbVelo(payable(address(proxy)));
         vaultUSDC = PbVelo(payable(0xcba7864134e1A5326b817676ad5302A009c84d68));
-        hoax(owner);
-        vaultUSDC.upgradeTo(address(vaultImpl));
+        // hoax(owner);
+        // vaultUSDC.upgradeTo(address(vaultImpl));
 
-        vm.startPrank(owner);
-        vaultUSDC.upgradeTo(address(vaultImpl));
-        vm.stopPrank();
+        // vm.startPrank(owner);
+        // vaultUSDC.upgradeTo(address(vaultImpl));
+        // vm.stopPrank();
 
         token0 = IERC20Upgradeable(vaultUSDC.token0());
         token1 = IERC20Upgradeable(vaultUSDC.token1());

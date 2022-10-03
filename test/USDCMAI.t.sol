@@ -29,7 +29,7 @@ contract USDCMAITest is Test {
     // address owner = address(this);
 
     function setUp() public {
-        PbVelo vaultImpl = new PbVelo();
+        // PbVelo vaultImpl = new PbVelo();
 
         // PbProxy proxy = new PbProxy(
         //     address(vaultImpl),
@@ -42,8 +42,8 @@ contract USDCMAITest is Test {
         // );
         // vaultBTC = PbVelo(payable(address(proxy)));
         vaultBTC = PbVelo(payable(0x52671440732589E3027517E22c49ABc04941CF2F));
-        hoax(owner);
-        vaultBTC.upgradeTo(address(vaultImpl));
+        // hoax(owner);
+        // vaultBTC.upgradeTo(address(vaultImpl));
 
         // proxy = new PbProxy(
         //     address(vaultImpl),
@@ -56,13 +56,13 @@ contract USDCMAITest is Test {
         // );
         // vaultETH = PbVelo(payable(address(proxy)));
         vaultETH = PbVelo(payable(0x3BD8d78d77dfA391c5F73c10aDeaAdD9a7f7198C));
-        hoax(owner);
-        vaultETH.upgradeTo(address(vaultImpl));
+        // hoax(owner);
+        // vaultETH.upgradeTo(address(vaultImpl));
 
-        vm.startPrank(owner);
-        vaultBTC.setSwapThreshold(0.001 ether);
-        vaultETH.setSwapThreshold(0.001 ether);
-        vm.stopPrank();
+        // vm.startPrank(owner);
+        // vaultBTC.setSwapThreshold(0.001 ether);
+        // vaultETH.setSwapThreshold(0.001 ether);
+        // vm.stopPrank();
 
         token0 = IERC20Upgradeable(vaultBTC.token0());
         token1 = IERC20Upgradeable(vaultBTC.token1());
