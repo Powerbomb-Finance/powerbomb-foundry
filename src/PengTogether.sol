@@ -46,7 +46,7 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
     event SetReward(address _reward);
     event SetYieldFeePerc(uint _yieldFeePerc);
 
-    function initialize(IRecord _record) external initializer {
+    function initialize(IRecord _record) external virtual initializer {
         __Ownable_init();
 
         admin = msg.sender;
@@ -61,7 +61,7 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         op.approve(address(swapRouter), type(uint).max);
     }
 
-    function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin) external nonReentrant whenNotPaused {
+    function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin) external payable virtual nonReentrant whenNotPaused {
         require(token == usdc, "usdc only");
         require(amount >= 100e6, "min $100");
 
@@ -78,7 +78,7 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         emit Deposit(msg.sender, amount, lpTokenAmt);
     }
 
-    function withdraw(IERC20Upgradeable token, uint amount, uint amountOutMin) external nonReentrant {
+    function withdraw(IERC20Upgradeable token, uint amount, uint amountOutMin) external virtual nonReentrant {
         require(token == usdc, "usdc only");
         (uint depositBal, uint lpTokenBal,,) = record.userInfo(msg.sender);
         require(depositBal >= amount, "amount > depositBal");
@@ -95,7 +95,7 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         emit Withdraw(msg.sender, amount, lpTokenAmt, actualAmt);
     }
 
-    function harvest() external {
+    function harvest() external virtual {
         minter.mint(address(gauge)); // to claim crv
         gauge.claim_rewards(); // to claim op
         uint wethAmt;
@@ -201,11 +201,11 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         accWethYield = _accWethYield;
     }
 
-    function getPricePerFullShareInUSD() public view returns (uint) {
+    function getPricePerFullShareInUSD() public virtual view returns (uint) {
         return pool.get_virtual_price() / 1e12; // 6 decimals
     }
 
-    function getAllPool() public view returns (uint) {
+    function getAllPool() public virtual view returns (uint) {
         return gauge.balanceOf(address(this)); // lpToken, 18 decimals
     }
 

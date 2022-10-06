@@ -79,7 +79,7 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     //     _updateTicketAmount(msg.sender);
     // }
 
-    function _updateTicketAmount(address _user) private {
+    function _updateTicketAmount(address _user) internal virtual {
         User storage user = userInfo[_user];
         uint depositHour = (block.timestamp - user.lastUpdateTimestamp) / 3600;
         uint depositInHundred = user.depositBal / 100e6;
@@ -110,7 +110,7 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         );
     }
 
-    function _placeSeat(address user) private {
+    function _placeSeat(address user) internal virtual {
         _updateTicketAmount(user);
 
         if (userInfo[user].depositBal > 99e6) {
@@ -186,7 +186,7 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     ///@notice get user pending ticket (not yet place seat) and user available ticket to claim
-    function getUserAvailableTickets(address _user) public view returns (uint ticket) {
+    function getUserAvailableTickets(address _user) public virtual view returns (uint ticket) {
         // get user pending ticket (not yet place seat)
         User memory user = userInfo[_user];
         uint pendingTicket = user.ticketBal;
