@@ -13,43 +13,45 @@ contract Vault_sethTest is Test {
     IERC20Upgradeable op = IERC20Upgradeable(0x4200000000000000000000000000000000000042);
     IERC20Upgradeable weth = IERC20Upgradeable(0x4200000000000000000000000000000000000006);
     IPool pool = IPool(0x7Bc5728BC2b59B45a58d9A576E2Ffc5f0505B35E);
-    address reward = 0xF7A1f8918301D9C09105812eB045AA168aB3BFea;
-    address dao = 0x28BCc4202cd179499bF618DBfd1bFE37278E1A12;
+    address reward = 0xB7957FE76c2fEAe66B57CF3191aFD26d99EC5599;
+    address dao = 0x0C9133Fa96d72C2030D63B6B35c3738D6329A313;
     address treasury = 0x96E2951CAbeF46E547Ae9eEDc3245d69deA0Be49;
     Vault_seth vault;
     Record_eth record;
-    // address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
-    address owner = address(this);
+    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
+    // address owner = address(this);
 
     function setUp() public {
-        record = new Record_eth();
-        PbProxy proxy = new PbProxy(
-            address(record),
-            abi.encodeWithSelector(bytes4(keccak256("initialize()")))
-        );
-        record = Record_eth(address(proxy));
-        // record = Record_eth(0x176B6aD5063bFFBca9867DE6B3a1Eb27A306e40d);
+        // record = new Record_eth();
+        // PbProxy proxy = new PbProxy(
+        //     address(record),
+        //     abi.encodeWithSelector(bytes4(keccak256("initialize()")))
+        // );
+        // record = Record_eth(address(proxy));
+        record = Record_eth(0xC530677144A7EA5BaE6Fbab0770358522b4e7071);
         // Record recordImpl = new Record_eth();
         // hoax(owner);
         // record.upgradeTo(address(recordImpl));
 
-        vault = new Vault_seth();
-        proxy = new PbProxy(
-            address(vault),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address)")),
-                address(record)
-            )
-        );
-        vault = Vault_seth(payable(address(proxy)));
-        // vault = Vault_seth(payable(0x68ca3a3BBD306293e693871E45Fe908C04387614));
+        // vault = new Vault_seth();
+        // proxy = new PbProxy(
+        //     address(vault),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(address)")),
+        //         address(record)
+        //     )
+        // );
+        // vault = Vault_seth(payable(address(proxy)));
+        vault = Vault_seth(payable(0x98f82ADA10C55BC7D67b92d51b4e1dae69eD0250));
         // Vault_seth vaultImpl = new Vault_seth();
         // hoax(owner);
         // vault.upgradeTo(address(vaultImpl));
 
-        record.setVault(address(vault));
-        record.setDao(dao);
-        vault.setReward(reward);
+        // record.setVault(address(vault));
+        // hoax(owner);
+        // record.setDao(dao);
+        // hoax(owner);
+        // vault.setReward(reward);
     }
 
     // function test() public {

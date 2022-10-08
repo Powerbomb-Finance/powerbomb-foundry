@@ -10,11 +10,11 @@ import "../src/PbProxy.sol";
 
 contract RewardTest is Test {
     IERC721 lilPudgy = IERC721(0x524cAB2ec69124574082676e6F654a18df49A048);
-    address pengTogetherVault = 0x68ca3a3BBD306293e693871E45Fe908C04387614;
-    address record = 0x176B6aD5063bFFBca9867DE6B3a1Eb27A306e40d;
+    address pengTogetherVault = 0x98f82ADA10C55BC7D67b92d51b4e1dae69eD0250;
+    address record = 0xC530677144A7EA5BaE6Fbab0770358522b4e7071;
     uint64 s_subscriptionId = 414;
-    Reward reward = Reward(payable(0xF7A1f8918301D9C09105812eB045AA168aB3BFea));
-    Dao dao = Dao(0x28BCc4202cd179499bF618DBfd1bFE37278E1A12);
+    Reward reward;
+    Dao dao;
     address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
 
     function setUp() public {
@@ -30,6 +30,7 @@ contract RewardTest is Test {
         //     )
         // );
         // dao = Dao(address(proxy));
+        dao = Dao(0x0C9133Fa96d72C2030D63B6B35c3738D6329A313);
 
         // reward = new Reward();
         // proxy = new PbProxy(
@@ -41,6 +42,7 @@ contract RewardTest is Test {
         //     )
         // );
         // reward = Reward(payable(address(proxy)));
+        reward = Reward(payable(address(0xB7957FE76c2fEAe66B57CF3191aFD26d99EC5599)));
 
         // dao.setReward(address(reward));
     }

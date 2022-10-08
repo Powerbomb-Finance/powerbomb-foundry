@@ -5,32 +5,32 @@ import "forge-std/Script.sol";
 
 import "../src/PbProxy.sol";
 
-import "../src/PengTogether.sol";
-import "../src/Record.sol";
+import "../src/Vault_seth.sol";
+import "../src/Record_eth.sol";
 
 import "../src/Reward.sol";
 import "../src/Dao.sol";
 
 contract Deploy is Script {
 
-    PengTogether vault = PengTogether(payable(0x68ca3a3BBD306293e693871E45Fe908C04387614)); // Optimism
-    Record record = Record(0x176B6aD5063bFFBca9867DE6B3a1Eb27A306e40d); // Optimism
-    address dao = 0x28BCc4202cd179499bF618DBfd1bFE37278E1A12;
-    address reward = 0xF7A1f8918301D9C09105812eB045AA168aB3BFea;
+    Vault_seth vault = Vault_seth(payable(0x98f82ADA10C55BC7D67b92d51b4e1dae69eD0250)); // Optimism
+    Record record = Record(0xC530677144A7EA5BaE6Fbab0770358522b4e7071); // Optimism
+    address dao = 0x0C9133Fa96d72C2030D63B6B35c3738D6329A313;
+    address reward = 0xB7957FE76c2fEAe66B57CF3191aFD26d99EC5599;
 
     function run() public {
         vm.startBroadcast();
 
         // PbProxy proxy;
 
-        // Record record = new Record();
+        // Record_eth record = new Record_eth();
         // proxy = new PbProxy(
         //     address(record),
         //     abi.encodeWithSelector(bytes4(keccak256("initialize()")))
         // );
-        // record = Record(address(proxy));
+        // record = Record_eth(address(proxy));
 
-        // PengTogether vault = new PengTogether();
+        // Vault_seth vault = new Vault_seth();
         // proxy = new PbProxy(
         //     address(vault),
         //     abi.encodeWithSelector(
@@ -38,7 +38,7 @@ contract Deploy is Script {
         //         address(record)
         //     )
         // );
-        // vault = PengTogether(payable(address(proxy)));
+        // vault = Vault_seth(payable(address(proxy)));
 
         // record.setVault(address(vault));
 
