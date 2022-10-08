@@ -55,11 +55,9 @@ contract Vault_sethTest is Test {
     }
 
     // function test() public {
-    //     address userAddr = 0xA21169327f599936C1a198bF5D2E7Cc89944cd88;
-    //     // record.getUserTotalTickets(userAddr);
-    //     // hoax(userAddr);
-    //     // vault.deposit(usdc, 100e6, 0);
-    //     console.log(record.getUserTotalTickets(userAddr));
+    //     vault.deposit{value: 1 ether}(weth, 1 ether, 0);
+    //     console.log(vault.getUserBalanceInUSD(address(this))); // 1322.002050
+    //     console.log(vault.getAllPoolInUSD()); // 1322.002050
     // }
 
     function testDepositPlaceSeat2Account() public {

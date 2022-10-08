@@ -209,7 +209,7 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         return gauge.balanceOf(address(this)); // lpToken, 18 decimals
     }
 
-    function getAllPoolInUSD() external view returns (uint) {
+    function getAllPoolInUSD() external virtual view returns (uint) {
         uint allPool = getAllPool();
         if (allPool == 0) return 0;
         return allPool * getPricePerFullShareInUSD() / 1e18; // 6 decimals
@@ -233,7 +233,7 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
     }
 
     ///@notice user actual balance in usd after deposit into farm (after slippage), 6 decimals
-    function getUserBalanceInUSD(address account) external view returns (uint) {
+    function getUserBalanceInUSD(address account) external virtual view returns (uint) {
         (, uint lpTokenBal,,) = record.userInfo(account);
         return lpTokenBal * getPricePerFullShareInUSD() / 1e18;
     }
