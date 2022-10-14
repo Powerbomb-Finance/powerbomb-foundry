@@ -1,0 +1,228 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.17;
+
+import "./PbCvxBase.sol";
+import "../interface/IChainlink.sol";
+
+import "forge-std/console.sol";
+contract PbCvxSteth is PbCvxBase {
+
+    IERC20Upgradeable constant stETH = IERC20Upgradeable(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
+    IChainlink constant ethUsdPriceOracle = IChainlink(0x13e3Ee699D1909E989722E753853AE30b17e08c5);
+    
+    function initialize(uint _pid, IPool _pool, IERC20Upgradeable _rewardToken) external initializer {
+        (address _lpToken,,, address _gauge) = booster.poolInfo(_pid);
+        lpToken = IERC20Upgradeable(_lpToken);
+        gauge = IGauge(_gauge);
+        pid = _pid;
+        pool = _pool;
+        rewardToken = _rewardToken;
+        treasury = msg.sender;
+
+        (,,,,,,, address aTokenAddr,,,,) = lendingPool.getReserveData(address(rewardToken));
+        aToken = IERC20Upgradeable(aTokenAddr);
+
+        crv.approve(address(swapRouter), type(uint).max);
+        cvx.approve(address(swapRouter), type(uint).max);
+        stETH.approve(address(pool), type(uint).max);
+        lpToken.approve(address(booster), type(uint).max);
+        rewardToken.approve(address(lendingPool), type(uint).max);
+    }
+
+    function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin) external payable override {
+        require(token == weth || token == stETH || token == lpToken, "Invalid token");
+        require(amount > 0, "Invalid amount");
+
+        uint currentPool = gauge.balanceOf(address(this));
+        if (currentPool > 0) harvest();
+
+        if (token == weth) {
+            require(msg.value == amount, "Invalid ETH");
+        } else {
+            token.transferFrom(msg.sender, address(this), amount);
+        }
+        depositedBlock[msg.sender] = block.number;
+
+        uint lpTokenAmt;
+        if (token != lpToken) {
+            uint[2] memory amounts;
+            if (token == weth) amounts[0] = amount;
+            else amounts[1] = amount; // token == stETH
+            lpTokenAmt = pool.add_liquidity{value: msg.value}(amounts, amountOutMin);
+        } else {
+            lpTokenAmt = amount;
+        }
+
+        booster.deposit(pid, lpTokenAmt, true);
+
+        User storage user = userInfo[msg.sender];
+        user.lpTokenBalance += lpTokenAmt;
+        user.rewardStartAt += (lpTokenAmt * accRewardPerlpToken / 1e36);
+
+        emit Deposit(msg.sender, address(token), amount, lpTokenAmt);
+    }
+
+    function withdraw(IERC20Upgradeable token, uint lpTokenAmt, uint amountOutMin) external payable override {
+        require(token == weth || token == stETH || token == lpToken, "Invalid token");
+        User storage user = userInfo[msg.sender];
+        require(lpTokenAmt > 0 && user.lpTokenBalance >= lpTokenAmt, "Invalid lpTokenAmt");
+        require(depositedBlock[msg.sender] != block.number, "Not allow withdraw within same block");
+
+        harvest();
+
+        user.lpTokenBalance = user.lpTokenBalance - lpTokenAmt;
+        user.rewardStartAt = user.lpTokenBalance * accRewardPerlpToken / 1e36;
+        gauge.withdraw(lpTokenAmt, false);
+        booster.withdraw(pid, lpTokenAmt);
+
+        uint tokenAmt;
+        if (token != lpToken) {
+            int128 i;
+            if (token == weth) i = 0;
+            else i = 1; // stETH
+            tokenAmt = pool.remove_liquidity_one_coin(lpTokenAmt, i, amountOutMin);
+        } else {
+            tokenAmt = lpTokenAmt;
+        }
+
+        if (token == weth) {
+            (bool success,) = msg.sender.call{value: tokenAmt}("");
+            require(success, "ETH transfer failed");
+        } else {
+            token.transfer(msg.sender, lpTokenAmt);
+        }
+
+        emit Withdraw(msg.sender, address(token), lpTokenAmt, tokenAmt);
+    }
+
+    receive() external payable {}
+
+    function harvest() public override {
+        // Update accrued amount of aToken
+        uint allPool = getAllPool();
+        uint aTokenAmt = aToken.balanceOf(address(this));
+        if (aTokenAmt > lastATokenAmt) {
+            uint accruedAmt = aTokenAmt - lastATokenAmt;
+            accRewardPerlpToken += (accruedAmt * 1e36 / allPool);
+            lastATokenAmt = aTokenAmt;
+        }
+
+        gauge.getReward();
+        // console.log(crv.balanceOf(address(this))); // 0.028148894939573238
+        // console.log(cvx.balanceOf(address(this))); // 0.001351146957099515
+
+        uint crvAmt = crv.balanceOf(address(this));
+        uint cvxAmt = cvx.balanceOf(address(this));
+        if (crvAmt > 1 ether || cvxAmt > 1 ether) {
+            uint rewardTokenAmt;
+            
+            // Swap crv to rewardToken
+            if (crvAmt > 1 ether) {
+                ISwapRouter.ExactInputParams memory params = 
+                ISwapRouter.ExactInputParams({
+                    path: abi.encodePacked(address(crv), uint24(10000), address(weth), uint24(500), address(usdc)),
+                    recipient: address(this),
+                    deadline: block.timestamp,
+                    amountIn: crvAmt,
+                    amountOutMinimum: 0
+                });
+                rewardTokenAmt = swapRouter.exactInput(params);
+            }
+
+            // Swap cvx to rewardToken
+            if (cvxAmt > 1 ether) {
+                ISwapRouter.ExactInputParams memory params = 
+                    ISwapRouter.ExactInputParams({
+                        path: abi.encodePacked(address(cvx), uint24(10000), address(weth), uint24(500), address(usdc)),
+                        recipient: address(this),
+                        deadline: block.timestamp,
+                        amountIn: cvxAmt,
+                        amountOutMinimum: 0
+                    });
+                rewardTokenAmt += swapRouter.exactInput(params);
+            }
+
+            // Calculate fee
+            uint fee = rewardTokenAmt * yieldFeePerc / 10000;
+            rewardTokenAmt -= fee;
+            rewardToken.transfer(treasury, fee);
+
+            // Update accRewardPerlpToken
+            accRewardPerlpToken += (rewardTokenAmt * 1e36 / allPool);
+
+            // Deposit reward token into Aave to get interest bearing aToken
+            lendingPool.deposit(address(rewardToken), rewardTokenAmt, address(this), 0);
+        }
+    }
+
+    function claim() public override {
+        harvest();
+
+        User storage user = userInfo[msg.sender];
+        if (user.lpTokenBalance > 0) {
+            // Calculate user reward
+            uint aTokenAmt = (user.lpTokenBalance * accRewardPerlpToken / 1e36) - user.rewardStartAt;
+            if (aTokenAmt > 0) {
+                user.rewardStartAt += aTokenAmt;
+
+                // Update lastATokenAmt
+                if (lastATokenAmt >= aTokenAmt) {
+                    lastATokenAmt -= aTokenAmt;
+                } else {
+                    // Last claim: to prevent arithmetic underflow error due to minor variation
+                    lastATokenAmt = 0;
+                }
+
+                // Withdraw aToken to rewardToken
+                uint aTokenBal = aToken.balanceOf(address(this));
+                if (aTokenBal >= aTokenAmt) {
+                    lendingPool.withdraw(address(rewardToken), aTokenAmt, address(this));
+                } else {
+                    // Last withdraw: to prevent withdrawal fail from lendingPool due to minor variation
+                    lendingPool.withdraw(address(rewardToken), aTokenBal, address(this));
+                }
+
+                // Transfer rewardToken to user
+                uint rewardTokenAmt = rewardToken.balanceOf(address(this));
+                rewardToken.transfer(msg.sender, rewardTokenAmt);
+
+                emit Claim(msg.sender, rewardTokenAmt);
+            }
+        }
+    }
+
+    function getPricePerFullShareInUSD() public view override returns (uint) {
+        return pool.get_virtual_price() / 1e12; // 6 decimals
+    }
+
+    function getAllPool() public view override returns (uint) {
+        // convex lpToken, 18 decimals
+        // 1 convex lpToken == 1 curve lpToken
+        return gauge.balanceOf(address(this));
+    }
+
+    function getAllPoolInUSD() external view override returns (uint) {
+        uint allPool = getAllPool();
+        if (allPool == 0) return 0;
+        (, int latestPrice,,,) = ethUsdPriceOracle.latestRoundData();
+        return allPool * getPricePerFullShareInUSD() * uint(latestPrice) / 1e26; // 6 decimals
+    }
+
+    function getPoolPendingReward() external override returns (uint) {
+        //
+    }
+
+    function getUserPendingReward(address account) external view override returns (uint) {
+        User storage user = userInfo[account];
+        return (user.lpTokenBalance * accRewardPerlpToken / 1e36) - user.rewardStartAt;
+    }
+
+    function getUserBalance(address account) external view override returns (uint) {
+        return userInfo[account].lpTokenBalance;
+    }
+
+    function getUserBalanceInUSD(address account) external view override returns (uint) {
+        (, int latestPrice,,,) = ethUsdPriceOracle.latestRoundData();
+        return userInfo[account].lpTokenBalance * getPricePerFullShareInUSD() * uint(latestPrice) / 1e26;
+    }
+}
