@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.15;
+pragma solidity 0.8.17;
 
 interface IPool {
     function deposit(uint _pid, uint _amount, bool _stake) external;
