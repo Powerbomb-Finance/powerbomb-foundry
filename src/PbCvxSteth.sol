@@ -3,12 +3,14 @@ pragma solidity 0.8.17;
 
 import "./PbCvxBase.sol";
 import "../interface/IChainlink.sol";
+import "../interface/IRouter.sol";
 
-import "forge-std/console.sol";
 contract PbCvxSteth is PbCvxBase {
 
     IERC20Upgradeable constant stETH = IERC20Upgradeable(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
+    IERC20Upgradeable constant ldo = IERC20Upgradeable(0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32);
     IChainlink constant ethUsdPriceOracle = IChainlink(0x13e3Ee699D1909E989722E753853AE30b17e08c5);
+    IRouter constant router = IRouter(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F); // sushiswap
     
     function initialize(uint _pid, IPool _pool, IERC20Upgradeable _rewardToken) external initializer {
         (address _lpToken,,, address _gauge) = booster.poolInfo(_pid);
@@ -24,6 +26,7 @@ contract PbCvxSteth is PbCvxBase {
 
         crv.approve(address(swapRouter), type(uint).max);
         cvx.approve(address(swapRouter), type(uint).max);
+        ldo.approve(address(router), type(uint).max);
         stETH.approve(address(pool), type(uint).max);
         lpToken.approve(address(booster), type(uint).max);
         rewardToken.approve(address(lendingPool), type(uint).max);
@@ -72,8 +75,9 @@ contract PbCvxSteth is PbCvxBase {
 
         user.lpTokenBalance = user.lpTokenBalance - lpTokenAmt;
         user.rewardStartAt = user.lpTokenBalance * accRewardPerlpToken / 1e36;
-        gauge.withdraw(lpTokenAmt, false);
-        booster.withdraw(pid, lpTokenAmt);
+        // gauge.withdraw(lpTokenAmt, false);
+        // booster.withdraw(pid, lpTokenAmt);
+        gauge.withdrawAndUnwrap(lpTokenAmt, false);
 
         uint tokenAmt;
         if (token != lpToken) {
@@ -107,12 +111,13 @@ contract PbCvxSteth is PbCvxBase {
             lastATokenAmt = aTokenAmt;
         }
 
-        gauge.getReward();
-        // console.log(crv.balanceOf(address(this))); // 0.028148894939573238
-        // console.log(cvx.balanceOf(address(this))); // 0.001351146957099515
+        // gauge.getReward();
+        // IGauge(gauge.extraRewards(0)).getReward();
+        gauge.getReward(address(this), true);
 
         uint crvAmt = crv.balanceOf(address(this));
         uint cvxAmt = cvx.balanceOf(address(this));
+        uint ldoAmt = ldo.balanceOf(address(this));
         if (crvAmt > 1 ether || cvxAmt > 1 ether) {
             uint rewardTokenAmt;
             
@@ -140,6 +145,15 @@ contract PbCvxSteth is PbCvxBase {
                         amountOutMinimum: 0
                     });
                 rewardTokenAmt += swapRouter.exactInput(params);
+            }
+
+            // Swap extra token to reward token
+            if (ldoAmt > 1 ether) {
+                address[] memory path = new address[](3);
+                path[0] = address(ldo);
+                path[1] = address(weth);
+                path[2] = address(usdc);
+                rewardTokenAmt += router.swapExactTokensForTokens(ldoAmt, 0, path, address(this), block.timestamp)[2];
             }
 
             // Calculate fee
@@ -208,8 +222,13 @@ contract PbCvxSteth is PbCvxBase {
         return allPool * getPricePerFullShareInUSD() * uint(latestPrice) / 1e26; // 6 decimals
     }
 
-    function getPoolPendingReward() external override returns (uint) {
-        //
+    function getPoolPendingReward() external view override returns (uint pendingCrv, uint pendingCvx) {
+        pendingCrv = gauge.earned(address(this));
+        pendingCvx = 0; // hard to calculate pendingCvx
+    }
+
+    function getPoolExtraPendingReward() external view returns (uint) {
+        return IGauge(gauge.extraRewards(0)).earned(address(this));
     }
 
     function getUserPendingReward(address account) external view override returns (uint) {

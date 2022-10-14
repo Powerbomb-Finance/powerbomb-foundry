@@ -38,9 +38,17 @@ contract PbCvxStethTest is Test {
         skip(864000);
         deal(address(crv), address(vaultUsdc), 1 ether);
         deal(address(cvx), address(vaultUsdc), 1 ether);
-        vaultUsdc.deposit{value: 1 ether}(weth, 1 ether, 0);
+        // vaultUsdc.harvest();
+        // console.log(vaultUsdc.aToken().balanceOf(address(vaultUsdc))); // 6.147555 44.511410
+        
+        // vaultUsdc.claim();
         vm.roll(block.number + 1);
         vaultUsdc.withdraw(weth, vaultUsdc.getUserBalance(address(this)), 0);
+
+        // hoax(address(1));
+        // vaultUsdc.deposit{value: 1 ether}(weth, 1 ether, 0);
+        // vm.roll(block.number + 1);
+        // vaultUsdc.withdraw(weth, vaultUsdc.getUserBalance(address(this)), 0);
     }
     
     receive() external payable {}

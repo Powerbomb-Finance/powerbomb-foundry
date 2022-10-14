@@ -86,7 +86,7 @@ abstract contract PbCvxBase is Initializable, UUPSUpgradeable, OwnableUpgradeabl
 
     function getAllPoolInUSD() external view virtual returns (uint);
 
-    function getPoolPendingReward() external virtual returns (uint);
+    function getPoolPendingReward() external view virtual returns (uint, uint);
 
     function getUserPendingReward(address account) external view virtual returns (uint);
 
