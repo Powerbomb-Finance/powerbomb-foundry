@@ -9,10 +9,12 @@ contract PbCvxSteth is PbCvxBase {
 
     IERC20Upgradeable constant stETH = IERC20Upgradeable(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
     IERC20Upgradeable constant ldo = IERC20Upgradeable(0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32);
-    IChainlink constant ethUsdPriceOracle = IChainlink(0x13e3Ee699D1909E989722E753853AE30b17e08c5);
+    IChainlink constant ethUsdPriceOracle = IChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
     IRouter constant router = IRouter(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F); // sushiswap
     
     function initialize(uint _pid, IPool _pool, IERC20Upgradeable _rewardToken) external initializer {
+        __Ownable_init();
+
         (address _lpToken,,, address _gauge) = booster.poolInfo(_pid);
         lpToken = IERC20Upgradeable(_lpToken);
         gauge = IGauge(_gauge);
@@ -32,7 +34,11 @@ contract PbCvxSteth is PbCvxBase {
         rewardToken.approve(address(lendingPool), type(uint).max);
     }
 
-    function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin) external payable override {
+    function deposit(
+        IERC20Upgradeable token,
+        uint amount,
+        uint amountOutMin
+    ) external payable override nonReentrant whenNotPaused {
         require(token == weth || token == stETH || token == lpToken, "Invalid token");
         require(amount > 0, "Invalid amount");
 
@@ -50,7 +56,7 @@ contract PbCvxSteth is PbCvxBase {
         if (token != lpToken) {
             uint[2] memory amounts;
             if (token == weth) amounts[0] = amount;
-            else amounts[1] = amount; // token == stETH
+            else amounts[1] = amount; // token == steth
             lpTokenAmt = pool.add_liquidity{value: msg.value}(amounts, amountOutMin);
         } else {
             lpTokenAmt = amount;
@@ -65,7 +71,11 @@ contract PbCvxSteth is PbCvxBase {
         emit Deposit(msg.sender, address(token), amount, lpTokenAmt);
     }
 
-    function withdraw(IERC20Upgradeable token, uint lpTokenAmt, uint amountOutMin) external payable override {
+    function withdraw(
+        IERC20Upgradeable token,
+        uint lpTokenAmt,
+        uint amountOutMin
+    ) external payable override nonReentrant {
         require(token == weth || token == stETH || token == lpToken, "Invalid token");
         User storage user = userInfo[msg.sender];
         require(lpTokenAmt > 0 && user.lpTokenBalance >= lpTokenAmt, "Invalid lpTokenAmt");
@@ -75,15 +85,13 @@ contract PbCvxSteth is PbCvxBase {
 
         user.lpTokenBalance = user.lpTokenBalance - lpTokenAmt;
         user.rewardStartAt = user.lpTokenBalance * accRewardPerlpToken / 1e36;
-        // gauge.withdraw(lpTokenAmt, false);
-        // booster.withdraw(pid, lpTokenAmt);
         gauge.withdrawAndUnwrap(lpTokenAmt, false);
 
         uint tokenAmt;
         if (token != lpToken) {
             int128 i;
             if (token == weth) i = 0;
-            else i = 1; // stETH
+            else i = 1; // steth
             tokenAmt = pool.remove_liquidity_one_coin(lpTokenAmt, i, amountOutMin);
         } else {
             tokenAmt = lpTokenAmt;
@@ -93,7 +101,7 @@ contract PbCvxSteth is PbCvxBase {
             (bool success,) = msg.sender.call{value: tokenAmt}("");
             require(success, "ETH transfer failed");
         } else {
-            token.transfer(msg.sender, lpTokenAmt);
+            token.transfer(msg.sender, tokenAmt);
         }
 
         emit Withdraw(msg.sender, address(token), lpTokenAmt, tokenAmt);
@@ -111,9 +119,7 @@ contract PbCvxSteth is PbCvxBase {
             lastATokenAmt = aTokenAmt;
         }
 
-        // gauge.getReward();
-        // IGauge(gauge.extraRewards(0)).getReward();
-        gauge.getReward(address(this), true);
+        gauge.getReward(address(this), true); // true = including extra reward
 
         uint crvAmt = crv.balanceOf(address(this));
         uint cvxAmt = cvx.balanceOf(address(this));
@@ -132,6 +138,7 @@ contract PbCvxSteth is PbCvxBase {
                     amountOutMinimum: 0
                 });
                 rewardTokenAmt = swapRouter.exactInput(params);
+                emit Harvest(address(crv), crvAmt, 0);
             }
 
             // Swap cvx to rewardToken
@@ -145,6 +152,7 @@ contract PbCvxSteth is PbCvxBase {
                         amountOutMinimum: 0
                     });
                 rewardTokenAmt += swapRouter.exactInput(params);
+                emit Harvest(address(cvx), cvxAmt, 0);
             }
 
             // Swap extra token to reward token
@@ -154,10 +162,12 @@ contract PbCvxSteth is PbCvxBase {
                 path[1] = address(weth);
                 path[2] = address(usdc);
                 rewardTokenAmt += router.swapExactTokensForTokens(ldoAmt, 0, path, address(this), block.timestamp)[2];
+                emit Harvest(address(ldo), ldoAmt, 0);
             }
 
             // Calculate fee
             uint fee = rewardTokenAmt * yieldFeePerc / 10000;
+            emit Harvest(address(rewardToken), rewardTokenAmt, fee);
             rewardTokenAmt -= fee;
             rewardToken.transfer(treasury, fee);
 
@@ -166,10 +176,16 @@ contract PbCvxSteth is PbCvxBase {
 
             // Deposit reward token into Aave to get interest bearing aToken
             lendingPool.deposit(address(rewardToken), rewardTokenAmt, address(this), 0);
+
+            // Update lastATokenAmt
+            lastATokenAmt = aToken.balanceOf(address(this));
+
+            // Update accumulate reward token amount
+            accRewardTokenAmt += rewardTokenAmt;
         }
     }
 
-    function claim() public override {
+    function claim() public override nonReentrant {
         harvest();
 
         User storage user = userInfo[msg.sender];

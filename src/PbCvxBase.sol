@@ -48,7 +48,7 @@ abstract contract PbCvxBase is Initializable, UUPSUpgradeable, OwnableUpgradeabl
 
     event Deposit(address indexed account, address indexed tokenDeposit, uint amountToken, uint amountlpToken);
     event Withdraw(address indexed account, address indexed tokenWithdraw, uint amountlpToken, uint amountToken);
-    event Harvest(uint harvestedfarmTokenAmt, uint swappedRewardTokenAfterFee, uint fee);
+    event Harvest(address indexed token, uint amount, uint fee);
     event Claim(address indexed account, uint rewardTokenAmt);
     event SetTreasury(address oldTreasury, address newTreasury);
     event SetYieldFeePerc(uint oldYieldFeePerc, uint newYieldFeePerc);
