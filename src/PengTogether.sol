@@ -216,7 +216,7 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
     }
 
     /// @dev Call this function off-chain by using view
-    function getPoolPendingReward() external returns (uint crvReward, uint opReward) {
+    function getPoolPendingReward() external virtual returns (uint crvReward, uint opReward) {
         crvReward = gauge.claimable_tokens(address(this));
         opReward = gauge.claimable_reward(address(this), address(op));
     }

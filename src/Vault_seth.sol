@@ -130,6 +130,12 @@ contract Vault_seth is PengTogether {
         return allPool * getPricePerFullShareInUSD() / 1e18; // 6 decimals
     }
 
+    /// @dev Call this function off-chain by using view
+    function getPoolPendingReward() external override returns (uint crvReward, uint opReward) {
+        crvReward = gauge_seth.claimable_tokens(address(this));
+        opReward = gauge_seth.claimable_reward(address(this), address(op));
+    }
+
     ///@notice user actual balance in usd after deposit into farm (after slippage), 6 decimals
     function getUserBalanceInUSD(address account) external override view returns (uint) {
         (, uint lpTokenBal,,) = record.userInfo(account);
