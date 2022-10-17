@@ -1,69 +1,74 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "./PbCvxBase.sol";
+import "./PbAuraBase.sol";
 import "../interface/IChainlink.sol";
-import "../interface/IRouter.sol";
+import "../interface/IWeth.sol";
+import "../interface/IWsteth.sol";
 
-contract PbCvxSteth is PbCvxBase {
+import "forge-std/console.sol";
+contract PbAuraWsteth is PbAuraBase {
 
-    IERC20Upgradeable constant stETH = IERC20Upgradeable(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
+    IERC20Upgradeable constant wsteth = IERC20Upgradeable(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
     IERC20Upgradeable constant ldo = IERC20Upgradeable(0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32);
     IChainlink constant ethUsdPriceOracle = IChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
-    IRouter constant router = IRouter(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F); // sushiswap
+    IChainlink constant stethEthPriceOracle = IChainlink(0x86392dC19c0b719886221c78AB11eb8Cf5c52812);
+    bytes32 constant poolId = 0x32296969ef14eb0c6d29669c550d4a0449130230000200000000000000000080; // wsteth/weth balancer
     
-    function initialize(uint _pid, IPool _pool, IERC20Upgradeable _rewardToken) external initializer {
+    function initialize(uint _pid, IERC20Upgradeable _rewardToken) external initializer {
         __Ownable_init();
 
         (address _lpToken,,, address _gauge) = booster.poolInfo(_pid);
         lpToken = IERC20Upgradeable(_lpToken);
         gauge = IGauge(_gauge);
         pid = _pid;
-        pool = _pool;
+        // pool = _pool;
         rewardToken = _rewardToken;
         treasury = msg.sender;
 
         (,,,,,,, address aTokenAddr,,,,) = lendingPool.getReserveData(address(rewardToken));
         aToken = IERC20Upgradeable(aTokenAddr);
 
-        crv.approve(address(swapRouter), type(uint).max);
-        cvx.approve(address(swapRouter), type(uint).max);
-        ldo.approve(address(router), type(uint).max);
-        stETH.approve(address(pool), type(uint).max);
-        lpToken.approve(address(booster), type(uint).max);
+        bal.approve(address(balancer), type(uint).max);
+        aura.approve(address(balancer), type(uint).max);
+        ldo.approve(address(balancer), type(uint).max);
+        weth.approve(address(balancer), type(uint).max);
+        weth.approve(address(zap), type(uint).max);
+        wsteth.approve(address(zap), type(uint).max);
         rewardToken.approve(address(lendingPool), type(uint).max);
     }
 
     function deposit(
         IERC20Upgradeable token,
         uint amount,
-        uint amountOutMin
+        uint
     ) external payable override nonReentrant whenNotPaused {
-        require(token == weth || token == stETH || token == lpToken, "Invalid token");
+        require(token == weth || token == wsteth || token == lpToken, "Invalid token");
         require(amount > 0, "Invalid amount");
 
         uint currentPool = gauge.balanceOf(address(this));
         if (currentPool > 0) harvest();
 
+        uint[] memory maxAmountsIn = new uint[](2);
         if (token == weth) {
             require(msg.value == amount, "Invalid ETH");
+            IWeth(address(weth)).deposit{value: msg.value}();
+            maxAmountsIn[1] = amount;
         } else {
             token.transferFrom(msg.sender, address(this), amount);
+            maxAmountsIn[0] = amount;
         }
         depositedBlock[msg.sender] = block.number;
 
-        uint lpTokenAmt;
-        if (token != lpToken) {
-            uint[2] memory amounts;
-            if (token == weth) amounts[0] = amount;
-            else amounts[1] = amount; // token == steth
-            lpTokenAmt = pool.add_liquidity{value: msg.value}(amounts, amountOutMin);
-        } else {
-            lpTokenAmt = amount;
-        }
+        IZap.JoinPoolRequest memory request = IZap.JoinPoolRequest({
+            assets: _getAssets(),
+            maxAmountsIn: maxAmountsIn,
+            userData: abi.encode(IBalancer.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, maxAmountsIn, 0),
+            fromInternalBalance: false
+        });
+        zap.depositSingle(address(gauge), address(token), amount, poolId, request);
 
-        booster.deposit(pid, lpTokenAmt, true);
-
+        uint lpTokenAmt = gauge.balanceOf(address(this)) - currentPool;
         User storage user = userInfo[msg.sender];
         user.lpTokenBalance += lpTokenAmt;
         user.rewardStartAt += (lpTokenAmt * accRewardPerlpToken / 1e36);
@@ -76,7 +81,7 @@ contract PbCvxSteth is PbCvxBase {
         uint lpTokenAmt,
         uint amountOutMin
     ) external payable override nonReentrant {
-        require(token == weth || token == stETH || token == lpToken, "Invalid token");
+        require(token == weth || token == wsteth || token == lpToken, "Invalid token");
         User storage user = userInfo[msg.sender];
         require(lpTokenAmt > 0 && user.lpTokenBalance >= lpTokenAmt, "Invalid lpTokenAmt");
         require(depositedBlock[msg.sender] != block.number, "Not allow withdraw within same block");
@@ -87,17 +92,31 @@ contract PbCvxSteth is PbCvxBase {
         user.rewardStartAt = user.lpTokenBalance * accRewardPerlpToken / 1e36;
         gauge.withdrawAndUnwrap(lpTokenAmt, false);
 
-        uint tokenAmt;
-        if (token != lpToken) {
-            int128 i;
-            if (token == weth) i = 0;
-            else i = 1; // steth
-            tokenAmt = pool.remove_liquidity_one_coin(lpTokenAmt, i, amountOutMin);
+        uint[] memory minAmountsOut = new uint[](2);
+        uint exitTokenIndex;
+        if (token == weth) {
+            minAmountsOut[1] = amountOutMin;
+            exitTokenIndex = 1;
         } else {
-            tokenAmt = lpTokenAmt;
+            minAmountsOut[0] = amountOutMin;
+            exitTokenIndex = 0;
         }
 
+        IBalancer.ExitPoolRequest memory request = IBalancer.ExitPoolRequest({
+            assets: _getAssets(),
+            minAmountsOut: minAmountsOut,
+            userData: abi.encode(
+                IBalancer.ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT,
+                lpTokenAmt,
+                exitTokenIndex
+            ),
+            toInternalBalance: false 
+        });
+        balancer.exitPool(poolId, address(this), payable(address(this)), request);
+
+        uint tokenAmt = token.balanceOf(address(this));
         if (token == weth) {
+            IWeth(address(weth)).withdraw(tokenAmt);
             (bool success,) = msg.sender.call{value: tokenAmt}("");
             require(success, "ETH transfer failed");
         } else {
@@ -121,49 +140,55 @@ contract PbCvxSteth is PbCvxBase {
 
         gauge.getReward(address(this), true); // true = including extra reward
 
-        uint crvAmt = crv.balanceOf(address(this));
-        uint cvxAmt = cvx.balanceOf(address(this));
+        uint balAmt = bal.balanceOf(address(this));
+        uint auraAmt = aura.balanceOf(address(this));
         uint ldoAmt = ldo.balanceOf(address(this));
-        if (crvAmt > 1 ether || cvxAmt > 1 ether) {
-            uint rewardTokenAmt;
+        if (balAmt > 1 ether || auraAmt > 1 ether) {
+            uint wethAmt;
             
-            // Swap crv to rewardToken
-            if (crvAmt > 1 ether) {
-                ISwapRouter.ExactInputParams memory params = 
-                ISwapRouter.ExactInputParams({
-                    path: abi.encodePacked(address(crv), uint24(10000), address(weth), uint24(500), address(usdc)),
-                    recipient: address(this),
-                    deadline: block.timestamp,
-                    amountIn: crvAmt,
-                    amountOutMinimum: 0
-                });
-                rewardTokenAmt = swapRouter.exactInput(params);
-                emit Harvest(address(crv), crvAmt, 0);
+            // Swap bal to weth
+            if (balAmt > 1 ether) {
+                wethAmt = _swap(
+                    0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014,
+                    address(bal),
+                    address(weth),
+                    balAmt
+                );
+
+                emit Harvest(address(bal), balAmt, 0);
             }
 
-            // Swap cvx to rewardToken
-            if (cvxAmt > 1 ether) {
-                ISwapRouter.ExactInputParams memory params = 
-                    ISwapRouter.ExactInputParams({
-                        path: abi.encodePacked(address(cvx), uint24(10000), address(weth), uint24(500), address(usdc)),
-                        recipient: address(this),
-                        deadline: block.timestamp,
-                        amountIn: cvxAmt,
-                        amountOutMinimum: 0
-                    });
-                rewardTokenAmt += swapRouter.exactInput(params);
-                emit Harvest(address(cvx), cvxAmt, 0);
+            // Swap aura to weth
+            if (auraAmt > 1 ether) {
+                wethAmt += _swap(
+                    0xc29562b045d80fd77c69bec09541f5c16fe20d9d000200000000000000000251,
+                    address(aura),
+                    address(weth),
+                    auraAmt
+                );
+
+                emit Harvest(address(aura), auraAmt, 0);
             }
 
-            // Swap extra token to reward token
+            // Swap extra token to weth if any
             if (ldoAmt > 1 ether) {
-                address[] memory path = new address[](3);
-                path[0] = address(ldo);
-                path[1] = address(weth);
-                path[2] = address(usdc);
-                rewardTokenAmt += router.swapExactTokensForTokens(ldoAmt, 0, path, address(this), block.timestamp)[2];
+                wethAmt += _swap(
+                    0xbf96189eee9357a95c7719f4f5047f76bde804e5000200000000000000000087,
+                    address(ldo),
+                    address(weth),
+                    ldoAmt
+                );
+
                 emit Harvest(address(ldo), ldoAmt, 0);
             }
+
+            // Swap weth to reward token
+            uint rewardTokenAmt = _swap(
+                0x96646936b91d6b9d7d0c47c496afbf3d6ec7b6f8000200000000000000000019,
+                address(weth),
+                address(usdc),
+                wethAmt
+            );
 
             // Calculate fee
             uint fee = rewardTokenAmt * yieldFeePerc / 10000;
@@ -221,26 +246,65 @@ contract PbCvxSteth is PbCvxBase {
         }
     }
 
-    function getPricePerFullShareInUSD() public view override returns (uint) {
-        return pool.get_virtual_price() / 1e12; // 6 decimals
+    function _swap(bytes32 _poolId, address tokenIn, address tokenOut, uint amount) private returns (uint amountOut) {
+        IBalancer.SingleSwap memory singleSwap = IBalancer.SingleSwap({
+            poolId: _poolId,
+            kind: IBalancer.SwapKind.GIVEN_IN,
+            assetIn: tokenIn,
+            assetOut: tokenOut,
+            amount: amount,
+            userData: ""
+        });
+        IBalancer.FundManagement memory funds = IBalancer.FundManagement({
+            sender: address(this),
+            fromInternalBalance: false,
+            recipient: address(this),
+            toInternalBalance: false
+        });
+        amountOut = balancer.swap(singleSwap, funds, 0, block.timestamp);
     }
 
+    function _getAssets() private pure returns (address[] memory assets) {
+        assets = new address[](2);
+        assets[0] = address(wsteth);
+        assets[1] = address(weth);
+    }
+
+    function getPricePerFullShareInUSD() public view override returns (uint) {
+        // balances = [token0Balance, token1Balance]
+        (, uint[] memory balances,) = balancer.getPoolTokens(poolId);
+        // get eth amount by get steth amount from wsteth, multiple by steth price in eth
+        uint stethAmt = IWsteth(address(wsteth)).getStETHByWstETH(balances[0]);
+        (, int latestPrice,,,) = stethEthPriceOracle.latestRoundData(); // return 18 decimals
+        uint ethAmt = stethAmt * uint(latestPrice) / 1 ether;
+        // ethAmt = wsteth amount in eth, balances[1] = weth amount
+        return (ethAmt + balances[1]) * 1 ether / lpToken.totalSupply();
+    }
+
+    ///@notice return 18 decimals
     function getAllPool() public view override returns (uint) {
-        // convex lpToken, 18 decimals
-        // 1 convex lpToken == 1 curve lpToken
+        // gauge.balanceOf return aura lpToken amount, 18 decimals
+        // 1 aura lpToken == 1 bal lpToken (bpt)
         return gauge.balanceOf(address(this));
     }
 
+    ///@notice return 6 decimals
     function getAllPoolInUSD() external view override returns (uint) {
         uint allPool = getAllPool();
         if (allPool == 0) return 0;
         (, int latestPrice,,,) = ethUsdPriceOracle.latestRoundData();
-        return allPool * getPricePerFullShareInUSD() * uint(latestPrice) / 1e26; // 6 decimals
+        return allPool * getPricePerFullShareInUSD() * uint(latestPrice) / 1e38;
     }
 
-    function getPoolPendingReward() external view override returns (uint pendingCrv, uint pendingCvx) {
-        pendingCrv = gauge.earned(address(this));
-        pendingCvx = 0; // hard to calculate pendingCvx
+    function getPoolPendingReward() external view override returns (uint pendingBal, uint pendingAura) {
+        pendingBal = gauge.earned(address(this));
+
+        // short calculation version of Aura.sol function mint()
+        uint cliff = (aura.totalSupply() - 5e25) / 1e23;
+        if (cliff < 500) {
+            uint reduction = (500 - cliff) * 5 / 2 + 700;
+            pendingAura = pendingBal * reduction / 500;
+        }
     }
 
     function getPoolExtraPendingReward() external view returns (uint) {
@@ -252,12 +316,14 @@ contract PbCvxSteth is PbCvxBase {
         return (user.lpTokenBalance * accRewardPerlpToken / 1e36) - user.rewardStartAt;
     }
 
+    ///@notice return 18 decimals
     function getUserBalance(address account) external view override returns (uint) {
         return userInfo[account].lpTokenBalance;
     }
 
+    ///@notice return 6 decimals
     function getUserBalanceInUSD(address account) external view override returns (uint) {
         (, int latestPrice,,,) = ethUsdPriceOracle.latestRoundData();
-        return userInfo[account].lpTokenBalance * getPricePerFullShareInUSD() * uint(latestPrice) / 1e26;
+        return userInfo[account].lpTokenBalance * getPricePerFullShareInUSD() * uint(latestPrice) / 1e38;
     }
 }

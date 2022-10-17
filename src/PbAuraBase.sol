@@ -2,8 +2,6 @@
 pragma solidity 0.8.17;
 
 import "openzeppelin-contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-// import "openzeppelin-contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-// import "openzeppelin-contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "openzeppelin-contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/security/PausableUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -11,21 +9,21 @@ import "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import "openzeppelin-contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import "../interface/IBooster.sol";
-import "../interface/IPool.sol";
 import "../interface/IGauge.sol";
-import "../interface/ISwapRouter.sol";
 import "../interface/ILendingPool.sol";
+import "../interface/IZap.sol";
+import "../interface/IBalancer.sol";
 
-abstract contract PbCvxBase is Initializable, UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
+abstract contract PbAuraBase is Initializable, UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
 
-    ISwapRouter constant swapRouter = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
-    IERC20Upgradeable constant crv = IERC20Upgradeable(0xD533a949740bb3306d119CC777fa900bA034cd52);
-    IERC20Upgradeable constant cvx = IERC20Upgradeable(0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B);
+    IERC20Upgradeable constant bal = IERC20Upgradeable(0xba100000625a3754423978a60c9317c58a424e3D);
+    IERC20Upgradeable constant aura = IERC20Upgradeable(0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF);
     IERC20Upgradeable constant wbtc = IERC20Upgradeable(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
     IERC20Upgradeable constant weth = IERC20Upgradeable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     IERC20Upgradeable constant usdc = IERC20Upgradeable(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-    IBooster constant booster = IBooster(0xF403C135812408BFbE8713b5A23a04b3D48AAE31);
-    IPool public pool;
+    IBooster constant booster = IBooster(0x7818A1DA7BD1E64c199029E86Ba244a9798eEE10);
+    IZap constant zap = IZap(0xB188b1CB84Fb0bA13cb9ee1292769F903A9feC59);
+    IBalancer constant balancer = IBalancer(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
     IGauge public gauge;
     uint public pid;
     IERC20Upgradeable public lpToken;
@@ -96,5 +94,5 @@ abstract contract PbCvxBase is Initializable, UUPSUpgradeable, OwnableUpgradeabl
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
-    uint[37] private __gap;
+    uint[38] private __gap;
 }
