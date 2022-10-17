@@ -46,8 +46,15 @@ contract PbCvxStethTest is Test {
     // function test() public {
     //     vaultUsdc.deposit{value: 10 ether}(weth, 10 ether, 0);
     //     skip(864000);
-    //     vaultUsdc.getPoolPendingReward();
-    //     vaultUsdc.harvest();
+    //     // vaultUsdc.getPoolPendingReward();
+    //     deal(address(crv), address(vaultUsdc), 1.1 ether);
+    //     deal(address(cvx), address(vaultUsdc), 1.1 ether);
+    //     hoax(0x3e40D73EB977Dc6a537aF587D48316feE66E9C8c);
+    //     ldo.transfer(address(vaultUsdc), 1.1 ether);
+    //     // vaultUsdc.harvest();
+    //     // vaultUsdc.claim();
+    //     vm.roll(block.number + 1);
+    //     vaultUsdc.withdraw(weth, vaultUsdc.getUserBalance(address(this)), 0);
     // }
 
     function testDeposit() public {
