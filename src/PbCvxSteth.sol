@@ -240,7 +240,12 @@ contract PbCvxSteth is PbCvxBase {
 
     function getPoolPendingReward() external view override returns (uint pendingCrv, uint pendingCvx) {
         pendingCrv = gauge.earned(address(this));
-        pendingCvx = 0; // hard to calculate pendingCvx
+        // short calculation version of Convex.sol function mint()
+        uint cliff = cvx.totalSupply() / 1e23;
+        if (cliff < 1000) {
+            uint reduction = 1000 - cliff;
+            pendingCvx = pendingCrv * reduction / 1000;
+        }
     }
 
     function getPoolExtraPendingReward() external view returns (uint) {

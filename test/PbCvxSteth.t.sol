@@ -43,6 +43,13 @@ contract PbCvxStethTest is Test {
         aToken = vaultUsdc.aToken();
     }
 
+    // function test() public {
+    //     vaultUsdc.deposit{value: 10 ether}(weth, 10 ether, 0);
+    //     skip(864000);
+    //     vaultUsdc.getPoolPendingReward();
+    //     vaultUsdc.harvest();
+    // }
+
     function testDeposit() public {
         // Deposit native eth
         uint[2] memory amounts = [10 ether, uint(0)];
@@ -113,7 +120,7 @@ contract PbCvxStethTest is Test {
         // console.log(crvReward);
         // console.log(cvxReward);
         assertGt(crvReward, 0);
-        assertEq(cvxReward, 0); // cannot get pending cvx reward
+        assertGt(cvxReward, 0); 
         uint ldoReward = vaultUsdc.getPoolExtraPendingReward();
         // console.log(ldoReward);
         assertGt(ldoReward, 0);
