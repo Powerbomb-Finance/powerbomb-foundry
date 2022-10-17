@@ -22,7 +22,6 @@ contract PbAuraWsteth is PbAuraBase {
         lpToken = IERC20Upgradeable(_lpToken);
         gauge = IGauge(_gauge);
         pid = _pid;
-        // pool = _pool;
         rewardToken = _rewardToken;
         treasury = msg.sender;
 
@@ -35,13 +34,14 @@ contract PbAuraWsteth is PbAuraBase {
         weth.approve(address(balancer), type(uint).max);
         weth.approve(address(zap), type(uint).max);
         wsteth.approve(address(zap), type(uint).max);
+        lpToken.approve(address(booster), type(uint).max);
         rewardToken.approve(address(lendingPool), type(uint).max);
     }
 
     function deposit(
         IERC20Upgradeable token,
         uint amount,
-        uint
+        uint amountOutMin
     ) external payable override nonReentrant whenNotPaused {
         require(token == weth || token == wsteth || token == lpToken, "Invalid token");
         require(amount > 0, "Invalid amount");
@@ -49,26 +49,36 @@ contract PbAuraWsteth is PbAuraBase {
         uint currentPool = gauge.balanceOf(address(this));
         if (currentPool > 0) harvest();
 
-        uint[] memory maxAmountsIn = new uint[](2);
-        if (token == weth) {
-            require(msg.value == amount, "Invalid ETH");
-            IWeth(address(weth)).deposit{value: msg.value}();
-            maxAmountsIn[1] = amount;
-        } else {
-            token.transferFrom(msg.sender, address(this), amount);
-            maxAmountsIn[0] = amount;
+        uint lpTokenAmt;
+        if (token != lpToken) {
+            uint[] memory maxAmountsIn = new uint[](2);
+            if (token == weth) {
+                require(msg.value == amount, "Invalid ETH");
+                IWeth(address(weth)).deposit{value: msg.value}();
+                maxAmountsIn[1] = amount;
+            } else {
+                token.transferFrom(msg.sender, address(this), amount);
+                maxAmountsIn[0] = amount;
+            }
+            depositedBlock[msg.sender] = block.number;
+
+            IBalancer.JoinPoolRequest memory request = IBalancer.JoinPoolRequest({
+                assets: _getAssets(),
+                maxAmountsIn: maxAmountsIn,
+                userData: abi.encode(IBalancer.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, maxAmountsIn, 0),
+                fromInternalBalance: false
+            });
+            zap.depositSingle(address(gauge), address(token), amount, poolId, request);
+
+            lpTokenAmt = gauge.balanceOf(address(this)) - currentPool;
+            require(lpTokenAmt > amountOutMin, "slippage");
+
+        } else { // token == lpToken
+            lpToken.transferFrom(msg.sender, address(this), amount);
+            booster.deposit(pid, amount, true);
+            lpTokenAmt = amount;
         }
-        depositedBlock[msg.sender] = block.number;
 
-        IZap.JoinPoolRequest memory request = IZap.JoinPoolRequest({
-            assets: _getAssets(),
-            maxAmountsIn: maxAmountsIn,
-            userData: abi.encode(IBalancer.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, maxAmountsIn, 0),
-            fromInternalBalance: false
-        });
-        zap.depositSingle(address(gauge), address(token), amount, poolId, request);
-
-        uint lpTokenAmt = gauge.balanceOf(address(this)) - currentPool;
         User storage user = userInfo[msg.sender];
         user.lpTokenBalance += lpTokenAmt;
         user.rewardStartAt += (lpTokenAmt * accRewardPerlpToken / 1e36);
@@ -92,35 +102,41 @@ contract PbAuraWsteth is PbAuraBase {
         user.rewardStartAt = user.lpTokenBalance * accRewardPerlpToken / 1e36;
         gauge.withdrawAndUnwrap(lpTokenAmt, false);
 
-        uint[] memory minAmountsOut = new uint[](2);
-        uint exitTokenIndex;
-        if (token == weth) {
-            minAmountsOut[1] = amountOutMin;
-            exitTokenIndex = 1;
-        } else {
-            minAmountsOut[0] = amountOutMin;
-            exitTokenIndex = 0;
-        }
+        uint tokenAmt;
+        if (token != lpToken) {
+            uint[] memory minAmountsOut = new uint[](2);
+            uint exitTokenIndex;
+            if (token == weth) {
+                minAmountsOut[1] = amountOutMin;
+                exitTokenIndex = 1;
+            } else {
+                minAmountsOut[0] = amountOutMin;
+                exitTokenIndex = 0;
+            }
 
-        IBalancer.ExitPoolRequest memory request = IBalancer.ExitPoolRequest({
-            assets: _getAssets(),
-            minAmountsOut: minAmountsOut,
-            userData: abi.encode(
-                IBalancer.ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT,
-                lpTokenAmt,
-                exitTokenIndex
-            ),
-            toInternalBalance: false 
-        });
-        balancer.exitPool(poolId, address(this), payable(address(this)), request);
+            IBalancer.ExitPoolRequest memory request = IBalancer.ExitPoolRequest({
+                assets: _getAssets(),
+                minAmountsOut: minAmountsOut,
+                userData: abi.encode(
+                    IBalancer.ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT,
+                    lpTokenAmt,
+                    exitTokenIndex
+                ),
+                toInternalBalance: false 
+            });
+            balancer.exitPool(poolId, address(this), payable(address(this)), request);
 
-        uint tokenAmt = token.balanceOf(address(this));
-        if (token == weth) {
-            IWeth(address(weth)).withdraw(tokenAmt);
-            (bool success,) = msg.sender.call{value: tokenAmt}("");
-            require(success, "ETH transfer failed");
-        } else {
-            token.transfer(msg.sender, tokenAmt);
+            tokenAmt = token.balanceOf(address(this));
+            if (token == weth) {
+                IWeth(address(weth)).withdraw(tokenAmt);
+                (bool success,) = msg.sender.call{value: tokenAmt}("");
+                require(success, "ETH transfer failed");
+            } else {
+                token.transfer(msg.sender, tokenAmt);
+            }
+
+        } else { // token == lpToken
+            lpToken.transfer(msg.sender, lpTokenAmt);
         }
 
         emit Withdraw(msg.sender, address(token), lpTokenAmt, tokenAmt);
