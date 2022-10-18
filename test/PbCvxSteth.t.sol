@@ -51,6 +51,7 @@ contract PbCvxStethTest is Test {
     //     deal(address(cvx), address(vaultUsdc), 1.1 ether);
     //     hoax(0x3e40D73EB977Dc6a537aF587D48316feE66E9C8c);
     //     ldo.transfer(address(vaultUsdc), 1.1 ether);
+    //     vaultUsdc.deposit{value: 10 ether}(weth, 10 ether, 0);
     //     // vaultUsdc.harvest();
     //     // vaultUsdc.claim();
     //     vm.roll(block.number + 1);

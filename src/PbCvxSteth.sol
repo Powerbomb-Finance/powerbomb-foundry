@@ -31,6 +31,7 @@ contract PbCvxSteth is PbCvxBase {
         ldo.approve(address(router), type(uint).max);
         stETH.approve(address(pool), type(uint).max);
         lpToken.approve(address(booster), type(uint).max);
+        lpToken.approve(address(pool), type(uint).max);
         rewardToken.approve(address(lendingPool), type(uint).max);
     }
 
