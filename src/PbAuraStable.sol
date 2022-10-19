@@ -5,7 +5,6 @@ import "openzeppelin-contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeabl
 import "./PbAuraBase.sol";
 import "../interface/IPool.sol";
 
-import "forge-std/console.sol";
 contract PbAuraStable is PbAuraBase {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
@@ -60,6 +59,7 @@ contract PbAuraStable is PbAuraBase {
 
         uint lpTokenAmt;
         if (token != lpToken) {
+            // zap swap from stablecoin to lp token
             lpTokenAmt = _zapSwap(token, amount, amountOutMin, true);
         } else { // token == lpToken
             lpTokenAmt = amount;
@@ -92,6 +92,7 @@ contract PbAuraStable is PbAuraBase {
 
         uint tokenAmt;
         if (token != lpToken) {
+            // zap swap from lp token to stablecoin
             tokenAmt = _zapSwap(token, lpTokenAmt, amountOutMin, false);
         } else { // token == lpToken
             tokenAmt = lpTokenAmt;
@@ -100,8 +101,6 @@ contract PbAuraStable is PbAuraBase {
 
         emit Withdraw(msg.sender, address(token), lpTokenAmt, tokenAmt);
     }
-
-    receive() external payable {}
 
     function harvest() public override {
         // Update accrued amount of aToken
@@ -123,7 +122,7 @@ contract PbAuraStable is PbAuraBase {
             // Swap bal to weth
             if (balAmt > 1 ether) {
                 wethAmt = _swap(
-                    0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014,
+                    0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014, // bal-weth poolId
                     address(bal),
                     address(weth),
                     balAmt
@@ -135,7 +134,7 @@ contract PbAuraStable is PbAuraBase {
             // Swap aura to weth
             if (auraAmt > 1 ether) {
                 wethAmt += _swap(
-                    0xc29562b045d80fd77c69bec09541f5c16fe20d9d000200000000000000000251,
+                    0xc29562b045d80fd77c69bec09541f5c16fe20d9d000200000000000000000251, // aura-weth poolId
                     address(aura),
                     address(weth),
                     auraAmt
@@ -238,11 +237,13 @@ contract PbAuraStable is PbAuraBase {
         bytes32 poolId0;
         bytes32 poolId1;
         if (_deposit) {
+            // stablecoin -> bbaToken -> bbaUsd(lpToken)
             assets[0] = address(token);
             assets[2] = address(bbaUsd);
             poolId0 = poolId;
             poolId1 = bbaUsdPoolId;
         } else { // withdraw
+            // bbaUsd(lpToken) -> bbaToken -> stablecoin
             assets[0] = address(bbaUsd);
             assets[2] = address(token);
             poolId0 = bbaUsdPoolId;
@@ -273,8 +274,8 @@ contract PbAuraStable is PbAuraBase {
         });
 
         int[] memory limits = new int[](3);
-        limits[0] = int(amount);
-        limits[2] = -int(amountOutMin);
+        limits[0] = int(amount); // token into balancer vault = positive
+        limits[2] = -int(amountOutMin); // token out from balancer vault = negative
 
         int[] memory assetDeltas = balancer.batchSwap(
             IBalancer.SwapKind.GIVEN_IN,
@@ -284,7 +285,7 @@ contract PbAuraStable is PbAuraBase {
             limits,
             block.timestamp
         );
-        amountOut = uint(-assetDeltas[2]);
+        amountOut = uint(-assetDeltas[2]); // make positive & uint
     }
 
     function _swap(bytes32 _poolId, address tokenIn, address tokenOut, uint amount) private returns (uint amountOut) {
