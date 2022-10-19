@@ -91,4 +91,11 @@ interface IBalancer {
         uint[] memory balances,
         uint lastChangeBlock
     );
+
+    function queryBatchSwap(
+        SwapKind kind,
+        BatchSwapStep[] memory swaps,
+        address[] memory assets,
+        FundManagement memory funds
+    ) external returns (int256[] memory assetDeltas);
 }
