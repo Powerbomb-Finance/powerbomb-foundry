@@ -64,13 +64,11 @@ contract PbAuraWsteth is PbAuraBase {
             IBalancer.JoinPoolRequest memory request = IBalancer.JoinPoolRequest({
                 assets: _getAssets(),
                 maxAmountsIn: maxAmountsIn,
-                userData: abi.encode(IBalancer.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, maxAmountsIn, 0),
+                userData: abi.encode(IBalancer.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, maxAmountsIn, amountOutMin),
                 fromInternalBalance: false
             });
             zap.depositSingle(address(gauge), address(token), amount, poolId, request);
-
             lpTokenAmt = gauge.balanceOf(address(this)) - currentPool;
-            require(lpTokenAmt > amountOutMin, "slippage");
 
         } else { // token == lpToken
             lpToken.transferFrom(msg.sender, address(this), amount);
