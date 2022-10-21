@@ -31,6 +31,16 @@ contract RewardTest is Test {
         // );
         // dao = Dao(address(proxy));
         dao = Dao(0x0C9133Fa96d72C2030D63B6B35c3738D6329A313);
+        // Dao daoImpl = new Dao();
+        // hoax(owner);
+        // dao.upgradeToAndCall(
+        //     address(daoImpl),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("setTrustedRemote(uint16,address)")),
+        //         111,
+        //         record
+        //     )
+        // );
 
         // reward = new Reward();
         // proxy = new PbProxy(
@@ -47,6 +57,23 @@ contract RewardTest is Test {
         // dao.setReward(address(reward));
     }
 
+    // function test() public {
+    //     // hoax(owner);
+    //     // dao.setTrustedRemote(111, record);
+
+    //     // hoax(owner);
+    //     // dao.lzReceiveClear(111, record);
+
+    //     hoax(owner);
+    //     dao.lzReceiveRetry(
+    //         111,
+    //         // bytes("176B6AD5063BFFBCA9867DE6B3A1EB27A306E40D28BCC4202CD179499BF618DBFD1BFE37278E1A12"),
+    //         abi.encodePacked(record, address(dao)),
+    //         abi.encode(398657, address(0))
+    //     );
+    //     // console.log(dao.totalSeats());
+    // }
+
     function testAll() public {
         // assume receive eth from stargate to reward
         (bool success,) = address(reward).call{value: 0.22 ether}("");
@@ -58,7 +85,7 @@ contract RewardTest is Test {
 
         // assume receive totalSeat from layerzero
         hoax(0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675);
-        bytes memory srcAddress = abi.encodePacked(record);
+        bytes memory srcAddress = abi.encodePacked(record, address(dao));
         bytes memory data = abi.encode(1234, address(0));
         dao.lzReceive(111, srcAddress, uint64(0), data);
         assertEq(dao.totalSeats(), 1234);
@@ -138,7 +165,7 @@ contract RewardTest is Test {
         assertEq(reward.dao(), address(dao));
 
         // dao
-        assertEq(dao.trustedRemoteLookup(111), abi.encodePacked(record));
+        assertEq(dao.trustedRemoteLookup(111), abi.encodePacked(record, address(dao)));
         assertEq(dao.s_subscriptionId(), s_subscriptionId);
         assertEq(address(dao.nft()), address(lilPudgy));
         assertEq(dao.reward(), address(reward));
@@ -167,6 +194,8 @@ contract RewardTest is Test {
         assertEq(dao.totalSeats(), 6288);
         dao.setWinner(address(6288));
         assertEq(dao.winner(), address(6288));
+        dao.setTrustedRemote(111, address(5));
+        assertEq(dao.trustedRemoteLookup(111), abi.encodePacked(address(5), address(dao)));
     }
 
     function testAuthorization() public {
@@ -195,8 +224,8 @@ contract RewardTest is Test {
         dao.transferOwnership(address(1));
         vm.expectRevert("Initializable: contract is already initialized");
         dao.initialize(address(0), 0, address(0));
-        vm.expectRevert();
-        dao.lzReceive(0, abi.encodePacked(address(0)), 0, "");
+        vm.expectRevert("sender != lzEndpoint");
+        dao.lzReceive(0, abi.encodePacked(address(0), address(dao)), 0, "");
         vm.expectRevert("Ownable: caller is not the owner");
         dao.setNft(address(0));
         vm.expectRevert("Ownable: caller is not the owner");
