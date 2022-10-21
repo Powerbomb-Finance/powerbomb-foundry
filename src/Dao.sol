@@ -48,7 +48,7 @@ contract Dao is
     function initialize(address record, uint64 subscriptionId, address _nft) external initializer {
         __Ownable_init();
 
-        trustedRemoteLookup[111] = abi.encodePacked(record);
+        trustedRemoteLookup[111] = abi.encodePacked(record, address(this));
         nft = IERC721(_nft);
 
         COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
