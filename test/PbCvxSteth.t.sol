@@ -20,23 +20,25 @@ contract PbCvxStethTest is Test {
     IPool pool;
     IERC20Upgradeable lpToken;
     IERC20Upgradeable aToken;
-    address owner = address(this);
+    // address owner = address(this);
+    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
 
     function setUp() public {
         // Deploy implementation contract
-        PbCvxSteth vaultImpl = new PbCvxSteth();
+        // PbCvxSteth vaultImpl = new PbCvxSteth();
 
-        // Deploy usdc reward proxy contract
-        PbProxy proxy = new PbProxy(
-            address(vaultImpl),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(uint256,address,address)")),
-                25,
-                0xDC24316b9AE028F1497c275EB9192a3Ea0f67022,
-                address(usdc)
-            )
-        );
-        vaultUsdc = PbCvxSteth(payable(address(proxy)));
+        // // Deploy usdc reward proxy contract
+        // PbProxy proxy = new PbProxy(
+        //     address(vaultImpl),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(uint256,address,address)")),
+        //         25,
+        //         0xDC24316b9AE028F1497c275EB9192a3Ea0f67022,
+        //         address(usdc)
+        //     )
+        // );
+        // vaultUsdc = PbCvxSteth(payable(address(proxy)));
+        vaultUsdc = PbCvxSteth(payable(0x0Aac6e405dD7355c728ce550A452Adda28f8b522));
 
         pool = vaultUsdc.pool();
         lpToken = vaultUsdc.lpToken();
