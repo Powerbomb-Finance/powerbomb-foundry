@@ -4,7 +4,7 @@ pragma solidity 0.8.17;
 import "forge-std/Test.sol";
 import "openzeppelin-contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "../src/PbProxy.sol";
-import "../src/PbAuraWsteth.sol";
+import "../src/PbAuraReth.sol";
 import "../interface/IBalancerHelper.sol";
 
 contract PbAuraRethTest is Test {
@@ -12,31 +12,30 @@ contract PbAuraRethTest is Test {
     IERC20Upgradeable wbtc = IERC20Upgradeable(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
     IERC20Upgradeable weth = IERC20Upgradeable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     IERC20Upgradeable usdc = IERC20Upgradeable(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-    IERC20Upgradeable wsteth = IERC20Upgradeable(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
-    IERC20Upgradeable ldo = IERC20Upgradeable(0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32);
+    IERC20Upgradeable reth = IERC20Upgradeable(0xae78736Cd615f374D3085123A210448E74Fc6393);
     IERC20Upgradeable aura = IERC20Upgradeable(0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF);
     IERC20Upgradeable bal = IERC20Upgradeable(0xba100000625a3754423978a60c9317c58a424e3D);
     IBalancerHelper balancerHelper = IBalancerHelper(0x5aDDCCa35b7A0D07C74063c48700C8590E87864E);
-    PbAuraWsteth vaultUsdc;
+    PbAuraReth vaultUsdc;
     IERC20Upgradeable lpToken;
     IERC20Upgradeable aToken;
-    bytes32 poolId = 0x32296969ef14eb0c6d29669c550d4a0449130230000200000000000000000080;
+    bytes32 poolId = 0x1e19cf2d73a72ef1332c882f20534b6519be0276000200000000000000000112;
     address owner = address(this);
 
     function setUp() public {
         // Deploy implementation contract
-        PbAuraWsteth vaultImpl = new PbAuraWsteth();
+        PbAuraReth vaultImpl = new PbAuraReth();
 
         // Deploy usdc reward proxy contract
         PbProxy proxy = new PbProxy(
             address(vaultImpl),
             abi.encodeWithSelector(
                 bytes4(keccak256("initialize(uint256,address)")),
-                3,
+                21,
                 address(usdc)
             )
         );
-        vaultUsdc = PbAuraWsteth(payable(address(proxy)));
+        vaultUsdc = PbAuraReth(payable(address(proxy)));
 
         lpToken = vaultUsdc.lpToken();
         aToken = vaultUsdc.aToken();
@@ -47,13 +46,11 @@ contract PbAuraRethTest is Test {
     //     skip(864000);
     //     deal(address(aura), address(vaultUsdc), 1.1 ether);
     //     deal(address(bal), address(vaultUsdc), 1.1 ether);
-    //     hoax(0x3e40D73EB977Dc6a537aF587D48316feE66E9C8c);
-    //     ldo.transfer(address(vaultUsdc), 1.1 ether);
     //     vaultUsdc.harvest();
     //     vaultUsdc.claim();
     //     vm.roll(block.number + 1);
     //     vaultUsdc.withdraw(weth, vaultUsdc.getUserBalance(address(this)) / 2, 0);
-    //     vaultUsdc.withdraw(wsteth, vaultUsdc.getUserBalance(address(this)), 0);
+    //     vaultUsdc.withdraw(reth, vaultUsdc.getUserBalance(address(this)), 0);
     // }
 
     function testDeposit() public {
@@ -68,10 +65,9 @@ contract PbAuraRethTest is Test {
         });
         (uint amountOut,) = balancerHelper.queryJoin(poolId, address(this), address(this), request);
         vaultUsdc.deposit{value: 10 ether}(weth, 10 ether, amountOut * 99 / 100);
-        // Deposit wsteth
-        address wstethHolder = 0xBA12222222228d8Ba445958a75a0704d566BF2C8;
-        hoax(wstethHolder);
-        wsteth.transfer(address(this), 10 ether);
+        // Deposit reth
+        deal(address(reth), address(this), 10 ether);
+        reth.transfer(address(this), 10 ether);
         maxAmountsIn[0] = 10 ether;
         maxAmountsIn[1] = 0;
         request = IBalancer.JoinPoolRequest({
@@ -81,8 +77,8 @@ contract PbAuraRethTest is Test {
             fromInternalBalance: false
         });
         (amountOut,) = balancerHelper.queryJoin(poolId, address(this), address(this), request);
-        wsteth.approve(address(vaultUsdc), type(uint).max);
-        vaultUsdc.deposit(wsteth, 10 ether, amountOut * 99 / 100);
+        reth.approve(address(vaultUsdc), type(uint).max);
+        vaultUsdc.deposit(reth, 10 ether, amountOut * 99 / 100);
         // Deposit lp token
         deal(address(lpToken), address(this), 10 ether);
         lpToken.approve(address(vaultUsdc), type(uint).max);
@@ -98,7 +94,7 @@ contract PbAuraRethTest is Test {
         assertGt(vaultUsdc.getUserBalanceInUSD(address(this)), 0);
         assertEq(address(vaultUsdc).balance, 0);
         assertEq(weth.balanceOf(address(vaultUsdc)), 0);
-        assertEq(wsteth.balanceOf(address(this)), 0);
+        assertEq(reth.balanceOf(address(this)), 0);
         assertEq(lpToken.balanceOf(address(this)), 0);
     }
 
@@ -121,7 +117,7 @@ contract PbAuraRethTest is Test {
         });
         (, uint[] memory amountsOut) = balancerHelper.queryExit(poolId, address(this), address(this), request);
         vaultUsdc.withdraw(weth, lpTokenAmt, amountsOut[1] * 99 / 100);
-        // withdraw wsteth
+        // withdraw reth
         request = IBalancer.ExitPoolRequest({
             assets: _getAssets(),
             minAmountsOut: minAmountsOut,
@@ -133,7 +129,7 @@ contract PbAuraRethTest is Test {
             toInternalBalance: false
         });
         (, amountsOut) = balancerHelper.queryExit(poolId, address(this), address(this), request);
-        vaultUsdc.withdraw(wsteth, lpTokenAmt, amountsOut[0] * 99 / 100);
+        vaultUsdc.withdraw(reth, lpTokenAmt, amountsOut[0] * 99 / 100);
         // withdraw lp token
         vaultUsdc.withdraw(lpToken, vaultUsdc.getUserBalance(address(this)), 0);
         // assertion check
@@ -143,13 +139,13 @@ contract PbAuraRethTest is Test {
         assertEq(vaultUsdc.getUserBalanceInUSD(address(this)), 0);
         // console.log(address(this).balance - balBef);
         assertGt(address(this).balance, balBef);
-        // console.log(wsteth.balanceOf(address(this)));
-        assertGt(wsteth.balanceOf(address(this)), 0);
+        // console.log(reth.balanceOf(address(this)));
+        assertGt(reth.balanceOf(address(this)), 0);
         // console.log(lpToken.balanceOf(address(this)));
         assertGt(lpToken.balanceOf(address(this)), 0);
         assertEq(address(vaultUsdc).balance, 0);
         assertEq(weth.balanceOf(address(vaultUsdc)), 0);
-        assertEq(wsteth.balanceOf(address(vaultUsdc)), 0);
+        assertEq(reth.balanceOf(address(vaultUsdc)), 0);
         assertEq(lpToken.balanceOf(address(vaultUsdc)), 0);
         (uint _lpTokenAmt, uint rewardStartAt) = vaultUsdc.userInfo(address(this));
         assertEq(_lpTokenAmt, 0);
@@ -165,20 +161,14 @@ contract PbAuraRethTest is Test {
         // console.log(auraReward);
         assertGt(balReward, 0);
         assertGt(auraReward, 0);
-        uint ldoReward = vaultUsdc.getPoolExtraPendingReward();
-        // console.log(ldoReward);
-        assertEq(ldoReward, 0); // no ldo reward currently
-        // assume bal, aura & ldo > 1 ether
+        // assume bal & aura > 1 ether
         deal(address(bal), address(vaultUsdc), 1.1 ether);
         deal(address(aura), address(vaultUsdc), 1.1 ether);
-        hoax(0x3e40D73EB977Dc6a537aF587D48316feE66E9C8c);
-        ldo.transfer(address(vaultUsdc), 1.1 ether);
         // harvest
         vaultUsdc.harvest();
         // assertion check
         assertEq(bal.balanceOf(address(vaultUsdc)), 0);
         assertEq(aura.balanceOf(address(vaultUsdc)), 0);
-        assertEq(ldo.balanceOf(address(vaultUsdc)), 0);
         assertEq(usdc.balanceOf(address(vaultUsdc)), 0);
         // console.log(aToken.balanceOf(address(vaultUsdc)));
         assertGt(aToken.balanceOf(address(vaultUsdc)), 0);
@@ -231,7 +221,7 @@ contract PbAuraRethTest is Test {
     }
 
     function testUpgrade() public {
-        PbAuraWsteth vaultImpl = new PbAuraWsteth();
+        PbAuraReth vaultImpl = new PbAuraReth();
         hoax(owner);
         vaultUsdc.upgradeTo(address(vaultImpl));
     }
@@ -266,7 +256,7 @@ contract PbAuraRethTest is Test {
 
     function _getAssets() private view returns (address[] memory assets) {
         assets = new address[](2);
-        assets[0] = address(wsteth);
+        assets[0] = address(reth);
         assets[1] = address(weth);
     }
     

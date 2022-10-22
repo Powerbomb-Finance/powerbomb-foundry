@@ -8,7 +8,7 @@ import "../interface/IPool.sol";
 
 contract PbAuraReth is PbAuraBase {
 
-    IERC20Upgradeable constant reth = IERC20Upgradeable(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
+    IERC20Upgradeable constant reth = IERC20Upgradeable(0xae78736Cd615f374D3085123A210448E74Fc6393);
     IChainlink constant ethUsdPriceOracle = IChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
     bytes32 constant poolId = 0x1e19cf2d73a72ef1332c882f20534b6519be0276000200000000000000000112; // reth/weth balancer
     
