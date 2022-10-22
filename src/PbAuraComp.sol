@@ -181,12 +181,6 @@ contract PbAuraComp is PbAuraBase {
             }
 
             // Swap weth to reward token
-            // uint rewardTokenAmt = _swap(
-            //     0x96646936b91d6b9d7d0c47c496afbf3d6ec7b6f8000200000000000000000019,
-            //     address(weth),
-            //     address(usdc),
-            //     wethAmt
-            // );
             uint rewardTokenAmt;
             if (rewardToken == wbtc) {
                 // Swap weth to wbtc
