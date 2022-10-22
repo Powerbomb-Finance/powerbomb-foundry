@@ -315,7 +315,6 @@ contract PbAuraReth is PbAuraBase {
 
     ///@notice return 6 decimals
     function getUserBalanceInUSD(address account) external view override returns (uint) {
-        (, int latestPrice,,,) = ethUsdPriceOracle.latestRoundData();
-        return userInfo[account].lpTokenBalance * getPricePerFullShareInUSD() * uint(latestPrice) / 1e38;
+        return userInfo[account].lpTokenBalance * getPricePerFullShareInUSD() / 1e18;
     }
 }
