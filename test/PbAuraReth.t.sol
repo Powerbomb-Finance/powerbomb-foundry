@@ -43,6 +43,7 @@ contract PbAuraRethTest is Test {
 
     // function test() public {
     //     vaultUsdc.deposit{value: 100 ether}(weth, 100 ether, 0);
+    //     console.log(vaultUsdc.getAllPoolInUSD());
     //     skip(864000);
     //     deal(address(aura), address(vaultUsdc), 1.1 ether);
     //     deal(address(bal), address(vaultUsdc), 1.1 ether);

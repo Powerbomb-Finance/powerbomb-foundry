@@ -285,8 +285,7 @@ contract PbAuraReth is PbAuraBase {
     function getAllPoolInUSD() external view override returns (uint) {
         uint allPool = getAllPool();
         if (allPool == 0) return 0;
-        (, int latestPrice,,,) = ethUsdPriceOracle.latestRoundData();
-        return allPool * getPricePerFullShareInUSD() * uint(latestPrice) / 1e38;
+        return allPool * getPricePerFullShareInUSD() / 1e18;
     }
 
     function getPoolPendingReward() external view override returns (uint pendingBal, uint pendingAura) {
