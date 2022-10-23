@@ -9,7 +9,6 @@ import "../interface/IWeth.sol";
 contract PbCvxTricrypto2 is PbCvxBase {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    IERC20Upgradeable constant usdt = IERC20Upgradeable(0xdAC17F958D2ee523a2206206994597C13D831ec7);
     IChainlink constant usdtUsdPriceOracle = IChainlink(0x3E7d1eAB13ad0104d2750B8863b489D65364e32D);
     IChainlink constant btcUsdPriceOracle = IChainlink(0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c);
     IChainlink constant ethUsdPriceOracle = IChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
