@@ -12,6 +12,8 @@ interface IPool {
 
     function get_virtual_price() external view returns (uint);
 
+    function get_dy(int128 _i, int128 _j, uint _dx) external view returns (uint);
+
     function balances(uint i) external view returns (uint);
     
     function calc_token_amount(uint[2] memory amounts, bool deposit) external view returns (uint);
