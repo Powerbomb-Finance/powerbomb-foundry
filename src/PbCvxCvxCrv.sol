@@ -97,8 +97,6 @@ contract PbCvxCvxCrv is PbCvxBase {
         emit Withdraw(msg.sender, address(token), lpTokenAmt, tokenAmt);
     }
 
-    receive() external payable {}
-
     function harvest() public override {
         // Update accrued amount of aToken
         uint allPool = getAllPool();
