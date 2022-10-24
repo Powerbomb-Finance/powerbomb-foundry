@@ -1,17 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "../interface/IZap.sol";
-import "../interface/IRouter.sol";
 import "../interface/IChainlink.sol";
 import "./PbCvxBase.sol";
 
-import "forge-std/console.sol";
 contract PbCvxCvxCrv is PbCvxBase {
 
     IERC20Upgradeable constant cvxCrv = IERC20Upgradeable(0x62B9c7356A2Dc64a1969e19C23e4f579F9810Aa7);
-    // IZap constant zap = IZap(0xA79828DF1850E8a3A3064576f380D90aECDD3359);
-    // IRouter constant router = IRouter(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F);
     IChainlink constant crvUsdPriceOracle = IChainlink(0xCd627aA160A6fA45Eb793D19Ef54f5062F20f33f);
     
     function initialize(uint _pid, IPool _pool, IERC20Upgradeable _rewardToken) external initializer {
@@ -35,7 +30,6 @@ contract PbCvxCvxCrv is PbCvxBase {
         cvxCrv.approve(address(pool), type(uint).max);
         lpToken.approve(address(pool), type(uint).max);
         lpToken.approve(address(booster), type(uint).max);
-        // spell.approve(address(router), type(uint).max);
         rewardToken.approve(address(lendingPool), type(uint).max);
     }
 
