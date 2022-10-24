@@ -18,6 +18,8 @@ interface IPool {
 
     function get_dy(int128 _i, int128 _j, uint _dx) external view returns (uint);
 
+    function get_dy(uint _i, uint _j, uint _dx) external view returns (uint);
+
     function balances(uint i) external view returns (uint);
     
     function calc_token_amount(uint[2] memory amounts) external view returns (uint);
