@@ -221,7 +221,7 @@ contract PbCvxCvxCrv is PbCvxBase {
     ///@notice return 6 decimals
     function getPricePerFullShareInUSD() public view override returns (uint) {
         // get crv per cvxCrv
-        uint crvPerCvxCrv = pool.get_dy(1, 0, 1 ether);
+        uint crvPerCvxCrv = pool.get_dy(int128(1), int128(0), 1 ether);
         // get total cvxCrv in crv
         uint totalCvxCrvInCrv = pool.balances(1) * crvPerCvxCrv / 1e18;
         // get total crv
