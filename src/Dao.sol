@@ -60,10 +60,11 @@ contract Dao is
         require(keccak256(_srcAddress) == keccak256(trustedRemoteLookup[_srcChainId]), "srcAddr != trustedRemote");
         
         (uint _totalSeats, address _winner) = abi.decode(_payload, (uint, address));
-        if (_totalSeats != 0 && winner == address(0)) {
+        if (_totalSeats != 0) {
             totalSeats = _totalSeats;
             emit SetTotalSeats(_totalSeats);
-        } else {
+        }
+        if (_winner != address(0)) {
             winner = _winner;
             emit SetWinner(_winner);
         }
