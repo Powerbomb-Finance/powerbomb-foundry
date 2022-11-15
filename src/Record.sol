@@ -106,7 +106,7 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             abi.encode(lastSeat, address(0)), // _payload
             payable(admin), // _refundAddress
             address(0), // _zroPaymentAddress
-            bytes("") // _adapterParams
+            abi.encodePacked(uint16(1), uint(40000)) // _adapterParams, 1 = version, 40000 = gas limit on dstChain
         );
     }
 
@@ -145,7 +145,7 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             abi.encode(0, winner), // _payload
             payable(admin), // _refundAddress
             address(0), // _zroPaymentAddress
-            bytes("") // _adapterParams
+            abi.encodePacked(uint16(1), uint(40000)) // _adapterParams, 1 = version, 40000 = gas limit on dstChain
         );
 
         delete seats;
