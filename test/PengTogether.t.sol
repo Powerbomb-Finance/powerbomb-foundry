@@ -16,7 +16,7 @@ contract PengTogetherTest is Test {
     IZap zap = IZap(0x167e42a1C7ab4Be03764A2222aAC57F5f6754411);
     address reward = 0xF7A1f8918301D9C09105812eB045AA168aB3BFea;
     address dao = 0x28BCc4202cd179499bF618DBfd1bFE37278E1A12;
-    address treasury = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
+    address treasury = 0x96E2951CAbeF46E547Ae9eEDc3245d69deA0Be49;
     // address treasury = address(this);
     PengTogether vault;
     Record record = Record(0x176B6aD5063bFFBca9867DE6B3a1Eb27A306e40d);
