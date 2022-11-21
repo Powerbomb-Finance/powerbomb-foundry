@@ -37,6 +37,7 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
     address public reward; // on ethereum
     address public admin;
     uint public accWethYield;
+    address public helper;
 
     event Deposit(address indexed user, uint amount, uint lpTokenAmt);
     event Withdraw(address indexed user, uint amount, uint lpTokenAmt, uint actualAmt);
@@ -45,6 +46,7 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
     event SetTreasury(address _treasury);
     event SetReward(address _reward);
     event SetYieldFeePerc(uint _yieldFeePerc);
+    event SetHelper(address _helper);
 
     function initialize(IRecord _record) external virtual initializer {
         __Ownable_init();
@@ -61,7 +63,31 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         op.approve(address(swapRouter), type(uint).max);
     }
 
-    function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin) external payable virtual nonReentrant whenNotPaused {
+    function deposit(
+        IERC20Upgradeable token,
+        uint amount,
+        uint amountOutMin
+    ) external payable virtual {
+        _deposit(token, amount, amountOutMin, msg.sender);
+    }
+
+    function depositByHelper(
+        IERC20Upgradeable token,
+        uint amount,
+        uint amountOutMin,
+        address depositor
+    ) external payable virtual {
+        require(msg.sender == helper, "helper only");
+
+        _deposit(token, amount, amountOutMin, depositor);
+    }
+
+    function _deposit(
+        IERC20Upgradeable token,
+        uint amount,
+        uint amountOutMin,
+        address depositor
+    ) internal virtual nonReentrant whenNotPaused {
         require(token == usdc, "usdc only");
         require(amount >= 100e6, "min $100");
 
@@ -72,27 +98,54 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
         uint lpTokenAmt = zap.add_liquidity(address(pool), amounts, amountOutMin);
         gauge.deposit(lpTokenAmt);
 
-        record.updateUser(true, msg.sender, amount, lpTokenAmt);
-        depositedBlock[msg.sender] = block.number;
+        record.updateUser(true, depositor, amount, lpTokenAmt);
+        depositedBlock[depositor] = block.number;
 
-        emit Deposit(msg.sender, amount, lpTokenAmt);
+        emit Deposit(depositor, amount, lpTokenAmt);
     }
 
-    function withdraw(IERC20Upgradeable token, uint amount, uint amountOutMin) external virtual nonReentrant {
+    function withdraw(
+        IERC20Upgradeable token,
+        uint amount,
+        uint amountOutMin
+    ) external virtual returns (uint actualAmt) {
+        actualAmt = _withdraw(token, amount, amountOutMin, msg.sender);
+    }
+
+    function withdrawByHelper(
+        IERC20Upgradeable token,
+        uint amount,
+        uint amountOutMin,
+        address account
+    ) external virtual returns (uint actualAmt) {
+        require(msg.sender == helper, "helper only");
+
+        actualAmt = _withdraw(token, amount, amountOutMin, account);
+    }
+
+    function _withdraw(
+        IERC20Upgradeable token,
+        uint amount,
+        uint amountOutMin,
+        address account
+    ) internal virtual nonReentrant returns (uint actualAmt) {
         require(token == usdc, "usdc only");
-        (uint depositBal, uint lpTokenBal,,) = record.userInfo(msg.sender);
+        (uint depositBal, uint lpTokenBal,,) = record.userInfo(account);
         require(depositBal >= amount, "amount > depositBal");
-        require(depositedBlock[msg.sender] != block.number, "same block deposit withdraw");
+        require(depositedBlock[account] != block.number, "same block deposit withdraw");
 
         uint withdrawPerc = amount * 1e18 / depositBal;
         uint lpTokenAmt = lpTokenBal * withdrawPerc / 1e18;
         gauge.withdraw(lpTokenAmt);
-        uint actualAmt = zap.remove_liquidity_one_coin(address(pool), lpTokenAmt, 2, amountOutMin);
+        actualAmt = zap.remove_liquidity_one_coin(address(pool), lpTokenAmt, 2, amountOutMin);
 
-        record.updateUser(false, msg.sender, amount, lpTokenAmt);
+        record.updateUser(false, account, amount, lpTokenAmt);
 
+        // token transfer to msg.sender instead of account because
+        // for withdraw() token transfer to caller (depositor)
+        // for withdrawByHelper() token transfer to pengHelperOp
         usdc.transfer(msg.sender, actualAmt);
-        emit Withdraw(msg.sender, amount, lpTokenAmt, actualAmt);
+        emit Withdraw(account, amount, lpTokenAmt, actualAmt);
     }
 
     function harvest() external virtual {
@@ -199,6 +252,12 @@ contract PengTogether is Initializable, OwnableUpgradeable, UUPSUpgradeable, Ree
 
     function setAccWethYield(uint _accWethYield) external onlyOwner {
         accWethYield = _accWethYield;
+    }
+
+    function setHelper(address _helper) external onlyOwner {
+        helper = _helper;
+
+        emit SetHelper(_helper);
     }
 
     function getPricePerFullShareInUSD() public virtual view returns (uint) {

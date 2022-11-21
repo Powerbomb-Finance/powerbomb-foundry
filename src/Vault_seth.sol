@@ -30,7 +30,27 @@ contract Vault_seth is PengTogether {
         IERC20Upgradeable token,
         uint amount,
         uint amountOutMin
-    ) external payable override nonReentrant whenNotPaused {
+    ) external payable override {
+        _deposit(token, amount, amountOutMin, msg.sender);
+    }
+
+    function depositByHelper(
+        IERC20Upgradeable token,
+        uint amount,
+        uint amountOutMin,
+        address depositor
+    ) external payable override {
+        require(msg.sender == helper, "helper only");
+
+        _deposit(token, amount, amountOutMin, depositor);
+    }
+
+    function _deposit(
+        IERC20Upgradeable token,
+        uint amount,
+        uint amountOutMin,
+        address depositor
+    ) internal override nonReentrant whenNotPaused {
         require(token == weth, "weth only");
         require(amount >= 0.1 ether, "min 0.1 ether");
         require(amount == msg.value, "amount != msg.value");
@@ -40,28 +60,55 @@ contract Vault_seth is PengTogether {
         uint lpTokenAmt = pool_seth.add_liquidity{value: msg.value}(amounts, amountOutMin);
         gauge_seth.deposit(lpTokenAmt);
 
-        record.updateUser(true, msg.sender, amount, lpTokenAmt);
-        depositedBlock[msg.sender] = block.number;
+        record.updateUser(true, depositor, amount, lpTokenAmt);
+        depositedBlock[depositor] = block.number;
 
-        emit Deposit(msg.sender, amount, lpTokenAmt);
+        emit Deposit(depositor, amount, lpTokenAmt);
     }
 
-    function withdraw(IERC20Upgradeable token, uint amount, uint amountOutMin) external override nonReentrant {
+    function withdraw(
+        IERC20Upgradeable token,
+        uint amount,
+        uint amountOutMin
+    ) external override returns (uint actualAmt) {
+        actualAmt = _withdraw(token, amount, amountOutMin, msg.sender);
+    }
+
+    function withdrawByHelper(
+        IERC20Upgradeable token,
+        uint amount,
+        uint amountOutMin,
+        address account
+    ) external override returns (uint actualAmt) {
+        require(msg.sender == helper, "helper only");
+
+        actualAmt = _withdraw(token, amount, amountOutMin, account);
+    }
+
+    function _withdraw(
+        IERC20Upgradeable token,
+        uint amount,
+        uint amountOutMin,
+        address account
+    ) internal override nonReentrant returns (uint actualAmt) {
         require(token == weth, "weth only");
-        (uint depositBal, uint lpTokenBal,,) = record.userInfo(msg.sender);
+        (uint depositBal, uint lpTokenBal,,) = record.userInfo(account);
         require(depositBal >= amount, "amount > depositBal");
-        require(depositedBlock[msg.sender] != block.number, "same block deposit withdraw");
+        require(depositedBlock[account] != block.number, "same block deposit withdraw");
 
         uint withdrawPerc = amount * 1e18 / depositBal;
         uint lpTokenAmt = lpTokenBal * withdrawPerc / 1e18;
         gauge_seth.withdraw(lpTokenAmt);
-        uint actualAmt = pool_seth.remove_liquidity_one_coin(lpTokenAmt, 0, amountOutMin);
+        actualAmt = pool_seth.remove_liquidity_one_coin(lpTokenAmt, 0, amountOutMin);
 
-        record.updateUser(false, msg.sender, amount, lpTokenAmt);
+        record.updateUser(false, account, amount, lpTokenAmt);
 
+        // eth transfer to msg.sender instead of account because
+        // for withdraw() eth transfer to caller (depositor)
+        // for withdrawByHelper() eth transfer to pengHelperOp
         (bool success,) = msg.sender.call{value: actualAmt}("");
         require(success);
-        emit Withdraw(msg.sender, amount, lpTokenAmt, actualAmt);
+        emit Withdraw(account, amount, lpTokenAmt, actualAmt);
     }
 
     function harvest() external override {
