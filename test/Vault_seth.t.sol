@@ -19,7 +19,7 @@ contract Vault_sethTest is Test {
     Vault_seth vault;
     Record_eth record;
     address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
-    // address owner = address(this);
+    address helper = address(1);
 
     function setUp() public {
         // record = new Record_eth();
@@ -43,15 +43,15 @@ contract Vault_sethTest is Test {
         // );
         // vault = Vault_seth(payable(address(proxy)));
         vault = Vault_seth(payable(0x98f82ADA10C55BC7D67b92d51b4e1dae69eD0250));
-        // Vault_seth vaultImpl = new Vault_seth();
-        // hoax(owner);
-        // vault.upgradeTo(address(vaultImpl));
+        Vault_seth vaultImpl = new Vault_seth();
+        hoax(owner);
+        vault.upgradeTo(address(vaultImpl));
 
+        hoax(owner);
         // record.setVault(address(vault));
-        // hoax(owner);
         // record.setDao(dao);
-        // hoax(owner);
         // vault.setReward(reward);
+        vault.setHelper(helper);
     }
 
     // function test() public {
@@ -302,6 +302,15 @@ contract Vault_sethTest is Test {
         assertEq(record.getUserTotalSeats(address(this)), 0);
     }
 
+    function testDepositByHelper() public {
+        // deposit, assume helper contract has 10 ether
+        startHoax(helper, 10 ether);
+        vault.depositByHelper{value: 10 ether}(weth, 10 ether, 0, address(this));
+        vm.stopPrank();
+        // assertion check
+        assertEq(vault.getUserDepositBalance(address(this)), 10 ether);
+    }
+
     function testDepositAndWithdraw() public {
         // deposit
         uint[2] memory amounts = [1 ether, uint(0)];
@@ -359,6 +368,18 @@ contract Vault_sethTest is Test {
         assertEq(record.getUserTotalSeats(address(1)), 720);
     }
 
+    function testWithdrawByHelper() public {
+        // deposit
+        testDepositByHelper();
+        vm.roll(block.number + 1);
+        // withdraw
+        hoax(helper, 0);
+        vault.withdrawByHelper(weth, 10 ether, 0, address(this));
+        // assertion check
+        assertGt(address(helper).balance, 9.99 ether); // 9.99 not 10 due to slippage
+        assertEq(vault.getUserDepositBalance(address(this)), 0);
+    }
+
     function testHarvest() public {
         vault.deposit{value: 100 ether}(weth, 100 ether, 0);
 
@@ -405,6 +426,7 @@ contract Vault_sethTest is Test {
         assertEq(vault.reward(), reward);
         assertEq(vault.treasury(), treasury);
         assertEq(vault.yieldFeePerc(), 1000);
+        assertEq(vault.helper(), helper);
 
         // record
         assertEq(record.admin(), owner);
@@ -428,6 +450,8 @@ contract Vault_sethTest is Test {
         assertEq(vault.reward(), address(1));
         vault.setYieldFeePerc(2000);
         assertEq(vault.yieldFeePerc(), 2000);
+        vault.setHelper(address(1));
+        assertEq(vault.helper(), address(1));
 
         // reward
         record.setVault(address(1));
@@ -460,6 +484,8 @@ contract Vault_sethTest is Test {
         vault.setReward(address(0));
         vm.expectRevert("Ownable: caller is not the owner");
         vault.setYieldFeePerc(0);
+        vm.expectRevert("Ownable: caller is not the owner");
+        vault.setHelper(address(0));
 
         // record
         assertEq(record.owner(), owner);

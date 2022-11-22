@@ -17,11 +17,10 @@ contract PengTogetherTest is Test {
     address reward = 0xF7A1f8918301D9C09105812eB045AA168aB3BFea;
     address dao = 0x28BCc4202cd179499bF618DBfd1bFE37278E1A12;
     address treasury = 0x96E2951CAbeF46E547Ae9eEDc3245d69deA0Be49;
-    // address treasury = address(this);
     PengTogether vault;
     Record record = Record(0x176B6aD5063bFFBca9867DE6B3a1Eb27A306e40d);
     address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
-    // address owner = address(this);
+    address helper = address(1);
 
     function setUp() public {
         // record = new Record();
@@ -45,13 +44,15 @@ contract PengTogetherTest is Test {
         // );
         // vault = PengTogether(payable(address(proxy)));
         vault = PengTogether(payable(0x68ca3a3BBD306293e693871E45Fe908C04387614));
-        // PengTogether vaultImpl = new PengTogether();
-        // hoax(owner);
-        // vault.upgradeTo(address(vaultImpl));
+        PengTogether vaultImpl = new PengTogether();
+        hoax(owner);
+        vault.upgradeTo(address(vaultImpl));
 
+        hoax(owner);
         // record.setVault(address(vault));
         // record.setDao(dao);
         // vault.setReward(reward);
+        vault.setHelper(helper);
     }
 
     // function test() public {
@@ -368,6 +369,17 @@ contract PengTogetherTest is Test {
         assertEq(vault.getUserDepositBalance(address(this)), 0);
     }
 
+    function testDepositByHelper() public {
+        // deposit, assume helper contract has 10000 usdc
+        deal(address(usdc), helper, 10000e6);
+        startHoax(helper);
+        usdc.approve(address(vault), 10000e6);
+        vault.depositByHelper(usdc, 10000e6, 0, address(this));
+        vm.stopPrank();
+        // assertion check
+        assertEq(vault.getUserDepositBalance(address(this)), 10000e6);
+    }
+
     function testWithdrawAll() public {
         deal(address(usdc), address(1), 2000e6);
 
@@ -393,6 +405,18 @@ contract PengTogetherTest is Test {
 
         assertEq(record.getUserAvailableTickets(address(1)), 0);
         assertEq(record.getUserTotalSeats(address(1)), 720);
+    }
+
+    function testWithdrawByHelper() public {
+        // deposit
+        testDepositByHelper();
+        vm.roll(block.number + 1);
+        // withdraw
+        hoax(helper);
+        vault.withdrawByHelper(usdc, 10000e6, 0, address(this));
+        // assertion check
+        assertGt(usdc.balanceOf(helper), 9990e6); // 9990 not 10000 due to slippage
+        assertEq(vault.getUserDepositBalance(address(this)), 0);
     }
 
     function testHarvest() public {
@@ -440,6 +464,7 @@ contract PengTogetherTest is Test {
         assertEq(vault.reward(), reward);
         assertEq(vault.treasury(), treasury);
         assertEq(vault.yieldFeePerc(), 1000);
+        assertEq(vault.helper(), helper);
 
         // record
         assertEq(record.admin(), owner);
@@ -461,6 +486,8 @@ contract PengTogetherTest is Test {
         assertEq(vault.reward(), address(1));
         vault.setYieldFeePerc(2000);
         assertEq(vault.yieldFeePerc(), 2000);
+        vault.setHelper(address(1));
+        assertEq(vault.helper(), address(1));
 
         // reward
         record.setVault(address(1));
@@ -493,6 +520,8 @@ contract PengTogetherTest is Test {
         vault.setReward(address(0));
         vm.expectRevert("Ownable: caller is not the owner");
         vault.setYieldFeePerc(0);
+        vm.expectRevert("Ownable: caller is not the owner");
+        vault.setHelper(address(0));
 
         // record
         assertEq(record.owner(), owner);
