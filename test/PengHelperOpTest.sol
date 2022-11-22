@@ -8,10 +8,13 @@ import "../src/PengHelperOp.sol";
 import "../src/PengTogether.sol";
 import "../src/Vault_seth.sol";
 import "../src/PbProxy.sol";
+import "../interface/IQuoter.sol";
 
 contract PengHelperOpTest is Test {
-    address usdc = 0x7F5c764cBc14f9669B88837ca1490cCa17c31607;
-    address weth = 0x4200000000000000000000000000000000000006;
+    IERC20Upgradeable usdc = IERC20Upgradeable(0x7F5c764cBc14f9669B88837ca1490cCa17c31607);
+    IERC20Upgradeable weth = IERC20Upgradeable(0x4200000000000000000000000000000000000006);
+    address usdcEth = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    address wethEth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     PengTogether vaultSusd = PengTogether(payable(0x68ca3a3BBD306293e693871E45Fe908C04387614));
     PengTogether vaultSeth = PengTogether(payable(0x98f82ADA10C55BC7D67b92d51b4e1dae69eD0250));
     address pengHelperEth = address(1); // assume
@@ -19,6 +22,7 @@ contract PengHelperOpTest is Test {
     address stargateRouter = 0xB0D502E938ed5f4df2E681fE6E419ff29631d62b;
     address lzEndpoint = 0x3c2269811836af69497E5F486A85D7316753cf62;
     PengHelperOp helper;
+    IQuoter sgQuoter = IQuoter(0xB0D502E938ed5f4df2E681fE6E419ff29631d62b); // stargate router optimism
 
     function setUp() public {
         PbProxy proxy;
@@ -45,61 +49,117 @@ contract PengHelperOpTest is Test {
         vm.stopPrank();
     }
 
-    function test() public {
-        uint amountOutMin;
-        bytes memory payload;
-        bytes memory srcAddress = abi.encode(pengHelperEth);
-
-        // deposit usdc
+    function testDepositUsdc() public {
         // assume receive usdc
         deal(address(usdc), address(helper), 100e6);
-        amountOutMin = 99e6;
-        payload = abi.encode(address(this), address(usdc), amountOutMin);
+
+        bytes memory srcAddress = abi.encode(pengHelperEth);
+        bytes memory payload = abi.encode(address(this), address(usdcEth), 99e6);
+
         // assume call by stargate router
         hoax(stargateRouter);
-        helper.sgReceive(uint16(101), srcAddress, 0, usdc, 100e6, payload);
-        
-        // deposit eth
+        helper.sgReceive(uint16(101), srcAddress, 0, address(usdc), 100e6, payload);
+
+        // assertion check
+        assertEq(vaultSusd.getUserDepositBalance(address(this)), 100e6);
+        assertEq(usdc.balanceOf(address(helper)), 0);
+    }
+
+    function testDepositEth() public {
         // assume receive eth
         (bool success,) = payable(helper).call{value: 1 ether}("");
         require(success);
-        amountOutMin = 0.99 ether;
-        payload = abi.encode(address(this), address(weth), amountOutMin);
+
+        bytes memory srcAddress = abi.encode(pengHelperEth);
+        bytes memory payload = abi.encode(address(this), address(wethEth), 0.99 ether);
+
         // assume call by stargate router
         hoax(stargateRouter);
-        helper.sgReceive(uint16(101), srcAddress, 0, weth, 1 ether, payload);
+        helper.sgReceive(uint16(101), srcAddress, 0, address(weth), 1 ether, payload);
 
-        bytes memory _srcAddress = abi.encodePacked(pengHelperEth, address(helper));
+        // assertion check
+        assertEq(vaultSeth.getUserDepositBalance(address(this)), 1 ether);
+        assertEq(address(helper).balance, 0);
+    }
+
+    function testWithdrawUsdc() public {
+        testDepositUsdc();
         vm.roll(block.number + 1);
 
-        // withdraw usdc
         // assume airdrop from ethereum peng helper
-        (bool success_,) = payable(helper).call{value: 0.01 ether}("");
+        (uint nativeForDst,) = sgQuoter.quoteLayerZeroFee(
+            101, 1, abi.encodePacked(address(helper)), bytes(""),
+            IQuoter.lzTxObj(0, 0, "0x")
+        );
+        (bool success_,) = payable(helper).call{value: nativeForDst}("");
         require(success_);
+
+        bytes memory _srcAddress = abi.encodePacked(pengHelperEth, address(helper));
+        bytes memory payload = abi.encode(usdcEth, 100e6, 99e6, address(this));
+
         // assume call by layerzero endpoint
-        payload = abi.encode(usdc, 100e6, 99e6, address(this));
         hoax(lzEndpoint);
         helper.lzReceive(101, _srcAddress, 0, payload);
 
-        // withdraw eth, separate to individual test function because weird error by foundry
-        // assume airdrop from ethereum peng helper from above
-        // assume call by layerzero endpoint
-        // payload = abi.encode(weth, 1 ether, 0.99 ether, address(this));
-        // hoax(lzEndpoint);
-        // helper.lzReceive(101, _srcAddress, 0, payload);
+        // assertion check
+        assertEq(vaultSusd.getUserDepositBalance(address(this)), 0);
+        assertEq(usdc.balanceOf(address(helper)), 0);
     }
 
     function testWithdrawEth() public {
-        vaultSeth.deposit{value: 1 ether}(IERC20Upgradeable(weth), 1 ether, 0);
-
-        // assume airdrop from ethereum peng helper
-        (bool success_,) = payable(helper).call{value: 0.01 ether}("");
-        require(success_);
+        testDepositEth();
         vm.roll(block.number + 1);
 
-        bytes memory payload = abi.encode(weth, 1 ether, 0.99 ether, address(this));
+        // assume airdrop from ethereum peng helper
+        (uint nativeForDst,) = sgQuoter.quoteLayerZeroFee(
+            101, 1, abi.encodePacked(address(helper)), bytes(""),
+            IQuoter.lzTxObj(0, 0, "0x")
+        );
+        (bool success_,) = payable(helper).call{value: nativeForDst}("");
+        require(success_);
+
+        bytes memory payload = abi.encode(wethEth, 1 ether, 0.99 ether, address(this));
         bytes memory _srcAddress = abi.encodePacked(pengHelperEth, address(helper));
+
+        // assume call by layerzero endpoint
         hoax(lzEndpoint);
         helper.lzReceive(101, _srcAddress, 0, payload);
+
+        // assertion check
+        assertEq(vaultSeth.getUserDepositBalance(address(this)), 0);
+        assertEq(address(helper).balance, 0);
+    }
+
+    function testSetter() public {
+        // hoax(owner);
+        helper.setPengHelperEth(address(6288));
+        assertEq(helper.pengHelperEth(), address(6288));
+        assertEq(helper.trustedRemoteLookup(101), abi.encodePacked(address(6288), address(helper)));
+    }
+
+    function testGlobalVar() public {
+        assertEq(helper.trustedRemoteLookup(101), abi.encodePacked(pengHelperEth, address(helper)));
+        assertEq(helper.pengHelperEth(), pengHelperEth);
+    }
+
+    function testAuth() public {
+        vm.expectRevert("Initializable: contract is already initialized");
+        helper.initialize();
+        vm.expectRevert("only stargate router");
+        helper.sgReceive(0, abi.encode(address(0)), 0, address(0), 0, bytes(""));
+        vm.expectRevert("sender != lzEndpoint");
+        helper.lzReceive(0, abi.encode(address(0)), 0, bytes(""));
+
+        assertEq(helper.owner(), address(this));
+        // hoax(owner);
+        helper.transferOwnership(address(1));
+        vm.expectRevert("Ownable: caller is not the owner");
+        helper.pauseContract();
+        vm.expectRevert("Ownable: caller is not the owner");
+        helper.unPauseContract();
+        vm.expectRevert("Ownable: caller is not the owner");
+        helper.lzReceiveClear();
+        vm.expectRevert("Ownable: caller is not the owner");
+        helper.setPengHelperEth(address(0));
     }
 }
