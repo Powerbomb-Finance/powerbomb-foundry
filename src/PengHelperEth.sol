@@ -13,17 +13,18 @@ import "../interface/ILayerZeroEndpoint.sol";
 
 contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, PausableUpgradeable {
 
-    IWETH constant weth = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    IERC20Upgradeable constant usdc = IERC20Upgradeable(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-    IWETH constant sgEth = IWETH(0x72E2F4830b9E45d52F80aC08CB2bEC0FeF72eD9c);
-    IStargateRouter constant stargateRouter = IStargateRouter(0x8731d54E9D02c286767d56ac03e8037C07e01e98);
-    ILayerZeroEndpoint constant lzEndpoint = ILayerZeroEndpoint(0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675);
+    // IWETH constant weth = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    // IERC20Upgradeable constant usdc = IERC20Upgradeable(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+    // IWETH constant sgEth = IWETH(0x72E2F4830b9E45d52F80aC08CB2bEC0FeF72eD9c);
+    // IStargateRouter constant stargateRouter = IStargateRouter(0x8731d54E9D02c286767d56ac03e8037C07e01e98);
+    // ILayerZeroEndpoint constant lzEndpoint = ILayerZeroEndpoint(0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675);
     address public pengHelperOp; // optimism
 
-    // IWETH constant weth = IWETH(0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6);
-    // IERC20Upgradeable constant usdc = IERC20Upgradeable(0xDf0360Ad8C5ccf25095Aa97ee5F2785c8d848620);
-    // IWETH constant sgEth = IWETH(0xCf1F9cD3789Fc6296f4abB11dc460067Ae1a2673);
-    // IStargateRouter constant stargateRouter = IStargateRouter(0x7612aE2a34E5A363E137De748801FB4c86499152);
+    IWETH constant weth = IWETH(0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6);
+    IERC20Upgradeable constant usdc = IERC20Upgradeable(0xDf0360Ad8C5ccf25095Aa97ee5F2785c8d848620);
+    IWETH constant sgEth = IWETH(0xCf1F9cD3789Fc6296f4abB11dc460067Ae1a2673);
+    IStargateRouter constant stargateRouter = IStargateRouter(0x7612aE2a34E5A363E137De748801FB4c86499152);
+    ILayerZeroEndpoint constant lzEndpoint = ILayerZeroEndpoint(0xbfD2135BFfbb0B5378b56643c2Df8a87552Bfa23);
 
     // TODO events
 
@@ -87,7 +88,8 @@ contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pa
         address _pengHelperOp = pengHelperOp;
 
         lzEndpoint.send{value: msg.value}(
-            111, // _dstChainId
+            // 111, // _dstChainId
+            10132, // _dstChainId
             abi.encodePacked(_pengHelperOp, address(this)), // _destination
             abi.encode(address(token), amount, amountOutMin, msgSender), // _payload
             payable(msgSender), // _refundAddress
