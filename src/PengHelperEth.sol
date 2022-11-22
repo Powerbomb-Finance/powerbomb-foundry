@@ -33,8 +33,10 @@ contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pa
         usdc.approve(address(stargateRouter), type(uint).max);
     }
 
+    ///@param amountOutMin amount minimum lp token to receive after deposit on peng together optimism
     ///@dev msg.value = eth deposit + bridge gas fee if deposit eth
     ///@dev msg.value = bridge gas fee if deposit usdc
+    ///@dev bridge gas fee can retrieve from stargateRouter.quoteLayerZeroFee()
     function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin) external payable {
         require(token == weth || token == usdc, "weth or usdc only");
         address msgSender = msg.sender;
@@ -76,8 +78,10 @@ contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pa
         emit Deposit(address(token), amount);
     }
 
+    ///@param amountOutMin amount minimum token to receive after withdraw from peng together on optimism side
     ///@param nativeForDst gas fee used by stargate router optimism to bridge token to msg.sender in ethereum
-    ///@dev msg.value = bridged gas fee + nativeForDst
+    ///@dev msg.value = bridged gas fee + nativeForDst, can retrieve from lzEndpoint.estimateFees()
+    ///@dev nativeForDst can retrieve from stargateRouter.quoteLayerZeroFee()
     function withdraw(IERC20Upgradeable token, uint amount, uint amountOutMin, uint nativeForDst) external payable {
         require(token == weth || token == usdc, "weth or usdc only");
         require(amount > 0, "invalid amount");
