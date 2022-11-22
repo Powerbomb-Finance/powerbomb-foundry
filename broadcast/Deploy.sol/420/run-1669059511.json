@@ -1,35 +1,35 @@
 {
   "transactions": [
     {
-      "hash": "0xbb60044a97db970dc09cca8250362356c68d827f608a0388667e2fe7b087027c",
+      "hash": "0xac109f943dbf3275f93f98a5165408a4fe3db81696731348659b9cc41c26af33",
       "transactionType": "CALL",
       "contractName": "PbProxy",
-      "contractAddress": "0xcfb54CE9bb41BA8256843cC0FB036fad608865bB",
+      "contractAddress": "0xF0271d3A0fb34ca3DB507C61ED54753D46E686e8",
       "function": null,
       "arguments": null,
       "rpc": "https://rpc.ankr.com/optimism_testnet",
       "transaction": {
         "type": "0x00",
         "from": "0xb1ad074e17ad59f2103a8832dade917388d6c50d",
-        "to": "0xcfb54ce9bb41ba8256843cc0fb036fad608865bb",
-        "gas": "0x27114",
+        "to": "0xf0271d3a0fb34ca3db507c61ed54753d46e686e8",
+        "gas": "0x295fa",
         "value": "0x0",
         "data": "0xc1e58e2b0000000000000000000000008afa0a68a7fd536f44b474debc93825b9de2ed43",
-        "nonce": "0x33"
+        "nonce": "0x29"
       },
       "additionalContracts": []
     }
   ],
   "receipts": [
     {
-      "transactionHash": "0xbb60044a97db970dc09cca8250362356c68d827f608a0388667e2fe7b087027c",
+      "transactionHash": "0xac109f943dbf3275f93f98a5165408a4fe3db81696731348659b9cc41c26af33",
       "transactionIndex": "0x0",
-      "blockHash": "0xd06bfd97444547e4075d981c1c56fe65b1a8a239f6de6397d89a4e28581f1dc2",
-      "blockNumber": "0x2b64af",
+      "blockHash": "0xdbbd3c256a112a2540bf291a7720f5c66ce32382b5254cfdc1687f4d67c8019a",
+      "blockNumber": "0x2b178e",
       "from": "0xb1AD074E17AD59f2103A8832DADE917388D6C50D",
-      "to": "0xcfb54CE9bb41BA8256843cC0FB036fad608865bB",
-      "cumulativeGasUsed": "0x1c48d",
-      "gasUsed": "0x1c48d",
+      "to": "0xF0271d3A0fb34ca3DB507C61ED54753D46E686e8",
+      "cumulativeGasUsed": "0x1c4a3",
+      "gasUsed": "0x1c4a3",
       "contractAddress": null,
       "logs": [],
       "status": "0x1",
@@ -40,8 +40,8 @@
   "pending": [],
   "path": "/Users/siew/PowerbombFinance/powerbomb-foundry/broadcast/Deploy.sol/420/run-latest.json",
   "returns": {},
-  "timestamp": 1669097451,
+  "timestamp": 1669059511,
   "chain": 420,
   "multi": false,
-  "commit": "dd43f2d"
+  "commit": "bfb3093"
 }
