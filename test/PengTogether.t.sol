@@ -378,6 +378,7 @@ contract PengTogetherTest is Test {
         vm.stopPrank();
         // assertion check
         assertEq(vault.getUserDepositBalance(address(this)), 10000e6);
+        assertEq(usdc.balanceOf(address(vault)), 0);
     }
 
     function testWithdrawAll() public {
@@ -417,6 +418,7 @@ contract PengTogetherTest is Test {
         // assertion check
         assertGt(usdc.balanceOf(helper), 9990e6); // 9990 not 10000 due to slippage
         assertEq(vault.getUserDepositBalance(address(this)), 0);
+        assertEq(usdc.balanceOf(address(vault)), 0);
     }
 
     function testHarvest() public {

@@ -309,6 +309,7 @@ contract Vault_sethTest is Test {
         vm.stopPrank();
         // assertion check
         assertEq(vault.getUserDepositBalance(address(this)), 10 ether);
+        assertEq(address(vault).balance, 0);
     }
 
     function testDepositAndWithdraw() public {
@@ -378,6 +379,7 @@ contract Vault_sethTest is Test {
         // assertion check
         assertGt(address(helper).balance, 9.99 ether); // 9.99 not 10 due to slippage
         assertEq(vault.getUserDepositBalance(address(this)), 0);
+        assertEq(address(vault).balance, 0);
     }
 
     function testHarvest() public {
