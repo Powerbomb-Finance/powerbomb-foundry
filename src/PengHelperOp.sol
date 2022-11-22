@@ -82,7 +82,9 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
         uint gas = address(this).balance;
         // usdcEth & wethEth: usdc & weth address in _payload from ethereum is token address in ethereum
         if (token == address(usdcEth)) {
-            uint withdrawAmt = vaultSusd.withdrawByHelper(token, amount, amountOutMin, account);
+            // withdraw from peng together to this contract
+            uint withdrawAmt = vaultSusd.withdrawByHelper(address(usdc), amount, amountOutMin, account);
+            // bridge usdc from this contract to msg.sender in ethereum
             stargateRouter.swap{value: gas}(
                 101, // _dstChainId
                 1, // _srcPoolId
@@ -97,7 +99,9 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
             emit Bridged(address(usdc), withdrawAmt, account);
 
         } else if (token == address(wethEth)) {
-            uint withdrawAmt = vaultSeth.withdrawByHelper(token, amount, amountOutMin, account);
+            // withdraw from peng together to this contract
+            uint withdrawAmt = vaultSeth.withdrawByHelper(address(weth), amount, amountOutMin, account);
+            // bridge eth from this contract to msg.sender in ethereum
             stargateRouterEth.swapETH{value: withdrawAmt + gas}(
                 101, // _dstChainId
                 address(this), // _refundAddress
@@ -119,7 +123,8 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
         _unpause();
     }
 
-    ///@notice retrieve any payload that didn't execute due to error, can view from layerzeroscan.com 
+    ///@notice retrieve any payload that didn't execute due to error, can view from layerzeroscan.com
+    ///@notice can call by anyone
     ///@param _payload abi.encode(address(token), amount, amountOutMin, msgSender)
     function lzReceiveRetry(bytes calldata _payload) external {
         bytes memory _srcAddress = abi.encodePacked(pengHelperEth, address(this));
