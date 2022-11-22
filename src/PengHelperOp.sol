@@ -132,7 +132,7 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
         lzEndpoint.forceResumeReceive(101, _srcAddress);
     }
 
-    function setPengHelperEth(address _pengHelperEth) external {
+    function setPengHelperEth(address _pengHelperEth) external onlyOwner {
         pengHelperEth = _pengHelperEth;
         trustedRemoteLookup[101] = abi.encodePacked(_pengHelperEth, address(this));
 
