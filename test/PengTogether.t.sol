@@ -20,7 +20,7 @@ contract PengTogetherTest is Test {
     PengTogether vault;
     Record record = Record(0x176B6aD5063bFFBca9867DE6B3a1Eb27A306e40d);
     address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
-    address helper = address(1);
+    address helper = 0xCf91CDBB4691a4b912928A00f809f356c0ef30D6;
 
     function setUp() public {
         // record = new Record();
@@ -44,15 +44,15 @@ contract PengTogetherTest is Test {
         // );
         // vault = PengTogether(payable(address(proxy)));
         vault = PengTogether(payable(0x68ca3a3BBD306293e693871E45Fe908C04387614));
-        PengTogether vaultImpl = new PengTogether();
-        hoax(owner);
-        vault.upgradeTo(address(vaultImpl));
+        // PengTogether vaultImpl = new PengTogether();
+        // hoax(owner);
+        // vault.upgradeTo(address(vaultImpl));
 
-        hoax(owner);
+        // hoax(owner);
         // record.setVault(address(vault));
         // record.setDao(dao);
         // vault.setReward(reward);
-        vault.setHelper(helper);
+        // vault.setHelper(helper);
     }
 
     // function test() public {
@@ -510,6 +510,10 @@ contract PengTogetherTest is Test {
 
         vm.expectRevert("only admin or owner");
         vault.unwrapAndBridge();
+        vm.expectRevert("helper only");
+        vault.depositByHelper(weth, 1 ether, 0, address(this));
+        vm.expectRevert("helper only");
+        vault.withdrawByHelper(weth, 1 ether, 0, address(this));
         vm.expectRevert("Ownable: caller is not the owner");
         vault.pauseContract();
         vm.expectRevert("Ownable: caller is not the owner");

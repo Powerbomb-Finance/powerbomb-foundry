@@ -1,7 +1,7 @@
 {
   "transactions": [
     {
-      "hash": "0xec5a1fc56bd8fca7b30fb5793c205f42f5d764b08c8474b9fd37a3660bac50c1",
+      "hash": "0x140d679ffffb00d90d0fd3b0b31370988579b1d58492492b5f028315e3e9e25c",
       "transactionType": "CREATE",
       "contractName": "PengHelperEth",
       "contractAddress": "0x3cA2BeE859c592A17F8b15E353B28f3c05Cb1E01",
@@ -42,31 +42,14 @@
       "additionalContracts": []
     }
   ],
-  "receipts": [
-    {
-      "transactionHash": "0x140d679ffffb00d90d0fd3b0b31370988579b1d58492492b5f028315e3e9e25c",
-      "transactionIndex": "0x72",
-      "blockHash": "0x2e05323721fc5ea0b969fac38b570cbff525e3101920f7d0ad0e3b9fbaad41d5",
-      "blockNumber": "0xf493d2",
-      "from": "0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E",
-      "to": null,
-      "cumulativeGasUsed": "0x1906e03",
-      "gasUsed": "0x164276",
-      "contractAddress": "0x3cA2BeE859c592A17F8b15E353B28f3c05Cb1E01",
-      "logs": [],
-      "status": "0x1",
-      "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-      "type": "0x2",
-      "effectiveGasPrice": "0x2540be400"
-    }
-  ],
+  "receipts": [],
   "libraries": [],
   "pending": [
-    "0xec5a1fc56bd8fca7b30fb5793c205f42f5d764b08c8474b9fd37a3660bac50c1"
+    "0x140d679ffffb00d90d0fd3b0b31370988579b1d58492492b5f028315e3e9e25c"
   ],
   "path": "/Users/siew/PowerbombFinance/powerbomb-foundry/broadcast/Deploy.sol/1/run-latest.json",
   "returns": {},
-  "timestamp": 1669182417,
+  "timestamp": 1669134107,
   "chain": 1,
   "multi": false,
   "commit": "7ccc669"

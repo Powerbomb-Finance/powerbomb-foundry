@@ -19,7 +19,7 @@ contract Vault_sethTest is Test {
     Vault_seth vault;
     Record_eth record;
     address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
-    address helper = address(1);
+    address helper = 0xCf91CDBB4691a4b912928A00f809f356c0ef30D6;
 
     function setUp() public {
         // record = new Record_eth();
@@ -43,15 +43,15 @@ contract Vault_sethTest is Test {
         // );
         // vault = Vault_seth(payable(address(proxy)));
         vault = Vault_seth(payable(0x98f82ADA10C55BC7D67b92d51b4e1dae69eD0250));
-        Vault_seth vaultImpl = new Vault_seth();
-        hoax(owner);
-        vault.upgradeTo(address(vaultImpl));
+        // Vault_seth vaultImpl = new Vault_seth();
+        // hoax(owner);
+        // vault.upgradeTo(address(vaultImpl));
 
-        hoax(owner);
+        // hoax(owner);
         // record.setVault(address(vault));
         // record.setDao(dao);
         // vault.setReward(reward);
-        vault.setHelper(helper);
+        // vault.setHelper(helper);
     }
 
     // function test() public {
@@ -474,6 +474,10 @@ contract Vault_sethTest is Test {
 
         vm.expectRevert("only admin or owner");
         vault.unwrapAndBridge();
+        vm.expectRevert("helper only");
+        vault.depositByHelper(weth, 1 ether, 0, address(this));
+        vm.expectRevert("helper only");
+        vault.withdrawByHelper(weth, 1 ether, 0, address(this));
         vm.expectRevert("Ownable: caller is not the owner");
         vault.pauseContract();
         vm.expectRevert("Ownable: caller is not the owner");
