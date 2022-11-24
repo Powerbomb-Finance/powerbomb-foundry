@@ -14,21 +14,22 @@ contract PengHelperEthTest is Test {
     IQuoter sgQuoter = IQuoter(0x8731d54E9D02c286767d56ac03e8037C07e01e98); // stargate router ethereum
     // IQuoter sgQuoter = IQuoter(0xB0D502E938ed5f4df2E681fE6E419ff29631d62b); // stargate router optimism
     IQuoter lzQuoter = IQuoter(0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675); // layerzero endpoint
-    address pengHelperOp = address(1);
-    address owner = address(this);
+    address pengHelperOp = 0xCf91CDBB4691a4b912928A00f809f356c0ef30D6;
+    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
     PengHelperEth helper;
 
     function setUp() public {
-        PbProxy proxy;
-        helper = new PengHelperEth();
-        proxy = new PbProxy(
-            address(helper),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address)")),
-                pengHelperOp
-            )
-        );
-        helper = PengHelperEth(payable(address(proxy)));
+        // PbProxy proxy;
+        // helper = new PengHelperEth();
+        // proxy = new PbProxy(
+        //     address(helper),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(address)")),
+        //         pengHelperOp
+        //     )
+        // );
+        // helper = PengHelperEth(payable(address(proxy)));
+        helper = PengHelperEth(payable(0x8799c7fEfB44B8c885b489eB38Fb067c75EbA2ab));
     }
 
     function testDepositAndWithdraw() public {

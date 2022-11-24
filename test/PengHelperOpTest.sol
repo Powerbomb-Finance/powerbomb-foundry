@@ -17,7 +17,7 @@ contract PengHelperOpTest is Test {
     address wethEth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     PengTogether vaultSusd = PengTogether(payable(0x68ca3a3BBD306293e693871E45Fe908C04387614));
     PengTogether vaultSeth = PengTogether(payable(0x98f82ADA10C55BC7D67b92d51b4e1dae69eD0250));
-    address pengHelperEth = address(1); // assume
+    address pengHelperEth = 0x8799c7fEfB44B8c885b489eB38Fb067c75EbA2ab;
     address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
     address stargateRouter = 0xB0D502E938ed5f4df2E681fE6E419ff29631d62b;
     address lzEndpoint = 0x3c2269811836af69497E5F486A85D7316753cf62;
@@ -25,28 +25,29 @@ contract PengHelperOpTest is Test {
     IQuoter sgQuoter = IQuoter(0xB0D502E938ed5f4df2E681fE6E419ff29631d62b); // stargate router optimism
 
     function setUp() public {
-        PbProxy proxy;
-        helper = new PengHelperOp();
-        proxy = new PbProxy(
-            address(helper),
-            abi.encodeWithSelector(bytes4(keccak256("initialize()")))
-        );
-        helper = PengHelperOp(payable(address(proxy)));
-        helper.setPengHelperEth(pengHelperEth);
+        // PbProxy proxy;
+        // helper = new PengHelperOp();
+        // proxy = new PbProxy(
+        //     address(helper),
+        //     abi.encodeWithSelector(bytes4(keccak256("initialize()")))
+        // );
+        // helper = PengHelperOp(payable(address(proxy)));
+        helper = PengHelperOp(payable(0xCf91CDBB4691a4b912928A00f809f356c0ef30D6));
+        // helper.setPengHelperEth(pengHelperEth);
 
-        // temp
-        PengTogether vaultSusdImpl = new PengTogether();
-        startHoax(owner);
-        vaultSusd.upgradeTo(address(vaultSusdImpl));
-        vaultSusd.setHelper(address(helper));
-        vm.stopPrank();
+        // // temp
+        // PengTogether vaultSusdImpl = new PengTogether();
+        // startHoax(owner);
+        // vaultSusd.upgradeTo(address(vaultSusdImpl));
+        // vaultSusd.setHelper(address(helper));
+        // vm.stopPrank();
 
-        // temp
-        Vault_seth vaultSethImpl = new Vault_seth();
-        startHoax(owner);
-        vaultSeth.upgradeTo(address(vaultSethImpl));
-        vaultSeth.setHelper(address(helper));
-        vm.stopPrank();
+        // // temp
+        // Vault_seth vaultSethImpl = new Vault_seth();
+        // startHoax(owner);
+        // vaultSeth.upgradeTo(address(vaultSethImpl));
+        // vaultSeth.setHelper(address(helper));
+        // vm.stopPrank();
     }
 
     function testDepositUsdc() public {
@@ -131,7 +132,7 @@ contract PengHelperOpTest is Test {
     }
 
     function testSetter() public {
-        // hoax(owner);
+        hoax(owner);
         helper.setPengHelperEth(address(6288));
         assertEq(helper.pengHelperEth(), address(6288));
         assertEq(helper.trustedRemoteLookup(101), abi.encodePacked(address(6288), address(helper)));
@@ -150,8 +151,8 @@ contract PengHelperOpTest is Test {
         vm.expectRevert("sender != lzEndpoint");
         helper.lzReceive(0, abi.encode(address(0)), 0, bytes(""));
 
-        assertEq(helper.owner(), address(this));
-        // hoax(owner);
+        assertEq(helper.owner(), owner);
+        hoax(owner);
         helper.transferOwnership(address(1));
         vm.expectRevert("Ownable: caller is not the owner");
         helper.pauseContract();
