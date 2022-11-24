@@ -12,16 +12,17 @@ contract Deploy is Script {
     function run() public {
         vm.startBroadcast();
 
-        PbProxy proxy;
+        // PbProxy proxy;
 
-        PengHelperOp pengHelperOp = new PengHelperOp();
-        proxy = new PbProxy(
-            address(pengHelperOp),
-            abi.encodeWithSelector(bytes4(keccak256("initialize()")))
-        );
-        // PengHelperOp pengHelperOp = PengHelperOp(payable(0xcfb54CE9bb41BA8256843cC0FB036fad608865bB));
+        // PengHelperOp pengHelperOp = new PengHelperOp();
+        // proxy = new PbProxy(
+        //     address(pengHelperOp),
+        //     abi.encodeWithSelector(bytes4(keccak256("initialize()")))
+        // );
+        PengHelperOp pengHelperOp = PengHelperOp(payable(0xCf91CDBB4691a4b912928A00f809f356c0ef30D6));
 
         // PengHelperEth pengHelperEth = new PengHelperEth();
+        // address pengHelperEth = 0x3cA2BeE859c592A17F8b15E353B28f3c05Cb1E01;
         // proxy = new PbProxy(
         //     address(pengHelperEth),
         //     abi.encodeWithSelector(
@@ -29,8 +30,8 @@ contract Deploy is Script {
         //         address(pengHelperOp)
         //     )
         // );
-        // address pengHelperEth = 0x8afa0A68a7FD536f44B474DeBC93825b9De2ED43;
+        address pengHelperEth = 0x8799c7fEfB44B8c885b489eB38Fb067c75EbA2ab;
 
-        // pengHelperOp.setPengHelperEth(address(pengHelperEth));
+        pengHelperOp.setPengHelperEth(address(pengHelperEth));
     }
 }
