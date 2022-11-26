@@ -64,7 +64,5 @@ contract Upgrade is Script {
 
         PengHelperOp pengHelperOpImpl = new PengHelperOp();
         pengHelperOp.upgradeTo(address(pengHelperOpImpl));
-
-        pengHelperOp.withdrawStuck();
     }
 }

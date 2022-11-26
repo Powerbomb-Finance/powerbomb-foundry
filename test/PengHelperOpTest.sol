@@ -42,12 +42,11 @@ contract PengHelperOpTest is Test {
         // assume receive usdc
         deal(address(usdc), address(helper), 100e6);
 
-        bytes memory srcAddress = abi.encodePacked(pengHelperEth);
         bytes memory payload = abi.encode(address(this), address(usdcEth), 99e6);
 
         // assume call by stargate router
         hoax(stargateRouter);
-        helper.sgReceive(uint16(101), srcAddress, 0, address(usdc), 100e6, payload);
+        helper.sgReceive(uint16(101), bytes(""), 0, address(usdc), 100e6, payload);
 
         // assertion check
         assertEq(vaultSusd.getUserDepositBalance(address(this)), 100e6);
@@ -59,12 +58,11 @@ contract PengHelperOpTest is Test {
         (bool success,) = payable(helper).call{value: 1 ether}("");
         require(success);
 
-        bytes memory srcAddress = abi.encodePacked(pengHelperEth);
         bytes memory payload = abi.encode(address(this), address(wethEth), 0.99 ether);
 
         // assume call by stargate router
         hoax(stargateRouter);
-        helper.sgReceive(uint16(101), srcAddress, 0, address(weth), 1 ether, payload);
+        helper.sgReceive(uint16(101), bytes(""), 0, address(weth), 1 ether, payload);
 
         // assertion check
         assertEq(vaultSeth.getUserDepositBalance(address(this)), 1 ether);
