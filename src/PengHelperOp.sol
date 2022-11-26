@@ -26,7 +26,7 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
     mapping(uint16 => bytes) public trustedRemoteLookup; // PengHelper contract on Ethereum
     address public pengHelperEth;
 
-    event SgReceive(uint16 chainId, address srcAddress, address _token, uint amount, bytes _payload);
+    event SgReceive(uint16 chainId, bytes srcAddress, address _token, uint amount, bytes _payload);
     event LzReceive(uint16 _srcChainId, bytes _srcAddress, bytes _payload);
     event Bridged(address token, uint amount, address receiver);
     event SetPengHelperEth(address _pengHelperEth);
@@ -47,12 +47,14 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
         uint amount, // amountLD
         bytes memory _payload
     ) external {
-        address srcAddress = abi.decode(_srcAddress, (address));
         // emit event first for transaction check if failed
-        emit SgReceive(_chainId, srcAddress, _token, amount, _payload);
+        emit SgReceive(_chainId, _srcAddress, _token, amount, _payload);
 
         require(msg.sender == address(stargateRouter), "only stargate router");
-        require(_chainId == 101 && srcAddress == pengHelperEth, "invalid chainId or srcAddress");
+        require(
+            _chainId == 101 && keccak256(_srcAddress) == keccak256(abi.encodePacked(pengHelperEth)),
+            "invalid chainId or srcAddress"
+        );
 
         (address account, address token, uint amountOutMin) = abi.decode(_payload, (address, address, uint));
         // usdcEth & wethEth: usdc & weth address in _payload from ethereum is token address in ethereum
