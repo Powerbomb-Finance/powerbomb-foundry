@@ -26,7 +26,7 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
     mapping(uint16 => bytes) public trustedRemoteLookup; // PengHelper contract on Ethereum
     address public pengHelperEth;
 
-    event SgReceive(uint16 chainId, bytes srcAddress, address _token, uint amount, bytes _payload);
+    event SgReceive(uint16 chainId, address _token, uint amount, bytes _payload);
     event LzReceive(uint16 _srcChainId, bytes _srcAddress, bytes _payload);
     event Bridged(address token, uint amount, address receiver);
     event WithdrawStuck(uint usdcAmt, uint ethAmt);
@@ -42,20 +42,19 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
     ///@dev this function is for bridge funds from ethereum and deposit into peng together
     function sgReceive(
         uint16 _chainId,
-        bytes memory _srcAddress,
+        bytes memory, // _srcAddress
         uint, // _nonce
         address _token, // _token
         uint amount, // amountLD
         bytes memory _payload
     ) external {
-        // emit event first for transaction check if failed
-        emit SgReceive(_chainId, _srcAddress, _token, amount, _payload);
-
         require(msg.sender == address(stargateRouter), "only stargate router");
-        require(
-            _chainId == 101 && keccak256(_srcAddress) == keccak256(abi.encodePacked(pengHelperEth)),
-            "invalid chainId or srcAddress"
-        );
+        // _srcAddress is not pengHelperEth contract address passed by stargate router
+        // there is no way to check if srcAddress is pengHelperEth
+        // but is okay, because amount deposit into peng together is the amount bridged from ethereum (minus protocol fee)
+        // so there is no risk if srcAddress is not pengHelperEth
+        // in fact, anyone from any chain can call this function as long as token bridge successfully into this contract
+        // and deposit into peng together
 
         (address account, address token, uint amountOutMin) = abi.decode(_payload, (address, address, uint));
         // usdcEth & wethEth: usdc & weth address in _payload from ethereum is token address in ethereum
@@ -65,6 +64,8 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
         } else if (token == address(wethEth)) {
             vaultSeth.depositByHelper{value: amount}(address(weth), amount, amountOutMin, account);
         }
+
+        emit SgReceive(_chainId, _token, amount, _payload);
     }
 
     ///@dev this function is for send message from ethereum, withdraw from peng together
