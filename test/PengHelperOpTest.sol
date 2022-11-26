@@ -33,12 +33,9 @@ contract PengHelperOpTest is Test {
         // );
         // helper = PengHelperOp(payable(address(proxy)));
         helper = PengHelperOp(payable(0xCf91CDBB4691a4b912928A00f809f356c0ef30D6));
-        PengHelperOp helperImpl = new PengHelperOp();
-        hoax(owner);
-        helper.upgradeTo(address(helperImpl));
-
-        hoax(owner);
-        helper.withdrawStuck();
+        // PengHelperOp helperImpl = new PengHelperOp();
+        // hoax(owner);
+        // helper.upgradeTo(address(helperImpl));
     }
 
     function testDepositUsdc() public {
