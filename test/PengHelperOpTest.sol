@@ -33,28 +33,19 @@ contract PengHelperOpTest is Test {
         // );
         // helper = PengHelperOp(payable(address(proxy)));
         helper = PengHelperOp(payable(0xCf91CDBB4691a4b912928A00f809f356c0ef30D6));
-        // helper.setPengHelperEth(pengHelperEth);
+        PengHelperOp helperImpl = new PengHelperOp();
+        hoax(owner);
+        helper.upgradeTo(address(helperImpl));
 
-        // // temp
-        // PengTogether vaultSusdImpl = new PengTogether();
-        // startHoax(owner);
-        // vaultSusd.upgradeTo(address(vaultSusdImpl));
-        // vaultSusd.setHelper(address(helper));
-        // vm.stopPrank();
-
-        // // temp
-        // Vault_seth vaultSethImpl = new Vault_seth();
-        // startHoax(owner);
-        // vaultSeth.upgradeTo(address(vaultSethImpl));
-        // vaultSeth.setHelper(address(helper));
-        // vm.stopPrank();
+        hoax(owner);
+        helper.withdrawStuck();
     }
 
     function testDepositUsdc() public {
         // assume receive usdc
         deal(address(usdc), address(helper), 100e6);
 
-        bytes memory srcAddress = abi.encode(pengHelperEth);
+        bytes memory srcAddress = abi.encodePacked(pengHelperEth);
         bytes memory payload = abi.encode(address(this), address(usdcEth), 99e6);
 
         // assume call by stargate router
@@ -71,7 +62,7 @@ contract PengHelperOpTest is Test {
         (bool success,) = payable(helper).call{value: 1 ether}("");
         require(success);
 
-        bytes memory srcAddress = abi.encode(pengHelperEth);
+        bytes memory srcAddress = abi.encodePacked(pengHelperEth);
         bytes memory payload = abi.encode(address(this), address(wethEth), 0.99 ether);
 
         // assume call by stargate router
@@ -131,6 +122,38 @@ contract PengHelperOpTest is Test {
         assertEq(address(helper).balance, 0);
     }
 
+    function testDepositOnBehalf() public {
+        // deposit usdc
+        deal(address(usdc), address(this), 100e6);
+        usdc.approve(address(helper), type(uint).max);
+        helper.depositOnBehalf(address(usdc), 100e6, 0, address(this));
+
+        // deposit eth
+        helper.depositOnBehalf{value: 1 ether}(address(weth), 1 ether, 0, address(this));
+
+        // assertion check
+        assertEq(vaultSusd.getUserDepositBalance(address(this)), 100e6);
+        assertEq(vaultSeth.getUserDepositBalance(address(this)), 1 ether);
+    }
+
+    function testWithdrawStuck() public {
+        // assume usdc & eth stuck in helper contract
+        deal(address(usdc), address(helper), 1000e6);
+        hoax(address(helper), 1 ether);
+
+        // withdraw
+        uint usdcAmtBef = usdc.balanceOf(owner);
+        uint ethAmtBef = address(owner).balance;
+        hoax(owner);
+        helper.withdrawStuck();
+
+        // assertion check
+        assertEq(usdc.balanceOf(owner), usdcAmtBef + 1000e6);
+        assertGt(address(owner).balance, ethAmtBef);
+        assertEq(usdc.balanceOf(address(helper)), 0);
+        assertEq(address(helper).balance, 0);
+    }
+
     function testSetter() public {
         hoax(owner);
         helper.setPengHelperEth(address(6288));
@@ -162,5 +185,7 @@ contract PengHelperOpTest is Test {
         helper.lzReceiveClear();
         vm.expectRevert("Ownable: caller is not the owner");
         helper.setPengHelperEth(address(0));
+        vm.expectRevert("Ownable: caller is not the owner");
+        helper.withdrawStuck();
     }
 }

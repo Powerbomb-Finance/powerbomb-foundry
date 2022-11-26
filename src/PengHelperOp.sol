@@ -29,6 +29,7 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
     event SgReceive(uint16 chainId, bytes srcAddress, address _token, uint amount, bytes _payload);
     event LzReceive(uint16 _srcChainId, bytes _srcAddress, bytes _payload);
     event Bridged(address token, uint amount, address receiver);
+    event WithdrawStuck(uint usdcAmt, uint ethAmt);
     event SetPengHelperEth(address _pengHelperEth);
 
     function initialize() external initializer {
@@ -137,6 +138,37 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
     function lzReceiveClear() external onlyOwner {
         bytes memory _srcAddress = abi.encodePacked(pengHelperEth, address(this));
         lzEndpoint.forceResumeReceive(101, _srcAddress);
+    }
+
+    ///@notice deposit on behalf of an account
+    function depositOnBehalf(address token, uint amount, uint amountOutMin, address account) external payable {
+        if (token == address(usdc)) {
+            usdc.transferFrom(msg.sender, address(this), amount);
+            vaultSusd.depositByHelper(address(usdc), amount, amountOutMin, account);
+
+        } else if (token == address(weth)) {
+            vaultSeth.depositByHelper{value: amount}(address(weth), amount, amountOutMin, account);
+        }
+    }
+
+    ///@notice withdraw any usdc or eth stuck in this contract due to fail deposit into peng together
+    function withdrawStuck() external onlyOwner {
+        address _owner = owner();
+
+        // usdc
+        uint usdcAmt = usdc.balanceOf(address(this));
+        if (usdcAmt > 0) {
+            usdc.transfer(_owner, usdcAmt);
+        }
+
+        // eth
+        uint ethAmt = address(this).balance;
+        if (ethAmt > 0) {
+            (bool success,) = _owner.call{value: ethAmt}("");
+            require(success);
+        }
+
+        emit WithdrawStuck(usdcAmt, ethAmt);
     }
 
     function setPengHelperEth(address _pengHelperEth) external onlyOwner {
