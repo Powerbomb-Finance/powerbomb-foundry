@@ -34,10 +34,11 @@ contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pa
     }
 
     ///@param amountOutMin amount minimum lp token to receive after deposit on peng together optimism
+    ///@param gasLimit gas limit for calling sgReceive() on optimism
     ///@dev msg.value = eth deposit + bridge gas fee if deposit eth
     ///@dev msg.value = bridge gas fee if deposit usdc
     ///@dev bridge gas fee can retrieve from stargateRouter.quoteLayerZeroFee()
-    function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin) external payable {
+    function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin, uint gasLimit) external payable {
         require(token == weth || token == usdc, "weth or usdc only");
         address msgSender = msg.sender;
         uint msgValue = msg.value;
@@ -70,7 +71,7 @@ contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pa
             payable(msgSender), // _refundAddress
             amount, // _amountLD
             amount * 995 / 1000, // _minAmountLD, 0.5% slippage
-            IStargateRouter.lzTxObj(600000, 0, "0x"), // _lzTxParams, 600k = gas limit for sgReceive() in optimism
+            IStargateRouter.lzTxObj(gasLimit, 0, "0x"), // _lzTxParams
             abi.encodePacked(pengHelperOp), // _to
             payload // _payload
         );
@@ -79,10 +80,17 @@ contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pa
     }
 
     ///@param amountOutMin amount minimum token to receive after withdraw from peng together on optimism side
+    ///@param gasLimit gas limit for calling lzReceive() on optimism
     ///@param nativeForDst gas fee used by stargate router optimism to bridge token to msg.sender in ethereum
     ///@dev msg.value = bridged gas fee + nativeForDst, can retrieve from lzEndpoint.estimateFees()
     ///@dev nativeForDst can retrieve from stargateRouter.quoteLayerZeroFee()
-    function withdraw(IERC20Upgradeable token, uint amount, uint amountOutMin, uint nativeForDst) external payable {
+    function withdraw(
+        IERC20Upgradeable token,
+        uint amount,
+        uint amountOutMin,
+        uint gasLimit, 
+        uint nativeForDst
+    ) external payable {
         require(token == weth || token == usdc, "weth or usdc only");
         require(amount > 0, "invalid amount");
         address msgSender = msg.sender;
@@ -96,7 +104,7 @@ contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pa
             address(0), // _zroPaymentAddress
             abi.encodePacked( // _adapterParams
                 uint16(2), // version 2, set gas limit + airdrop nativeForDst
-                uint(600000), // gasAmount, gas limit for destination function call
+                gasLimit, // gasAmount
                 nativeForDst, // nativeForDst, refer @param above
                 _pengHelperOp // addressOnDst
             )
