@@ -30,6 +30,9 @@ contract PengHelperEthTest is Test {
         // );
         // helper = PengHelperEth(payable(address(proxy)));
         helper = PengHelperEth(payable(0x8799c7fEfB44B8c885b489eB38Fb067c75EbA2ab));
+        // PengHelperEth helperImpl = new PengHelperEth();
+        // hoax(owner);
+        // helper.upgradeTo(address(helperImpl));
     }
 
     function testDepositAndWithdraw() public {
@@ -42,7 +45,7 @@ contract PengHelperEthTest is Test {
             IQuoter.lzTxObj(600000, 0, "0x")
         );
         // console.log(fee); // 0.001821656141483913
-        helper.deposit{value: 1 ether + fee}(weth, 1 ether, 0.99 ether);
+        helper.deposit{value: 1 ether + fee}(weth, 1 ether, 0.99 ether, 600000);
 
         // deposit usdc
         (fee,) = sgQuoter.quoteLayerZeroFee(
@@ -53,7 +56,7 @@ contract PengHelperEthTest is Test {
         // console.log(fee); // 0.001821656141483913
         deal(address(usdc), address(this), 100e6);
         usdc.approve(address(helper), 100e6);
-        helper.deposit{value: fee}(usdc, 100e6, 99e6);
+        helper.deposit{value: fee}(usdc, 100e6, 99e6, 600000);
 
         // assertion check
         assertEq(usdc.balanceOf(address(helper)), 0);
@@ -74,21 +77,21 @@ contract PengHelperEthTest is Test {
             111, address(helper),
             abi.encode(address(weth), 1 ether, 0.99 ether, address(this)),
             false,
-            abi.encodePacked(uint16(2), uint(600000), nativeForDst, pengHelperOp)
+            abi.encodePacked(uint16(2), uint(1000000), nativeForDst, pengHelperOp)
         );
         // console.log(fee); // 0.009587028264829213
         // console.log(nativeForDst); // 0.006221784869021456
-        helper.withdraw{value: fee}(weth, 1 ether, 0.99 ether, nativeForDst);
+        helper.withdraw{value: fee}(weth, 1 ether, 0.99 ether, 1000000, nativeForDst);
 
         // withdraw usdc
         (fee,) = lzQuoter.estimateFees(
             111, address(helper),
             abi.encode(address(usdc), 100e6, 99e6, address(this)),
             false,
-            abi.encodePacked(uint16(2), uint(600000), nativeForDst, pengHelperOp)
+            abi.encodePacked(uint16(2), uint(1000000), nativeForDst, pengHelperOp)
         );
         // console.log(fee); // 0.009587028264829213
-        helper.withdraw{value: fee}(usdc, 100e6, 99e6, nativeForDst);
+        helper.withdraw{value: fee}(usdc, 100e6, 99e6, 1000000, nativeForDst);
     }
 
     function testSetter() public {

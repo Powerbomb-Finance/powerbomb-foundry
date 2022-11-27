@@ -8,8 +8,8 @@ import "forge-std/Script.sol";
 // import "../src/Record_eth.sol";
 // import "../src/Reward.sol";
 // import "../src/Dao.sol";
-// import "../src/PengHelperEth.sol";
-import "../src/PengHelperOp.sol";
+import "../src/PengHelperEth.sol";
+// import "../src/PengHelperOp.sol";
 
 contract Upgrade is Script {
     // PengTogether vault = PengTogether(payable(0x68ca3a3BBD306293e693871E45Fe908C04387614));
@@ -19,8 +19,8 @@ contract Upgrade is Script {
     // FarmCurve farm = FarmCurve(payable(0xA6cFCa9EB181728082D35419B58Ba7eE4c9c8d38));
     // Reward reward = Reward(payable(0xc052Ac7d4c68fA03b2cAf2A12B745fB6B8eC08Dd));
     // Dao dao = Dao(0x0C9133Fa96d72C2030D63B6B35c3738D6329A313);
-    // PengHelperEth pengHelperEth = PengHelperEth(payable(0x8799c7fEfB44B8c885b489eB38Fb067c75EbA2ab));
-    PengHelperOp pengHelperOp = PengHelperOp(payable(0xCf91CDBB4691a4b912928A00f809f356c0ef30D6));
+    PengHelperEth pengHelperEth = PengHelperEth(payable(0x8799c7fEfB44B8c885b489eB38Fb067c75EbA2ab));
+    // PengHelperOp pengHelperOp = PengHelperOp(payable(0xCf91CDBB4691a4b912928A00f809f356c0ef30D6));
 
     function run() public {
         vm.startBroadcast();
@@ -59,10 +59,10 @@ contract Upgrade is Script {
         //     )
         // );
 
-        // PengHelperEth pengHelperEthImpl = new PengHelperEth();
-        // pengHelperEth.upgradeTo(address(pengHelperEthImpl));
+        PengHelperEth pengHelperEthImpl = new PengHelperEth();
+        pengHelperEth.upgradeTo(address(pengHelperEthImpl));
 
-        PengHelperOp pengHelperOpImpl = new PengHelperOp();
-        pengHelperOp.upgradeTo(address(pengHelperOpImpl));
+        // PengHelperOp pengHelperOpImpl = new PengHelperOp();
+        // pengHelperOp.upgradeTo(address(pengHelperOpImpl));
     }
 }
