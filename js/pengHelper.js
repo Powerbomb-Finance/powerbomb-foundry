@@ -199,6 +199,7 @@ const test = async () => {
 
     // deposit usdc example
     const depositArgsUsdc = await getDepositArgs(usdcAddr, ethers.utils.parseUnits("101", 6))
+    await usdc.approve(pengHelperEthAddr, ethers.constants.MaxUint256)
     await pengHelperEth.deposit(
         depositArgsUsdc.token,
         depositArgsUsdc.amount,
