@@ -186,23 +186,58 @@ module.exports = {
     getActualDepositAmount
 }
 
-// const test = async () => {
-//     // console.log(getActualDepositAmount(ethers.utils.parseUnits("101", 6)))
+const test = async () => {
+    // getActualDepositAmount(): actual deposit amount after bridge to optimism
+    // actual deposit amount = deposit amount - stargate protocol fee (0.06%)
+    // actual deposit amount must > 100 USDC or 0.1 ether, else deposit will failed on optimism side
+    // usdc example
+    const actualDepositUsdc = getActualDepositAmount(ethers.utils.parseUnits("101", 6))
+    console.log(actualDepositUsdc) // 100939400
+    // eth example
+    const actualdepositEth = getActualDepositAmount(ethers.utils.parseEther("1.01"))
+    console.log(actualdepositEth) // 1009394000000000000
 
-//     // const args = await getDepositArgs(usdcAddr, ethers.utils.parseUnits("101", 6))
-//     // console.log(args.token)
-//     // console.log(args.amount)
-//     // console.log(args.amountOutMin)
-//     // console.log(args.gasLimit)
-//     // console.log(args.value)
+    // deposit usdc example
+    const depositArgsUsdc = await getDepositArgs(usdcAddr, ethers.utils.parseUnits("101", 6))
+    await pengHelperEth.deposit(
+        depositArgsUsdc.token,
+        depositArgsUsdc.amount,
+        depositArgsUsdc.amountOutMin,
+        depositArgsUsdc.gasLimit,
+        {value: depositArgsUsdc.value}
+    )
 
-//     const userAddr = "0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E"
-//     const args = await getWithdrawArgs(wethAddr, 0, userAddr, true)
-//     console.log(args.token)
-//     console.log(args.amount)
-//     console.log(args.amountOutMin)
-//     console.log(args.gasLimit)
-//     console.log(args.nativeForDst)
-//     console.log(args.value)
-// }
-// test().catch(err => console.error(err))
+    // deposit eth example
+    const depositArgsEth = await getDepositArgs(usdcAddr, ethers.utils.parseEther("1.01"))
+    await pengHelperEth.deposit(
+        depositArgsEth.token,
+        depositArgsEth.amount,
+        depositArgsEth.amountOutMin,
+        depositArgsEth.gasLimit,
+        {value: depositArgsEth.value}
+    )
+
+    const userAddr = "0x..."
+    // withdraw usdc example
+    const withdrawArgsUsdc = await getWithdrawArgs(usdcAddr, ethers.utils.parseUnits("100", 6), userAddr, false)
+    await pengHelperEth.withdraw(
+        withdrawArgsUsdc.token,
+        withdrawArgsUsdc.amount,
+        withdrawArgsUsdc.amountOutMin,
+        withdrawArgsUsdc.gasLimit,
+        withdrawArgsUsdc.nativeForDst,
+        {value: withdrawArgsUsdc.value}
+    )
+
+    // withdraw eth example
+    const withdrawArgsEth = await getWithdrawArgs(wethAddr, ethers.utils.parseUnits("100", 6), userAddr, false)
+    await pengHelperEth.withdraw(
+        withdrawArgsEth.token,
+        withdrawArgsEth.amount,
+        withdrawArgsEth.amountOutMin,
+        withdrawArgsEth.gasLimit,
+        withdrawArgsEth.nativeForDst,
+        {value: withdrawArgsEth.value}
+    )
+}
+test().catch(err => console.error(err))
