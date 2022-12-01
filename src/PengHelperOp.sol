@@ -23,12 +23,15 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
     IVault constant vaultSusd = IVault(0x68ca3a3BBD306293e693871E45Fe908C04387614);
     IVault constant vaultSeth = IVault(0x98f82ADA10C55BC7D67b92d51b4e1dae69eD0250);
     ILayerZeroEndpoint constant lzEndpoint = ILayerZeroEndpoint(0x3c2269811836af69497E5F486A85D7316753cf62);
+    address constant paraswapTokenTransferProxy = 0x216B4B4Ba9F3e719726886d34a177484278Bfcae;
+    address constant paraswapAugustusSwapper = 0xDEF171Fe48CF0115B1d80b88dc8eAB59176FEe57;
     mapping(uint16 => bytes) public trustedRemoteLookup; // PengHelper contract on Ethereum
     address public pengHelperEth;
 
     event SgReceive(uint16 chainId, address _token, uint amount, bytes _payload);
     event LzReceive(uint16 _srcChainId, bytes _srcAddress, bytes _payload);
     event Bridged(address token, uint amount, address receiver);
+    event SwitchVault();
     event WithdrawStuck(uint usdcAmt, uint ethAmt);
     event SetPengHelperEth(address _pengHelperEth);
 
@@ -152,6 +155,60 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
         }
     }
 
+    ///@notice switch user funds within vaults, tokens swap by paraswap
+    function switchVault(
+        address fromVaultAddr,
+        address toVaultAddr,
+        uint amountWithdraw, // amount to withdraw from vault
+        uint amountToSwap, // amount to swap with paraswap, this amount will slightly lesser than amount to withdraw
+        // to prevent swap error due to slippage, in normal case same with amountOutMinWithdraw
+        uint[] memory amountsOutMin, // [amountOutMinWithdraw, amountOutMinDeposit]
+        bytes memory data // paraswap data
+    ) external {
+        address msgSender = msg.sender;
+        uint usdcBal = usdc.balanceOf(address(this));
+        uint ethBal = address(this).balance;
+        uint actualWithdrawAmt;
+
+        if (fromVaultAddr == address(vaultSusd) && toVaultAddr == address(vaultSeth)) {
+            // withdraw from vaultSusd
+            actualWithdrawAmt = vaultSusd.withdrawByHelper(address(usdc), amountWithdraw, amountsOutMin[0], msgSender);
+            // swap usdc to eth
+            (bool success,) = paraswapAugustusSwapper.call(data);
+            require(success, "Paraswap swap error");
+
+            uint ethReceived = address(this).balance - ethBal;
+            // deposit eth into vaultSeth
+            vaultSeth.depositByHelper{value: ethReceived}(address(weth), ethReceived, amountsOutMin[1], msgSender);
+
+            uint usdcLeft = usdc.balanceOf(address(this)) - usdcBal;
+            // since amountToSwap == amountOutMinWithdraw, if swap success,
+            // actualWithdrawAmt > amountToSwap(amountOutMinWithdraw), return leftover to user
+            if (usdcLeft > 0) usdc.transfer(msgSender, usdcLeft);
+
+        } else if (fromVaultAddr == address(vaultSeth) && toVaultAddr == address(vaultSusd)) {
+            // withdraw from vaultSeth
+            actualWithdrawAmt = vaultSeth.withdrawByHelper(address(weth), amountWithdraw, amountsOutMin[0], msgSender);
+            // swap eth to usdc
+            (bool success,) = paraswapAugustusSwapper.call{value: amountToSwap}(data);
+            require(success, "Paraswap swap error");
+
+            uint usdcReceived = usdc.balanceOf(address(this)) - usdcBal;
+            // deposit usdc into vaultSusd
+            vaultSusd.depositByHelper(address(usdc), usdcReceived, amountsOutMin[1], msgSender);
+
+            uint ethLeft = address(this).balance - ethBal;
+            if (ethLeft > 0) {
+                // since amountToSwap == amountOutMinWithdraw, if swap success,
+                // actualWithdrawAmt > amountToSwap(amountOutMinWithdraw), return leftover to user
+                (bool success_,) = msgSender.call{value: ethLeft}("");
+                require(success_, "eth transfer failed");
+            }
+        }
+
+        emit SwitchVault();
+    }
+
     ///@notice withdraw any usdc or eth stuck in this contract due to fail deposit into peng together
     function withdrawStuck() external onlyOwner {
         address _owner = owner();
@@ -170,6 +227,13 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
         }
 
         emit WithdrawStuck(usdcAmt, ethAmt);
+    }
+
+    ///@notice approve erc20 token to paraswap TokenTransferProxy contract to perform swap
+    ///@dev note that swap is done by AugustusSwapper contract but
+    ///erc20 tokens have to approve TokenTransferProxy contract instead
+    function approveParaswapTokenTransferProxy(address token) external onlyOwner {
+        IERC20Upgradeable(token).approve(paraswapTokenTransferProxy, type(uint).max);
     }
 
     function setPengHelperEth(address _pengHelperEth) external onlyOwner {

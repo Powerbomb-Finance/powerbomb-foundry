@@ -33,9 +33,9 @@ contract PengHelperOpTest is Test {
         // );
         // helper = PengHelperOp(payable(address(proxy)));
         helper = PengHelperOp(payable(0xCf91CDBB4691a4b912928A00f809f356c0ef30D6));
-        // PengHelperOp helperImpl = new PengHelperOp();
-        // hoax(owner);
-        // helper.upgradeTo(address(helperImpl));
+        PengHelperOp helperImpl = new PengHelperOp();
+        hoax(owner);
+        helper.upgradeTo(address(helperImpl));
     }
 
     function testDepositUsdc() public {
@@ -55,8 +55,8 @@ contract PengHelperOpTest is Test {
 
     function testDepositEth() public {
         // assume receive eth
-        (bool success,) = payable(helper).call{value: 1 ether}("");
-        require(success);
+        hoax(address(helper), 1 ether);
+        vm.stopPrank();
 
         bytes memory payload = abi.encode(address(this), address(wethEth), 0.99 ether);
 
@@ -182,5 +182,7 @@ contract PengHelperOpTest is Test {
         helper.setPengHelperEth(address(0));
         vm.expectRevert("Ownable: caller is not the owner");
         helper.withdrawStuck();
+        vm.expectRevert("Ownable: caller is not the owner");
+        helper.approveParaswapTokenTransferProxy(address(0));
     }
 }
