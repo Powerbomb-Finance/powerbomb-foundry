@@ -161,20 +161,6 @@ contract Dao is
         emit SetTrustedRemote(chainId, record);
     }
 
-    function getTokenId() external view returns (uint tokenId) {
-        uint totalSupply = nft.totalSupply();
-        for (uint i = 1; i < totalSupply; i++) {
-            address tokenOwner;
-            try nft.ownerOf(i) {
-                tokenOwner = nft.ownerOf(i);
-            } catch {}
-            if (tokenOwner == address(this)) {
-                tokenId = i;
-                break;
-            }
-        }
-    }
-
     function onERC721Received(address, address, uint256, bytes memory) public virtual override returns (bytes4) {
         return this.onERC721Received.selector;
     }
