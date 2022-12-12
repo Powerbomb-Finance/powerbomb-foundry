@@ -8,8 +8,12 @@ import "../src/Dao.sol";
 import "../src/Reward.sol";
 import "../src/PbProxy.sol";
 
+interface IERC721Modified is IERC721 {
+    function walletOfOwner(address owner) external view returns (uint[] memory);
+}
+
 contract RewardTest is Test {
-    IERC721 lilPudgy = IERC721(0x524cAB2ec69124574082676e6F654a18df49A048);
+    IERC721Modified lilPudgy = IERC721Modified(0x524cAB2ec69124574082676e6F654a18df49A048);
     address pengTogetherVault = 0x98f82ADA10C55BC7D67b92d51b4e1dae69eD0250;
     address record = 0xC530677144A7EA5BaE6Fbab0770358522b4e7071;
     uint64 s_subscriptionId = 414;
@@ -76,7 +80,7 @@ contract RewardTest is Test {
 
     function testAll() public {
         // assume receive eth from stargate to reward
-        (bool success,) = address(reward).call{value: 0.22 ether}("");
+        (bool success,) = address(reward).call{value: 0.4 ether}("");
         require(success);
 
         // try call requestRandomWords() before set totalSeats
@@ -142,8 +146,10 @@ contract RewardTest is Test {
         // assume get lil pudgy with tokenId 4
         hoax(0x4BE3CC27Ec18a1DC1175a59B14C7857E579225BF);
         lilPudgy.transferFrom(0x4BE3CC27Ec18a1DC1175a59B14C7857E579225BF, address(dao), 4);
-        uint tokenId = dao.getTokenId();
-        dao.distributeNFT(tokenId);
+        // uint[] memory tokenIds = lilPudgy.walletOfOwner(address(dao)); // spend to much time to load
+        uint[] memory tokenIds = new uint[](1);
+        tokenIds[0] = 4;
+        dao.distributeNFT(tokenIds[0]);
         assertEq(lilPudgy.balanceOf(address(3)), 1);
         assertEq(dao.totalSeats(), 0);
         assertEq(dao.winner(), address(0));
