@@ -2,6 +2,7 @@
 pragma solidity 0.8.17;
 
 import "openzeppelin-contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import "openzeppelin-contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "openzeppelin-contracts-upgradeable/security/PausableUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -13,6 +14,7 @@ import "../interface/ILayerZeroEndpoint.sol";
 import "../interface/IVault.sol";
 
 contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, PausableUpgradeable {
+    using SafeERC20Upgradeable for IERC20Upgradeable;
 
     IERC20Upgradeable constant weth = IERC20Upgradeable(0x4200000000000000000000000000000000000006);
     IERC20Upgradeable constant usdc = IERC20Upgradeable(0x7F5c764cBc14f9669B88837ca1490cCa17c31607);
@@ -38,8 +40,8 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
     function initialize() external initializer {
         __Ownable_init();
 
-        usdc.approve(address(vaultSusd), type(uint).max);
-        usdc.approve(address(stargateRouter), type(uint).max);
+        usdc.safeApprove(address(vaultSusd), type(uint).max);
+        usdc.safeApprove(address(stargateRouter), type(uint).max);
     }
 
     ///@dev this function is for bridge funds from ethereum and deposit into peng together
@@ -147,7 +149,7 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
     ///@notice deposit on behalf of an account
     function depositOnBehalf(address token, uint amount, uint amountOutMin, address account) external payable {
         if (token == address(usdc)) {
-            usdc.transferFrom(msg.sender, address(this), amount);
+            usdc.safeTransferFrom(msg.sender, address(this), amount);
             vaultSusd.depositByHelper(address(usdc), amount, amountOutMin, account);
 
         } else if (token == address(weth)) {
@@ -184,7 +186,7 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
             uint usdcLeft = usdc.balanceOf(address(this)) - usdcBal;
             // since amountToSwap == amountOutMinWithdraw, if swap success,
             // actualWithdrawAmt > amountToSwap(amountOutMinWithdraw), return leftover to user
-            if (usdcLeft > 0) usdc.transfer(msgSender, usdcLeft);
+            if (usdcLeft > 0) usdc.safeTransfer(msgSender, usdcLeft);
 
         } else if (fromVaultAddr == address(vaultSeth) && toVaultAddr == address(vaultSusd)) {
             // withdraw from vaultSeth
@@ -216,7 +218,7 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
         // usdc
         uint usdcAmt = usdc.balanceOf(address(this));
         if (usdcAmt > 0) {
-            usdc.transfer(_owner, usdcAmt);
+            usdc.safeTransfer(_owner, usdcAmt);
         }
 
         // eth
@@ -233,7 +235,7 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
     ///@dev note that swap is done by AugustusSwapper contract but
     ///erc20 tokens have to approve TokenTransferProxy contract instead
     function approveParaswapTokenTransferProxy(address token) external onlyOwner {
-        IERC20Upgradeable(token).approve(paraswapTokenTransferProxy, type(uint).max);
+        IERC20Upgradeable(token).safeApprove(paraswapTokenTransferProxy, type(uint).max);
     }
 
     function setPengHelperEth(address _pengHelperEth) external onlyOwner {
