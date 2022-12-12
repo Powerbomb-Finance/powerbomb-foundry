@@ -2,6 +2,7 @@
 pragma solidity 0.8.17;
 
 import "openzeppelin-contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import "openzeppelin-contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "openzeppelin-contracts-upgradeable/security/PausableUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -12,6 +13,8 @@ import "../interface/IStargateRouter.sol";
 import "../interface/ILayerZeroEndpoint.sol";
 
 contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, PausableUpgradeable {
+    using SafeERC20Upgradeable for IERC20Upgradeable;
+    using SafeERC20Upgradeable for IWETH;
 
     IERC20Upgradeable constant weth = IERC20Upgradeable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     IERC20Upgradeable constant usdc = IERC20Upgradeable(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
@@ -29,8 +32,8 @@ contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pa
 
         pengHelperOp = _pengHelperOp;
 
-        sgEth.approve(address(stargateRouter), type(uint).max);
-        usdc.approve(address(stargateRouter), type(uint).max);
+        sgEth.safeApprove(address(stargateRouter), type(uint).max);
+        usdc.safeApprove(address(stargateRouter), type(uint).max);
     }
 
     ///@param amountOutMin amount minimum lp token to receive after deposit on peng together optimism
@@ -57,7 +60,7 @@ contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pa
         } else { // token == usdc
             require(amount >= 100e6, "min $100");
             
-            usdc.transferFrom(msgSender, address(this), amount);
+            usdc.safeTransferFrom(msgSender, address(this), amount);
             // poolId 1 = usdc in stargate for both ethereum & optimism
             poolId = 1;
         }
