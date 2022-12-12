@@ -62,7 +62,9 @@ contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pa
             poolId = 1;
         }
 
-        // deliberately assign payload value to solve stack too deep error
+        // deliberately assign minAmount, lzTxParams and payload to solve stack too deep error
+        uint minAmount = amount * 995 / 1000;
+        IStargateRouter.lzTxObj memory lzTxParams = IStargateRouter.lzTxObj(gasLimit, 0, "0x");
         bytes memory payload = abi.encode(msgSender, address(token), amountOutMin);
         stargateRouter.swap{value: msgValue}(
             111, // _dstChainId, optimism
@@ -70,8 +72,8 @@ contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pa
             poolId, // _dstPoolId
             payable(msgSender), // _refundAddress
             amount, // _amountLD
-            amount * 995 / 1000, // _minAmountLD, 0.5% slippage
-            IStargateRouter.lzTxObj(gasLimit, 0, "0x"), // _lzTxParams
+            minAmount, // _minAmountLD, 0.5% slippage
+            lzTxParams, // _lzTxParams
             abi.encodePacked(pengHelperOp), // _to
             payload // _payload
         );
