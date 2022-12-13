@@ -14,7 +14,7 @@ contract Reward is
     OwnableUpgradeable,
     UUPSUpgradeable
 {
-    ILSSVMRouter constant router = ILSSVMRouter(0x2B2e8cDA09bBA9660dCA5cB6233787738Ad68329); // sudoswap
+    ILSSVMRouter constant ROUTER = ILSSVMRouter(0x2B2e8cDA09bBA9660dCA5cB6233787738Ad68329); // sudoswap
 
     mapping(uint16 => bytes) public trustedRemoteLookup; // PengTogether contract on Optimism
     address public admin;
@@ -23,15 +23,16 @@ contract Reward is
 
     event BuyNFT(address pool, uint NFTPrice);
     event SetTrustedRemoteLookup(uint16 chainId, address trustedRemote);
-    event SetAdmin(address _admin);
-    event SetDao(address _dao);
+    event SetAdmin(address admin_);
+    event SetDao(address dao_);
 
-    function initialize(address _dao, address pengTogetherVault) external initializer {
+    function initialize(address dao_, address pengTogetherVault) external initializer {
+        require(dao_ != address(0), "address 0");
         __Ownable_init();
 
         trustedRemoteLookup[111] = abi.encodePacked(pengTogetherVault);
 
-        dao = _dao;
+        dao = dao_;
         admin = msg.sender;
     }
 
@@ -39,24 +40,23 @@ contract Reward is
 
     function buyNFT(address pool) external {
         require(msg.sender == admin || msg.sender == owner(), "only authorized");
+        nftSwapped += 1;
 
         ILSSVMRouter.PairSwapAny[] memory swapList = new ILSSVMRouter.PairSwapAny[](1);
         swapList[0] = ILSSVMRouter.PairSwapAny(pool, 1);
         uint thisBalance = address(this).balance;
-        uint remainingValue = router.swapETHForAnyNFTs{value: thisBalance}(
+        uint remainingValue = ROUTER.swapETHForAnyNFTs{value: thisBalance}(
             swapList, // swapList
             payable(address(this)), // ethRecipient
             dao, // nftRecipient
             block.timestamp // deadline
         );
 
-        nftSwapped += 1;
-
         emit BuyNFT(pool, thisBalance - remainingValue);
     }
 
-    function setNftSwapped(uint _nftSwapped) external onlyOwner {
-        nftSwapped = _nftSwapped;
+    function setNftSwapped(uint nftSwapped_) external onlyOwner {
+        nftSwapped = nftSwapped_;
     }
 
     function setTrustedRemoteLookup(uint16 chainId, address trustedRemote) external onlyOwner {
@@ -65,19 +65,24 @@ contract Reward is
         emit SetTrustedRemoteLookup(chainId, trustedRemote);
     }
 
-    function setAdmin(address _admin) external onlyOwner {
-        admin = _admin;
+    function setAdmin(address admin_) external onlyOwner {
+        require(admin_ != address(0), "address 0");
+        admin = admin_;
 
-        emit SetAdmin(_admin);
+        emit SetAdmin(admin_);
     }
 
-    function setDao(address _dao) external onlyOwner {
-        dao = _dao;
+    function setDao(address dao_) external onlyOwner {
+        require(dao_ != address(0), "address 0");
+        dao = dao_;
 
-        emit SetDao(_dao);
+        emit SetDao(dao_);
     }
 
-    function getPoolWithFloorPrice(address[] calldata pools, address nft) external view returns (uint floorPrice, address poolWithFloorPrice) {
+    function getPoolWithFloorPrice(
+        address[] calldata pools,
+        address nft
+    ) external view returns (uint floorPrice, address poolWithFloorPrice) {
         for (uint i = 0; i < pools.length; i++) {
             ISudoPool pool = ISudoPool(pools[i]);
             if (IERC721(nft).balanceOf(address(pool)) > 0) {
