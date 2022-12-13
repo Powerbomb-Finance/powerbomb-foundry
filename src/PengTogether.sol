@@ -122,13 +122,13 @@ contract PengTogether is
         address depositor
     ) internal virtual nonReentrant whenNotPaused {
         require(token == usdc, "usdc only");
-        require(amount >= 100e6, "min $100"); // 100 USDC, 6 decimals
+        require(amount >= 100e6, "min $100");
 
         usdc.safeTransferFrom(msg.sender, address(this), amount);
 
         uint[4] memory amounts; // [susd, usdt, usdc, dai]
         amounts[2] = amount;
-        // zap add liquidity by convert usdc -> 3crv then add liquidity into susd/3crv pool
+        // zap add liquidity by convert usdc -> 3crv then add liquidity into susd/3crv pool to get lp token
         uint lpTokenAmt = zap.add_liquidity(address(pool), amounts, amountOutMin);
         // deposit into curve lp token staking pool for reward
         gauge.deposit(lpTokenAmt);
@@ -182,8 +182,7 @@ contract PengTogether is
         uint lpTokenAmt = lpTokenBal * amount / depositBal;
         // withdraw from curve lp token staking pool
         gauge.withdraw(lpTokenAmt);
-        // remove liquidity via zap contract, lp token -> 3crv -> usdc
-        // zap remove liquidity by remove liquidity from susd/3crv pool then convert 3crv -> usdc
+        // burn lp token and remove liquidity via zap contract, lp token -> 3crv -> usdc
         actualAmt = zap.remove_liquidity_one_coin(address(pool), lpTokenAmt, 2, amountOutMin);
 
         // update user info into peng together record contract
