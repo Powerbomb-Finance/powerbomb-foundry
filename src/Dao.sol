@@ -5,7 +5,7 @@ import "openzeppelin-contracts-upgradeable/token/ERC721/IERC721ReceiverUpgradeab
 import "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import "openzeppelin-contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "openzeppelin-contracts/token/ERC721/IERC721.sol";
+import "openzeppelin-contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 
 import "chainlink/interfaces/VRFCoordinatorV2Interface.sol";
 import "chainlink/VRFConsumerBaseV2.sol";
@@ -28,7 +28,7 @@ contract Dao is
     VRFCoordinatorV2Interface private COORDINATOR;
     uint64 public s_subscriptionId;
 
-    IERC721 public nft;
+    IERC721Upgradeable public nft;
     address public reward;
     uint public totalSeats;
     bool public rngInProgress;
@@ -49,7 +49,7 @@ contract Dao is
         __Ownable_init();
 
         trustedRemoteLookup[111] = abi.encodePacked(record, address(this));
-        nft = IERC721(_nft);
+        nft = IERC721Upgradeable(_nft);
 
         COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
         s_subscriptionId = subscriptionId;
@@ -130,7 +130,7 @@ contract Dao is
     }
 
     function setNft(address _nft) external onlyOwner {
-        nft = IERC721(_nft);
+        nft = IERC721Upgradeable(_nft);
 
         emit SetNft(_nft);
     }

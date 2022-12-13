@@ -8,7 +8,7 @@ import "../src/Dao.sol";
 import "../src/Reward.sol";
 import "../src/PbProxy.sol";
 
-interface IERC721Modified is IERC721 {
+interface IERC721Modified is IERC721Upgradeable {
     function walletOfOwner(address owner) external view returns (uint[] memory);
 }
 

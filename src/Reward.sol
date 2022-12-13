@@ -4,7 +4,7 @@ pragma solidity 0.8.16;
 import "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import "openzeppelin-contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "openzeppelin-contracts/token/ERC721/IERC721.sol";
+import "openzeppelin-contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 
 import "../interface/ILSSVMRouter.sol";
 import "../interface/ISudoPool.sol";
@@ -85,7 +85,7 @@ contract Reward is
     ) external view returns (uint floorPrice, address poolWithFloorPrice) {
         for (uint i = 0; i < pools.length; i++) {
             ISudoPool pool = ISudoPool(pools[i]);
-            if (IERC721(nft).balanceOf(address(pool)) > 0) {
+            if (IERC721Upgradeable(nft).balanceOf(address(pool)) > 0) {
                 (,,, uint inputAmount,) = pool.getBuyNFTQuote(1);
                 if (floorPrice == 0) {
                     floorPrice = inputAmount;
