@@ -29,7 +29,7 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     address public vault;
     address public dao; // on ethereum
     address public admin;
-    uint public lastSeat;
+    uint public lastSeat; // unused variable
     bool public drawInProgress;
 
     event UpdateTicketAmount(address indexed user, uint depositHour, uint depositInHundred);
@@ -75,15 +75,13 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         }
     }
 
-    // function updateTicketAmount() external {
-    //     _updateTicketAmount(msg.sender);
-    // }
-
     function _updateTicketAmount(address _user) internal virtual {
         User storage user = userInfo[_user];
         uint depositHour = (block.timestamp - user.lastUpdateTimestamp) / 3600;
         uint depositInHundred = user.depositBal / 100e6;
         if (depositHour > 0 && depositInHundred > 0) {
+            // explicitly performs multiplication on the result of a division
+            // because ticket determine by minimum 1 depositHour and minimum 100e6 depositInHundred
             user.ticketBal += depositHour * depositInHundred; // 1 deposit hour * $100 = 1 ticket
             emit UpdateTicketAmount(_user, depositHour, depositInHundred);
         }
@@ -93,8 +91,9 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     ///@notice only call this function when ready to draw
     function placeSeat(address[] calldata users) external payable onlyAuthorized {
 
+        uint _lastSeat;
         for (uint i = 0; i < users.length; i++) {
-            _placeSeat(users[i]);
+            _lastSeat += _placeSeat(users[i], _lastSeat);
         }
 
         drawInProgress = true;
@@ -103,20 +102,20 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         lzEndpoint.send{value: msg.value}(
             101, // _dstChainId
             abi.encodePacked(dao, address(this)), // _path
-            abi.encode(lastSeat, address(0)), // _payload
+            abi.encode(_lastSeat, address(0)), // _payload
             payable(admin), // _refundAddress
             address(0), // _zroPaymentAddress
             abi.encodePacked(uint16(1), uint(40000)) // _adapterParams, 1 = version, 40000 = gas limit on dstChain
         );
     }
 
-    function _placeSeat(address user) internal virtual {
+    function _placeSeat(address user, uint _lastSeat) internal virtual returns (uint) {
         _updateTicketAmount(user);
 
         if (userInfo[user].depositBal > 99e6) {
             uint ticket = userInfo[user].ticketBal;
             if (ticket > 0) {
-                uint from = lastSeat;
+                uint from = _lastSeat;
                 uint to = from + ticket - 1;
 
                 seats.push(Seat({
@@ -126,7 +125,7 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
                 }));
 
                 userInfo[user].ticketBal = 0;
-                lastSeat += ticket;
+                _lastSeat += ticket;
 
                 emit PlaceSeat(user, from, to, seats.length - 1);
             }
@@ -134,6 +133,8 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         } else {
             userInfo[user].ticketBal = 0;
         }
+
+        return _lastSeat;
     }
 
     function setWinnerAndRestartRound(address winner) external payable onlyAuthorized {
@@ -150,7 +151,6 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
         delete seats;
         drawInProgress = false;
-        lastSeat = 0;
 
         emit SetWinnerAndRestartRound(winner);
         emit DrawInProgress(false);
@@ -175,7 +175,7 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     ///@notice get user ticket that had been place seat
-    ///@dev this function is valid only if placeSeat() is called in latest implementation
+    ///@dev this function is valid only after placeSeat() been called in latest implementation
     function getUserTotalSeats(address _user) public view returns (uint ticket) {
         for (uint i = 0; i < seats.length; i++) {
             Seat memory seat = seats[i];
@@ -194,6 +194,8 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         // get user available ticket to claim
         uint depositHour = (block.timestamp - user.lastUpdateTimestamp) / 3600;
         uint depositInHundred = user.depositBal / 100e6;
+        // explicitly performs multiplication on the result of a division
+        // because ticket determine by minimum 1 depositHour and minimum 100e6 depositInHundred
         uint availableTicket = depositHour * depositInHundred;
 
         return pendingTicket + availableTicket;
