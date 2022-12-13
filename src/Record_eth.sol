@@ -16,13 +16,13 @@ contract Record_eth is Record {
         user.lastUpdateTimestamp = block.timestamp;
     }
 
-    function _placeSeat(address user) internal override {
+    function _placeSeat(address user, uint _lastSeat) internal override returns (uint) {
         _updateTicketAmount(user);
 
         if (userInfo[user].depositBal > 0.1 ether) {
             uint ticket = userInfo[user].ticketBal;
             if (ticket > 0) {
-                uint from = lastSeat;
+                uint from = _lastSeat;
                 uint to = from + ticket - 1;
 
                 seats.push(Seat({
@@ -32,7 +32,7 @@ contract Record_eth is Record {
                 }));
 
                 userInfo[user].ticketBal = 0;
-                lastSeat += ticket;
+                _lastSeat += ticket;
 
                 emit PlaceSeat(user, from, to, seats.length - 1);
             }
@@ -40,6 +40,8 @@ contract Record_eth is Record {
         } else {
             userInfo[user].ticketBal = 0;
         }
+
+        return _lastSeat;
     }
 
     function getUserAvailableTickets(address _user) public override view returns (uint ticket) {
