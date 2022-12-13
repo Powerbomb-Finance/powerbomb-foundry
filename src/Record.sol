@@ -93,7 +93,7 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     ///@notice only call this function when ready to draw
     function placeSeat(address[] calldata users) external payable onlyAuthorized {
 
-        for (uint i; i < users.length; i++) {
+        for (uint i = 0; i < users.length; i++) {
             _placeSeat(users[i]);
         }
 
@@ -177,7 +177,7 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     ///@notice get user ticket that had been place seat
     ///@dev this function is valid only if placeSeat() is called in latest implementation
     function getUserTotalSeats(address _user) public view returns (uint ticket) {
-        for (uint i; i < seats.length; i++) {
+        for (uint i = 0; i < seats.length; i++) {
             Seat memory seat = seats[i];
             if (seat.user == _user) {
                 ticket += seat.to - seat.from + 1; // because seat start with 0
@@ -209,7 +209,7 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     ///@notice this return users available tickets that haven't actual place seat
     ///@notice actual total seats when place seat might be different
     function getTotalSeats(address[] calldata users) external view returns (uint totalSeats) {
-        for (uint i; i < users.length; i++) {
+        for (uint i = 0; i < users.length; i++) {
             totalSeats += getUserAvailableTickets(users[i]);
         }
     }
@@ -220,7 +220,7 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     function getSeatOwner(uint seatNum) external view returns (address owner) {
         Seat[] memory _seats = seats;
-        for (uint i; i < _seats.length; i++) {
+        for (uint i = 0; i < _seats.length; i++) {
             Seat memory seat = _seats[i];
             if (seatNum >= seat.from && seatNum <= seat.to) {
                 owner = seat.user;
