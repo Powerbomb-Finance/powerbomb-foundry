@@ -5,13 +5,13 @@ import "openzeppelin-contracts-upgradeable/token/ERC721/IERC721ReceiverUpgradeab
 import "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import "openzeppelin-contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "openzeppelin-contracts/token/ERC721/IERC721.sol";
 
 import "chainlink/interfaces/VRFCoordinatorV2Interface.sol";
 import "chainlink/VRFConsumerBaseV2.sol";
 
 import "../interface/ILayerZeroReceiver.sol";
 import "../interface/ILayerZeroEndpoint.sol";
-import "../interface/IERC721.sol";
 
 contract Dao is
     Initializable, 
