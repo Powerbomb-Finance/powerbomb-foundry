@@ -87,10 +87,10 @@ contract PengTogether is
         op.safeApprove(address(swapRouter), type(uint).max);
     }
 
-    ///@notice deposit funds into peng together
-    ///@param token token deposit
-    ///@param amount amount deposit
-    ///@param amountOutMin minimum lp token receive when deposit amount of token
+    /// @notice deposit funds into peng together
+    /// @param token token deposit
+    /// @param amount amount deposit
+    /// @param amountOutMin minimum lp token receive when deposit amount of token
     function deposit(
         IERC20Upgradeable token,
         uint amount,
@@ -99,11 +99,11 @@ contract PengTogether is
         _deposit(token, amount, amountOutMin, msg.sender);
     }
 
-    ///@notice deposit funds into peng together by helper, only can call by helper
-    ///@param token token deposit
-    ///@param amount amount deposit
-    ///@param amountOutMin minimum lp token receive after add liquidity into curve pool
-    ///@param depositor account deposit
+    /// @notice deposit funds into peng together by helper, only can call by helper
+    /// @param token token deposit
+    /// @param amount amount deposit
+    /// @param amountOutMin minimum lp token receive after add liquidity into curve pool
+    /// @param depositor account deposit
     function depositByHelper(
         IERC20Upgradeable token,
         uint amount,
@@ -141,11 +141,11 @@ contract PengTogether is
         emit Deposit(depositor, amount, lpTokenAmt);
     }
 
-    ///@notice withdraw funds from peng together
-    ///@param token token withdraw
-    ///@param amount amount withdraw
-    ///@param amountOutMin minimum token received after remove liquidity from curve pool
-    ///@return actualAmt actual amount withdrawal, not same as amount withdraw due to slippage
+    /// @notice withdraw funds from peng together
+    /// @param token token withdraw
+    /// @param amount amount withdraw
+    /// @param amountOutMin minimum token received after remove liquidity from curve pool
+    /// @return actualAmt actual amount withdrawal, not same as amount withdraw due to slippage
     function withdraw(
         IERC20Upgradeable token,
         uint amount,
@@ -154,8 +154,8 @@ contract PengTogether is
         actualAmt = _withdraw(token, amount, amountOutMin, msg.sender);
     }
 
-    ///@notice withdraw funds from peng together by helper, only can call by helper
-    ///@param account account withdrawal
+    /// @notice withdraw funds from peng together by helper, only can call by helper
+    /// @param account account withdrawal
     function withdrawByHelper(
         IERC20Upgradeable token,
         uint amount,
@@ -200,7 +200,7 @@ contract PengTogether is
         emit Withdraw(account, amount, lpTokenAmt, actualAmt);
     }
 
-    ///@notice harvest from curve for rewards and sell them for weth
+    /// @notice harvest from curve for rewards and sell them for weth
     function harvest() external virtual {
         minter.mint(address(gauge)); // to claim crv
         gauge.claim_rewards(); // to claim op
@@ -253,54 +253,67 @@ contract PengTogether is
         emit Harvest(crvAmt, opAmt, wethAmt, fee);
     }
 
+    /// @notice unwrap weth and bridge to ethereum reward contract via stargate
+    /// @dev need provide msg.value for gas fee for transfer eth from stargate to reward contract on ethereum
     function unwrapAndBridge() external payable {
         require(msg.sender == admin || msg.sender == owner(), "only admin or owner");
         uint bridgeGasFee = msg.value;
 
-        // unwrap weth to native eth
+        // unwrap weth to native eth as stargate only accept native eth
         uint wethAmt = weth.balanceOf(address(this));
         weth.withdraw(wethAmt);
 
         // bridge eth to ethereum
         stargateRouterETH.swapETH{value: bridgeGasFee + wethAmt}(
-            101, // _dstChainId
-            admin, // _refundAddress
-            abi.encodePacked(reward), // _toAddress
-            wethAmt, // _amountLD
-            wethAmt * 995 / 1000 // _minAmountLD, 0.5% slippage
+            101, // _dstChainId, ethereum
+            admin, // _refundAddress, if actual bridgeGasFee is less than msg.value 
+            abi.encodePacked(reward), // _toAddress, reward contract on ethereum
+            wethAmt, // _amountLD, amount to bridge
+            wethAmt * 995 / 1000 // _minAmountLD, minimum eth receive on ethereum, 0.5% slippage
         );
 
         emit UnwrapAndBridge(wethAmt, bridgeGasFee);
     }
 
+    /// @notice able to receive eth on this contract
     receive() external payable {}
 
+    /// @notice pause deposit
     function pauseContract() external onlyOwner {
         _pause();
     }
 
+    /// @notice unpause deposit
     function unPauseContract() external onlyOwner {
         _unpause();
     }
 
+    /// @notice set new admin address
+    /// @param _admin new admin address
     function setAdmin(address _admin) external onlyOwner {
         admin = _admin;
 
         emit SetAdmin(_admin);
     }
 
+    /// @notice set new treasury address
+    /// @param _treasury new treasury address
     function setTreasury(address _treasury) external onlyOwner {
         treasury = _treasury;
 
         emit SetTreasury(_treasury);
     }
 
+    /// @notice set new reward contract address
+    /// @param _reward new reward contract address
     function setReward(address _reward) external onlyOwner {
         reward = _reward;
 
         emit SetReward(_reward);
     }
 
+    /// @notice set new yield fee percentage, dominance in 10000
+    /// @param _yieldFeePerc new yield fee percentage
     function setYieldFeePerc(uint _yieldFeePerc) external onlyOwner {
         // yieldFeePerc cannot be more than 30%
         require(_yieldFeePerc < 3000, "yieldFeePerc > 3000");
@@ -309,20 +322,26 @@ contract PengTogether is
         emit SetYieldFeePerc(_yieldFeePerc);
     }
 
+    /// @notice set new helper contract address
+    /// @param _helper new helper contract address
     function setHelper(address _helper) external onlyOwner {
         helper = _helper;
 
         emit SetHelper(_helper);
     }
 
+    /// @notice calculate usd value per lp token
     function getPricePerFullShareInUSD() public virtual view returns (uint) {
         return pool.get_virtual_price() / 1e12; // 6 decimals
     }
 
+    /// @notice get all lp token amount stake in curve farm(gauge)
     function getAllPool() public virtual view returns (uint) {
-        return gauge.balanceOf(address(this)); // lpToken, 18 decimals
+        return gauge.balanceOf(address(this)); // 18 decimals
     }
 
+    /// @notice get all lp token amount stake in curve farm(gauge)
+    /// @return allPoolInUSD all lp token amount in usd value
     function getAllPoolInUSD() external virtual view returns (uint allPoolInUSD) {
         uint allPool = getAllPool();
         if (allPool > 0) {
@@ -330,28 +349,36 @@ contract PengTogether is
         }
     }
 
+    /// @notice get current pending rewards for harvest
     /// @dev Call this function off-chain by using view
+    /// @return crvReward pendig crv reward
+    /// @return opReward pendig op reward
     function getPoolPendingReward() external virtual returns (uint crvReward, uint opReward) {
         crvReward = gauge.claimable_tokens(address(this));
         opReward = gauge.claimable_reward(address(this), address(op));
     }
 
-    ///@notice user deposit balance without slippage
+    /// @notice get user exact deposit balance (without slippage after deposit into curve pool)
+    /// @param account user address
+    /// @return depositBal user exact deposit balance, 6 decimals for usd, 18 decimals for eth
     function getUserDepositBalance(address account) external view returns (uint depositBal) {
-        // return userInfo[account].depositBal;
         (depositBal,,,) = record.userInfo(account);
     }
 
-    ///@notice user lpToken balance after deposit into farm, 18 decimals
+    /// @notice user lp token balance after deposit into curve farm
+    /// @param account user address
+    /// @return lpTokenBal user lp token balance
     function getUserBalance(address account) external view returns (uint lpTokenBal) {
-        (, lpTokenBal,,) = record.userInfo(account);
+        (, lpTokenBal,,) = record.userInfo(account); // 18 decimals
     }
 
-    ///@notice user actual balance in usd after deposit into farm (after slippage), 6 decimals
+    /// @notice user actual balance in usd after deposit into farm (after slippage)
+    /// @param account user address
     function getUserBalanceInUSD(address account) external virtual view returns (uint) {
         (, uint lpTokenBal,,) = record.userInfo(account);
-        return lpTokenBal * getPricePerFullShareInUSD() / 1e18;
+        return lpTokenBal * getPricePerFullShareInUSD() / 1e18; // 6 decimals
     }
 
+    /// @dev for uups upgradeable
     function _authorizeUpgrade(address) internal override onlyOwner {}
 }
