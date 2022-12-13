@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
+/// @title interface for peng together vault contract
 interface IVault  {
     function depositByHelper(
         address token,

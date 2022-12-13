@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
+/// @title interface for stargate router
 interface IStargateRouter {
     struct lzTxObj {
         uint256 dstGasForCall;

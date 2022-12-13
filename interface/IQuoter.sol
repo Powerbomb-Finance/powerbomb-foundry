@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-///@title interface for quote stargate & layerzero gas
+/// @title interface for quote stargate & layerzero gas
 interface IQuoter {
     struct lzTxObj {
         uint256 dstGasForCall;
