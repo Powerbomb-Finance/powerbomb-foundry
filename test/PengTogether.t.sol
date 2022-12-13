@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.17;
+pragma solidity 0.8.16;
 
 import "openzeppelin-contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "forge-std/Test.sol";
@@ -30,9 +30,9 @@ contract PengTogetherTest is Test {
         // );
         // record = Record(address(proxy));
         record = Record(0x176B6aD5063bFFBca9867DE6B3a1Eb27A306e40d);
-        // Record recordImpl = new Record();
-        // hoax(owner);
-        // record.upgradeTo(address(recordImpl));
+        Record recordImpl = new Record();
+        hoax(owner);
+        record.upgradeTo(address(recordImpl));
 
         // vault = new PengTogether();
         // proxy = new PbProxy(
@@ -283,6 +283,8 @@ contract PengTogetherTest is Test {
         assertEq(record.getSeatsLength(), 0);
         assertEq(record.getUserTotalSeats(address(1)), 0);
         assertEq(record.getUserTotalSeats(address(2)), 0);
+        assertEq(record.drawInProgress(), false);
+        assertEq(record.lastSeat(), 0);
 
         skip(3600);
         assertEq(record.getUserAvailableTickets(address(1)), 5);

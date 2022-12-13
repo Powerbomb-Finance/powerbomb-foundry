@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.16;
 
 ///@title interface for quote stargate & layerzero gas
 interface IQuoter {
