@@ -178,10 +178,8 @@ contract PengTogether is
         require(depositBal >= amount, "amount > depositBal");
         require(depositedBlock[account] != block.number, "same block deposit withdraw");
 
-        // calculate percentage of withdraw amount
-        uint withdrawPerc = amount * 1e18 / depositBal;
-        // calculate lp token amount to withdraw based on percentage of withdraw amount above
-        uint lpTokenAmt = lpTokenBal * withdrawPerc / 1e18;
+        // calculate lp token amount to withdraw
+        uint lpTokenAmt = lpTokenBal * amount / depositBal;
         // withdraw from curve lp token staking pool
         gauge.withdraw(lpTokenAmt);
         // remove liquidity via zap contract, lp token -> 3crv -> usdc
@@ -204,7 +202,7 @@ contract PengTogether is
     function harvest() external virtual {
         minter.mint(address(gauge)); // to claim crv
         gauge.claim_rewards(); // to claim op
-        uint wethAmt;
+        uint wethAmt = 0;
 
         // swap crv to weth via uniswap v3
         // no slippage needed because small amount swap
