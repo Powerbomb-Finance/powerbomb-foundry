@@ -78,7 +78,7 @@ contract Reward is
     }
 
     function getPoolWithFloorPrice(address[] calldata pools, address nft) external view returns (uint floorPrice, address poolWithFloorPrice) {
-        for (uint i; i < pools.length; i++) {
+        for (uint i = 0; i < pools.length; i++) {
             ISudoPool pool = ISudoPool(pools[i]);
             if (IERC721(nft).balanceOf(address(pool)) > 0) {
                 (,,, uint inputAmount,) = pool.getBuyNFTQuote(1);
