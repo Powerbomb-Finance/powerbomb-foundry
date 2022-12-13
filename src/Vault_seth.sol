@@ -5,9 +5,14 @@ import "./PengTogether.sol";
 import "../interface/IChainlink.sol";
 
 contract Vault_seth is PengTogether {
+    using SafeERC20Upgradeable for IERC20Upgradeable;
+    using SafeERC20Upgradeable for IWETH;
 
+    // sETH/ETH Curve pool
     IPool constant pool_seth = IPool(0x7Bc5728BC2b59B45a58d9A576E2Ffc5f0505B35E);
+    // sETH/ETH Curve LP token
     IERC20Upgradeable constant lpToken_seth = IERC20Upgradeable(0x7Bc5728BC2b59B45a58d9A576E2Ffc5f0505B35E);
+    // Curve staking pool for sETH/ETH LP token
     IGauge constant gauge_seth = IGauge(0xCB8883D1D8c560003489Df43B30612AAbB8013bb);
     IChainlink constant ethUsdPriceOracle = IChainlink(0x13e3Ee699D1909E989722E753853AE30b17e08c5);
 
@@ -19,11 +24,11 @@ contract Vault_seth is PengTogether {
         yieldFeePerc = 1000;
         record = _record;
 
-        usdc.approve(address(pool_seth), type(uint).max);
-        lpToken_seth.approve(address(gauge_seth), type(uint).max);
-        lpToken_seth.approve(address(pool_seth), type(uint).max);
-        crv.approve(address(swapRouter), type(uint).max);
-        op.approve(address(swapRouter), type(uint).max);
+        usdc.safeApprove(address(pool_seth), type(uint).max);
+        lpToken_seth.safeApprove(address(gauge_seth), type(uint).max);
+        lpToken_seth.safeApprove(address(pool_seth), type(uint).max);
+        crv.safeApprove(address(swapRouter), type(uint).max);
+        op.safeApprove(address(swapRouter), type(uint).max);
     }
 
     function deposit(
@@ -153,7 +158,7 @@ contract Vault_seth is PengTogether {
         // collect fee
         uint fee = wethAmt * yieldFeePerc / 10000;
         wethAmt -= fee;
-        weth.transfer(treasury, fee);
+        weth.safeTransfer(treasury, fee);
 
         // add up accumulate weth yield
         accWethYield += wethAmt;
@@ -170,11 +175,11 @@ contract Vault_seth is PengTogether {
         return gauge_seth.balanceOf(address(this)); // lpToken, 18 decimals
     }
 
-    function getAllPoolInUSD() external override view returns (uint) {
+    function getAllPoolInUSD() external override view returns (uint allPoolInUSD) {
         uint allPool = getAllPool();
-        if (allPool == 0) return 0;
-
-        return allPool * getPricePerFullShareInUSD() / 1e18; // 6 decimals
+        if (allPool > 0) {
+            return allPool * getPricePerFullShareInUSD() / 1e18; // 6 decimals
+        }
     }
 
     /// @dev Call this function off-chain by using view
