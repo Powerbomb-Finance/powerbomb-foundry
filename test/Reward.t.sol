@@ -35,16 +35,9 @@ contract RewardTest is Test {
         // );
         // dao = Dao(address(proxy));
         dao = Dao(0x0C9133Fa96d72C2030D63B6B35c3738D6329A313);
-        // Dao daoImpl = new Dao();
-        // hoax(owner);
-        // dao.upgradeToAndCall(
-        //     address(daoImpl),
-        //     abi.encodeWithSelector(
-        //         bytes4(keccak256("setTrustedRemote(uint16,address)")),
-        //         111,
-        //         record
-        //     )
-        // );
+        Dao daoImpl = new Dao();
+        hoax(owner);
+        dao.upgradeTo(address(daoImpl));
 
         // reward = new Reward();
         // proxy = new PbProxy(
@@ -57,6 +50,9 @@ contract RewardTest is Test {
         // );
         // reward = Reward(payable(address(proxy)));
         reward = Reward(payable(address(0xB7957FE76c2fEAe66B57CF3191aFD26d99EC5599)));
+        Reward rewardImpl = new Reward();
+        hoax(owner);
+        reward.upgradeTo(address(rewardImpl));
 
         // dao.setReward(address(reward));
     }
@@ -184,8 +180,8 @@ contract RewardTest is Test {
     function testSetter() public {
         // reward
         startHoax(owner);
-        reward.setTrustedRemoteLookup(111, address(5));
-        assertEq(reward.trustedRemoteLookup(111), abi.encodePacked(address(5)));
+        // reward.setTrustedRemoteLookup(111, address(5));
+        // assertEq(reward.trustedRemoteLookup(111), abi.encodePacked(address(5)));
         reward.setAdmin(address(7707));
         assertEq(reward.admin(), address(7707));
         reward.setDao(address(7707));
@@ -212,11 +208,11 @@ contract RewardTest is Test {
         reward.transferOwnership(address(1));
         vm.stopPrank();
         vm.expectRevert("Initializable: contract is already initialized");
-        reward.initialize(address(0), address(0));
+        reward.initialize(address(0));
         vm.expectRevert("only authorized");
         reward.buyNFT(address(0));
-        vm.expectRevert("Ownable: caller is not the owner");
-        reward.setTrustedRemoteLookup(0, address(0));
+        // vm.expectRevert("Ownable: caller is not the owner");
+        // reward.setTrustedRemoteLookup(0, address(0));
         vm.expectRevert("Ownable: caller is not the owner");
         reward.setAdmin(address(0));
         vm.expectRevert("Ownable: caller is not the owner");
