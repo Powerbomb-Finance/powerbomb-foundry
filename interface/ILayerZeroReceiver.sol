@@ -4,14 +4,14 @@ pragma solidity 0.8.16;
 /// @title interface for contract that receive payload from layer zero endpoint
 interface ILayerZeroReceiver {
     // @notice LayerZero endpoint will invoke this function to deliver the message on the destination
-    // @param _srcChainId - the source endpoint identifier
-    // @param _srcAddress - the source sending contract address from the source chain
-    // @param _nonce - the ordered message nonce
-    // @param _payload - the signed payload is the UA bytes has encoded to be sent
+    // @param srcChainId_ - the source endpoint identifier
+    // @param srcAddress_ - the source sending contract address from the source chain
+    // @param nonce_ - the ordered message nonce
+    // @param payload_ - the signed payload is the UA bytes has encoded to be sent
     function lzReceive(
-        uint16 _srcChainId,
-        bytes calldata _srcAddress,
-        uint64 _nonce,
-        bytes calldata _payload
+        uint16 srcChainId_,
+        bytes calldata srcAddress_,
+        uint64 nonce_,
+        bytes calldata payload_
     ) external;
 }
