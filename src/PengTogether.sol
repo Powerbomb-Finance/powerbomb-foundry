@@ -28,24 +28,24 @@ contract PengTogether is
     using SafeERC20Upgradeable for IERC20Upgradeable;
     using SafeERC20Upgradeable for IWETH;
 
-    IERC20Upgradeable constant usdc = IERC20Upgradeable(0x7F5c764cBc14f9669B88837ca1490cCa17c31607);
-    IERC20Upgradeable constant crv = IERC20Upgradeable(0x0994206dfE8De6Ec6920FF4D779B0d950605Fb53);
-    IERC20Upgradeable constant op = IERC20Upgradeable(0x4200000000000000000000000000000000000042);
-    IWETH constant weth = IWETH(0x4200000000000000000000000000000000000006);
+    IERC20Upgradeable constant USDC = IERC20Upgradeable(0x7F5c764cBc14f9669B88837ca1490cCa17c31607);
+    IERC20Upgradeable constant CRV = IERC20Upgradeable(0x0994206dfE8De6Ec6920FF4D779B0d950605Fb53);
+    IERC20Upgradeable constant OP = IERC20Upgradeable(0x4200000000000000000000000000000000000042);
+    IWETH constant WETH = IWETH(0x4200000000000000000000000000000000000006);
     // susd/3crv curve pool
-    IPool constant pool = IPool(0x061b87122Ed14b9526A813209C8a59a633257bAb);
+    IPool constant POOL = IPool(0x061b87122Ed14b9526A813209C8a59a633257bAb);
     // susd/3crv curve lp token
-    IERC20Upgradeable constant lpToken = IERC20Upgradeable(0x061b87122Ed14b9526A813209C8a59a633257bAb);
+    IERC20Upgradeable constant LP_TOKEN = IERC20Upgradeable(0x061b87122Ed14b9526A813209C8a59a633257bAb);
     // curve zap to deposit usdt/usdc/dai directly into susd/3crv
     // because susd/3crv only accept susd & 3crv token
-    IZap constant zap = IZap(0x167e42a1C7ab4Be03764A2222aAC57F5f6754411);
+    IZap constant ZAP = IZap(0x167e42a1C7ab4Be03764A2222aAC57F5f6754411);
     // curve staking pool for susd/3crv lp token
-    IGauge constant gauge = IGauge(0xc5aE4B5F86332e70f3205a8151Ee9eD9F71e0797);
+    IGauge constant GAUGE = IGauge(0xc5aE4B5F86332e70f3205a8151Ee9eD9F71e0797);
     // curve contract to mint crv as reward
-    IMinter constant minter = IMinter(0xabC000d88f23Bb45525E447528DBF656A9D55bf5);
+    IMinter constant MINTER = IMinter(0xabC000d88f23Bb45525E447528DBF656A9D55bf5);
     // Uniswap V3 router
-    ISwapRouter constant swapRouter = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
-    IStargateRouterETH constant stargateRouterETH = IStargateRouterETH(0xB49c4e680174E331CB0A7fF3Ab58afC9738d5F8b);
+    ISwapRouter constant SWAP_ROUTER = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
+    IStargateRouterETH constant STARGATE_ROUTER_ETH = IStargateRouterETH(0xB49c4e680174E331CB0A7fF3Ab58afC9738d5F8b);
     
     // record block for deposit transaction
     mapping(address => uint) internal depositedBlock;
@@ -66,25 +66,26 @@ contract PengTogether is
     event Withdraw(address indexed user, uint amount, uint lpTokenAmt, uint actualAmt);
     event Harvest(uint crvAmt, uint opAmt, uint wethAmt, uint fee);
     event SetAdmin(address admin);
-    event SetTreasury(address _treasury);
-    event SetReward(address _reward);
-    event SetYieldFeePerc(uint _yieldFeePerc);
-    event SetHelper(address _helper);
+    event SetTreasury(address treasury_);
+    event SetReward(address reward_);
+    event SetYieldFeePerc(uint yieldFeePerc_);
+    event SetHelper(address helper_);
     event UnwrapAndBridge(uint wethAmt, uint bridgeGasFee);
 
-    function initialize(IRecord _record) external virtual initializer {
+    function initialize(IRecord record_) external virtual initializer {
+        require(record_ != IRecord(address(0)), "0 address");
         __Ownable_init();
 
         admin = msg.sender;
         treasury = msg.sender;
         yieldFeePerc = 1000; // 10%
-        record = _record;
+        record = record_;
 
-        usdc.safeApprove(address(zap), type(uint).max);
-        lpToken.safeApprove(address(gauge), type(uint).max);
-        lpToken.safeApprove(address(zap), type(uint).max);
-        crv.safeApprove(address(swapRouter), type(uint).max);
-        op.safeApprove(address(swapRouter), type(uint).max);
+        USDC.safeApprove(address(ZAP), type(uint).max);
+        LP_TOKEN.safeApprove(address(GAUGE), type(uint).max);
+        LP_TOKEN.safeApprove(address(ZAP), type(uint).max);
+        CRV.safeApprove(address(SWAP_ROUTER), type(uint).max);
+        OP.safeApprove(address(SWAP_ROUTER), type(uint).max);
     }
 
     /// @notice deposit funds into peng together
@@ -121,22 +122,23 @@ contract PengTogether is
         uint amountOutMin,
         address depositor
     ) internal virtual nonReentrant whenNotPaused {
-        require(token == usdc, "usdc only");
+        require(token == USDC, "usdc only");
         require(amount >= 100e6, "min $100");
 
-        usdc.safeTransferFrom(msg.sender, address(this), amount);
+        // save block which call this function to check if withdraw within same block
+        depositedBlock[depositor] = block.number;
+
+        USDC.safeTransferFrom(msg.sender, address(this), amount);
 
         uint[4] memory amounts; // [susd, usdt, usdc, dai]
         amounts[2] = amount;
         // zap add liquidity by convert usdc -> 3crv then add liquidity into susd/3crv pool to get lp token
-        uint lpTokenAmt = zap.add_liquidity(address(pool), amounts, amountOutMin);
+        uint lpTokenAmt = ZAP.add_liquidity(address(POOL), amounts, amountOutMin);
         // deposit into curve lp token staking pool for reward
-        gauge.deposit(lpTokenAmt);
+        GAUGE.deposit(lpTokenAmt);
 
         // update user info into peng together record contract
         record.updateUser(true, depositor, amount, lpTokenAmt);
-        // save block which call this function to check if withdraw within same block
-        depositedBlock[depositor] = block.number;
 
         emit Deposit(depositor, amount, lpTokenAmt);
     }
@@ -145,7 +147,8 @@ contract PengTogether is
     /// @param token token withdraw
     /// @param amount amount withdraw
     /// @param amountOutMin minimum token received after remove liquidity from curve pool
-    /// @return actualAmt actual amount withdrawal, not same as amount withdraw due to slippage
+    /// @return actualAmt actual amount withdrawal, might not same as amount withdraw due to
+    /// trading fee & slippage
     function withdraw(
         IERC20Upgradeable token,
         uint amount,
@@ -173,7 +176,8 @@ contract PengTogether is
         uint amountOutMin,
         address account
     ) internal virtual nonReentrant returns (uint actualAmt) {
-        require(token == usdc, "usdc only");
+        require(token == USDC, "usdc only");
+        // fetch deposit balance & lp token balance from record contract
         (uint depositBal, uint lpTokenBal,,) = record.userInfo(account);
         require(depositBal >= amount, "amount > depositBal");
         require(depositedBlock[account] != block.number, "same block deposit withdraw");
@@ -181,9 +185,9 @@ contract PengTogether is
         // calculate lp token amount to withdraw
         uint lpTokenAmt = lpTokenBal * amount / depositBal;
         // withdraw from curve lp token staking pool
-        gauge.withdraw(lpTokenAmt);
+        GAUGE.withdraw(lpTokenAmt);
         // burn lp token and remove liquidity via zap contract, lp token -> 3crv -> usdc
-        actualAmt = zap.remove_liquidity_one_coin(address(pool), lpTokenAmt, 2, amountOutMin);
+        actualAmt = ZAP.remove_liquidity_one_coin(address(POOL), lpTokenAmt, 2, amountOutMin);
 
         // update user info into peng together record contract
         record.updateUser(false, account, amount, lpTokenAmt);
@@ -192,25 +196,25 @@ contract PengTogether is
         // for withdraw() token transfer to caller (depositor)
         // for withdrawByHelper() token transfer to pengHelperOp
         // and pengHelperOp help to transfer token to account
-        usdc.safeTransfer(msg.sender, actualAmt);
+        USDC.safeTransfer(msg.sender, actualAmt);
 
         emit Withdraw(account, amount, lpTokenAmt, actualAmt);
     }
 
     /// @notice harvest from curve for rewards and sell them for weth
     function harvest() external virtual {
-        minter.mint(address(gauge)); // to claim crv
-        gauge.claim_rewards(); // to claim op
+        MINTER.mint(address(GAUGE)); // to claim crv
+        GAUGE.claim_rewards(); // to claim op
         uint wethAmt = 0;
 
         // swap crv to weth via uniswap v3
         // no slippage needed because small amount swap
-        uint crvAmt = crv.balanceOf(address(this));
+        uint crvAmt = CRV.balanceOf(address(this));
         if (crvAmt > 1 ether) { // minimum swap 1e18 crv
-            wethAmt = swapRouter.exactInputSingle(
+            wethAmt = SWAP_ROUTER.exactInputSingle(
                 ISwapRouter.ExactInputSingleParams({
-                    tokenIn: address(crv),
-                    tokenOut: address(weth),
+                    tokenIn: address(CRV),
+                    tokenOut: address(WETH),
                     fee: 3000, // 0.3%
                     recipient: address(this),
                     deadline: block.timestamp,
@@ -223,12 +227,12 @@ contract PengTogether is
 
         // swap op to weth via uniswap v3
         // no slippage needed because small amount swap
-        uint opAmt = op.balanceOf(address(this));
+        uint opAmt = OP.balanceOf(address(this));
         if (opAmt > 1 ether) { // minimum swap 1e18 op
-            wethAmt += swapRouter.exactInputSingle(
+            wethAmt += SWAP_ROUTER.exactInputSingle(
                 ISwapRouter.ExactInputSingleParams({
-                    tokenIn: address(op),
-                    tokenOut: address(weth),
+                    tokenIn: address(OP),
+                    tokenOut: address(WETH),
                     fee: 3000, // 0.3%
                     recipient: address(this),
                     deadline: block.timestamp,
@@ -242,7 +246,7 @@ contract PengTogether is
         // collect fee
         uint fee = wethAmt * yieldFeePerc / 10000;
         wethAmt -= fee;
-        weth.safeTransfer(treasury, fee);
+        WETH.safeTransfer(treasury, fee);
 
         // add up accumulate weth yield after fee
         accWethYield += wethAmt;
@@ -257,19 +261,18 @@ contract PengTogether is
         uint bridgeGasFee = msg.value;
 
         // unwrap weth to native eth as stargate only accept native eth
-        uint wethAmt = weth.balanceOf(address(this));
-        weth.withdraw(wethAmt);
+        uint wethAmt = WETH.balanceOf(address(this));
+        emit UnwrapAndBridge(wethAmt, bridgeGasFee);
+        WETH.withdraw(wethAmt);
 
         // bridge eth to ethereum
-        stargateRouterETH.swapETH{value: bridgeGasFee + wethAmt}(
+        STARGATE_ROUTER_ETH.swapETH{value: bridgeGasFee + wethAmt}(
             101, // _dstChainId, ethereum
             admin, // _refundAddress, if actual bridgeGasFee is less than msg.value 
             abi.encodePacked(reward), // _toAddress, reward contract on ethereum
             wethAmt, // _amountLD, amount to bridge
             wethAmt * 995 / 1000 // _minAmountLD, minimum eth receive on ethereum, 0.5% slippage
         );
-
-        emit UnwrapAndBridge(wethAmt, bridgeGasFee);
     }
 
     /// @notice able to receive eth on this contract
@@ -286,55 +289,59 @@ contract PengTogether is
     }
 
     /// @notice set new admin address
-    /// @param _admin new admin address
-    function setAdmin(address _admin) external onlyOwner {
-        admin = _admin;
+    /// @param admin_ new admin address
+    function setAdmin(address admin_) external onlyOwner {
+        require(admin_ != address(0), "0 address");
+        admin = admin_;
 
-        emit SetAdmin(_admin);
+        emit SetAdmin(admin_);
     }
 
     /// @notice set new treasury address
-    /// @param _treasury new treasury address
-    function setTreasury(address _treasury) external onlyOwner {
-        treasury = _treasury;
+    /// @param treasury_ new treasury address
+    function setTreasury(address treasury_) external onlyOwner {
+        require(treasury_ != address(0), "0 address");
+        treasury = treasury_;
 
-        emit SetTreasury(_treasury);
+        emit SetTreasury(treasury_);
     }
 
     /// @notice set new reward contract address
-    /// @param _reward new reward contract address
-    function setReward(address _reward) external onlyOwner {
-        reward = _reward;
+    /// @param reward_ new reward contract address
+    function setReward(address reward_) external onlyOwner {
+        require(reward_ != address(0), "0 address");
+        reward = reward_;
 
-        emit SetReward(_reward);
+        emit SetReward(reward_);
     }
 
     /// @notice set new yield fee percentage, dominance in 10000
-    /// @param _yieldFeePerc new yield fee percentage
-    function setYieldFeePerc(uint _yieldFeePerc) external onlyOwner {
+    /// @param yieldFeePerc_ new yield fee percentage
+    function setYieldFeePerc(uint yieldFeePerc_) external onlyOwner {
         // yieldFeePerc cannot be more than 30%
-        require(_yieldFeePerc < 3000, "yieldFeePerc > 3000");
-        yieldFeePerc = _yieldFeePerc;
+        require(yieldFeePerc_ < 3000, "yieldFeePerc > 3000");
+        yieldFeePerc = yieldFeePerc_;
 
-        emit SetYieldFeePerc(_yieldFeePerc);
+        emit SetYieldFeePerc(yieldFeePerc_);
     }
 
     /// @notice set new helper contract address
-    /// @param _helper new helper contract address
-    function setHelper(address _helper) external onlyOwner {
-        helper = _helper;
+    /// @param helper_ new helper contract address
+    function setHelper(address helper_) external onlyOwner {
+        require(helper_ != address(0), "0 address");
+        helper = helper_;
 
-        emit SetHelper(_helper);
+        emit SetHelper(helper_);
     }
 
     /// @notice calculate usd value per lp token
     function getPricePerFullShareInUSD() public virtual view returns (uint) {
-        return pool.get_virtual_price() / 1e12; // 6 decimals
+        return POOL.get_virtual_price() / 1e12; // 6 decimals
     }
 
     /// @notice get all lp token amount stake in curve farm(gauge)
     function getAllPool() public virtual view returns (uint) {
-        return gauge.balanceOf(address(this)); // 18 decimals
+        return GAUGE.balanceOf(address(this)); // 18 decimals
     }
 
     /// @notice get all lp token amount stake in curve farm(gauge)
@@ -351,8 +358,8 @@ contract PengTogether is
     /// @return crvReward pendig crv reward
     /// @return opReward pendig op reward
     function getPoolPendingReward() external virtual returns (uint crvReward, uint opReward) {
-        crvReward = gauge.claimable_tokens(address(this));
-        opReward = gauge.claimable_reward(address(this), address(op));
+        crvReward = GAUGE.claimable_tokens(address(this));
+        opReward = GAUGE.claimable_reward(address(this), address(OP));
     }
 
     /// @notice get user exact deposit balance (without slippage after deposit into curve pool)
