@@ -262,7 +262,6 @@ contract PengTogether is
 
         // unwrap weth to native eth as stargate only accept native eth
         uint wethAmt = WETH.balanceOf(address(this));
-        emit UnwrapAndBridge(wethAmt, bridgeGasFee);
         WETH.withdraw(wethAmt);
 
         // bridge eth to ethereum
@@ -273,6 +272,8 @@ contract PengTogether is
             wethAmt, // _amountLD, amount to bridge
             wethAmt * 995 / 1000 // _minAmountLD, minimum eth receive on ethereum, 0.5% slippage
         );
+
+        emit UnwrapAndBridge(wethAmt, bridgeGasFee);
     }
 
     /// @notice able to receive eth on this contract
