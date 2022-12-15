@@ -9,7 +9,7 @@ import "openzeppelin-contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 import "../interface/ILSSVMRouter.sol";
 import "../interface/ISudoPool.sol";
 
-/// @title contract for buy nft from sudoswap and transfer to dao contract
+/// @title contract to buy nft from sudoswap and transfer to dao contract
 /// @author siew
 contract Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     ILSSVMRouter constant ROUTER = ILSSVMRouter(0x2B2e8cDA09bBA9660dCA5cB6233787738Ad68329); // sudoswap
@@ -92,7 +92,7 @@ contract Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             if (IERC721Upgradeable(nft).balanceOf(address(pool)) > 0) {
                 // fetch price of the pool
                 (,,, uint inputAmount,) = pool.getBuyNFTQuote(1);
-                if (i == 0) {
+                if (floorPrice == 0) {
                     // first pool
                     floorPrice = inputAmount;
                     poolWithFloorPrice = address(pool);
