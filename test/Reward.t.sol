@@ -16,7 +16,7 @@ contract RewardTest is Test {
     IERC721Modified lilPudgy = IERC721Modified(0x524cAB2ec69124574082676e6F654a18df49A048);
     address pengTogetherVault = 0x98f82ADA10C55BC7D67b92d51b4e1dae69eD0250;
     address record = 0xC530677144A7EA5BaE6Fbab0770358522b4e7071;
-    uint64 s_subscriptionId = 414;
+    uint64 subscriptionId = 414;
     Reward reward;
     Dao dao;
     address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
@@ -29,7 +29,7 @@ contract RewardTest is Test {
         //     abi.encodeWithSelector(
         //         bytes4(keccak256("initialize(address,uint64,address)")),
         //         record,
-        //         s_subscriptionId, // subscriptionId,
+        //         subscriptionId, // subscriptionId,
         //         address(lilPudgy)
         //     )
         // );
@@ -118,11 +118,11 @@ contract RewardTest is Test {
         // buy nft and transfer to dao
         // console.log(address(reward).balance); // 0.220000000000000000
         address[] memory pools = new address[](5);
-        pools[0] = 0xd112Eb8c7bf465C2f3f3972994CaF016B094db42;
-        pools[1] = 0xdE0fe89C598506c7a84a74dfAda640634371D6C5;
-        pools[2] = 0x4d9BbA8cA9e1D171D73552Df22A56424B49Ee9de;
-        pools[3] = 0xA28f7538dfc12Ba2188a96C35Aa7B01B7307Bc34;
-        pools[4] = 0xd644eA091556e825660cd75945f1843d32b00cCe;
+        pools[0] = 0x0602Cc05374e60281F11E38eAB37F5cb28c9b8D6;
+        pools[1] = 0x88a9e00c65F7003B35AF2d86114CFBa3d2B33155;
+        pools[2] = 0x48236Bb9961fd6F28461AF2B96Cfada42412FebC;
+        pools[3] = 0xAD8eF13FF812e6589276f3516bea34498f29401c;
+        pools[4] = 0x62eb262145Fc9c772Ec43E1E391010a17305954E;
         (uint floorPrice, address poolWithFloorPrice) = reward.getPoolWithFloorPrice(
             pools,
             address(lilPudgy)
@@ -168,9 +168,8 @@ contract RewardTest is Test {
 
         // dao
         assertEq(dao.trustedRemoteLookup(111), abi.encodePacked(record, address(dao)));
-        assertEq(dao.s_subscriptionId(), s_subscriptionId);
+        assertEq(dao.subscriptionId(), subscriptionId);
         assertEq(address(dao.nft()), address(lilPudgy));
-        assertEq(dao.reward(), address(reward));
         assertEq(dao.totalSeats(), 0);
         assertEq(dao.rngInProgress(), false);
         assertEq(dao.randomSeat(), 0);
@@ -190,8 +189,6 @@ contract RewardTest is Test {
         // dao
         dao.setNft(address(6288));
         assertEq(address(dao.nft()), address(6288));
-        dao.setReward(address(6288));
-        assertEq(address(dao.reward()), address(6288));
         dao.setTotalSeats(6288);
         assertEq(dao.totalSeats(), 6288);
         dao.setWinner(address(6288));
@@ -230,8 +227,6 @@ contract RewardTest is Test {
         dao.lzReceive(0, abi.encodePacked(address(0), address(dao)), 0, "");
         vm.expectRevert("Ownable: caller is not the owner");
         dao.setNft(address(0));
-        vm.expectRevert("Ownable: caller is not the owner");
-        dao.setReward(address(0));
         vm.expectRevert("Ownable: caller is not the owner");
         dao.setTotalSeats(0);
         vm.expectRevert("Ownable: caller is not the owner");
