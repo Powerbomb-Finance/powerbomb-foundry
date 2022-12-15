@@ -9,7 +9,7 @@ import "../interface/ILayerZeroEndpoint.sol";
 
 contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
-    ILayerZeroEndpoint constant lzEndpoint = ILayerZeroEndpoint(0x3c2269811836af69497E5F486A85D7316753cf62);
+    ILayerZeroEndpoint constant LZ_ENDPOINT = ILayerZeroEndpoint(0x3c2269811836af69497E5F486A85D7316753cf62);
 
     struct User {
         uint depositBal; // deposit balance without slippage, for calculate ticket
@@ -36,8 +36,8 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     event DrawInProgress(bool inProgress);
     event PlaceSeat(address indexed user, uint from, uint to, uint seatIndex);
     event SetWinnerAndRestartRound(address winner);
-    event SetVault(address _vault);
-    event SetDao(address _dao);
+    event SetVault(address vault_);
+    event SetDao(address dao_);
     event SetAdmin(address admin);
 
     modifier onlyVault {
@@ -77,6 +77,7 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     function _updateTicketAmount(address _user) internal virtual {
         User storage user = userInfo[_user];
+        // it is okay to use block.timestamp to calculate depositHour
         uint depositHour = (block.timestamp - user.lastUpdateTimestamp) / 3600;
         uint depositInHundred = user.depositBal / 100e6;
         if (depositHour > 0 && depositInHundred > 0) {
@@ -99,7 +100,7 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         drawInProgress = true;
         emit DrawInProgress(true);
 
-        lzEndpoint.send{value: msg.value}(
+        LZ_ENDPOINT.send{value: msg.value}(
             101, // _dstChainId
             abi.encodePacked(dao, address(this)), // _path
             abi.encode(_lastSeat, address(0)), // _payload
@@ -140,7 +141,11 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     function setWinnerAndRestartRound(address winner) external payable onlyAuthorized {
         require(winner != address(0), "winner is zero address");
 
-        lzEndpoint.send{value: msg.value}(
+        delete seats;
+        drawInProgress = false;
+        emit DrawInProgress(false);
+
+        LZ_ENDPOINT.send{value: msg.value}(
             101, // _dstChainId
             abi.encodePacked(dao, address(this)), // _path
             abi.encode(0, winner), // _payload
@@ -149,46 +154,45 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             abi.encodePacked(uint16(1), uint(40000)) // _adapterParams, 1 = version, 40000 = gas limit on dstChain
         );
 
-        delete seats;
-        drawInProgress = false;
-
         emit SetWinnerAndRestartRound(winner);
-        emit DrawInProgress(false);
     }
 
-    function setVault(address _vault) external onlyOwner {
-        vault = _vault;
+    function setVault(address vault_) external onlyOwner {
+        require(vault_ != address(0), "0 address");
+        vault = vault_;
 
-        emit SetVault(_vault);
+        emit SetVault(vault_);
     }
 
-    function setDao(address _dao) external onlyOwner {
-        dao = _dao;
+    function setDao(address dao_) external onlyOwner {
+        require(dao_ != address(0), "0 address");
+        dao = dao_;
 
-        emit SetDao(_dao);
+        emit SetDao(dao_);
     }
 
-    function setAdmin(address _admin) external onlyOwner {
-        admin = _admin;
+    function setAdmin(address admin_) external onlyOwner {
+        require(admin_ != address(0), "0 address");
+        admin = admin_;
 
-        emit SetAdmin(_admin);
+        emit SetAdmin(admin_);
     }
 
     ///@notice get user ticket that had been place seat
     ///@dev this function is valid only after placeSeat() been called in latest implementation
-    function getUserTotalSeats(address _user) public view returns (uint ticket) {
+    function getUserTotalSeats(address user_) public view returns (uint ticket) {
         for (uint i = 0; i < seats.length; i++) {
             Seat memory seat = seats[i];
-            if (seat.user == _user) {
+            if (seat.user == user_) {
                 ticket += seat.to - seat.from + 1; // because seat start with 0
             }
         }
     }
 
     ///@notice get user pending ticket (not yet place seat) and user available ticket to claim
-    function getUserAvailableTickets(address _user) public virtual view returns (uint ticket) {
+    function getUserAvailableTickets(address user_) public virtual view returns (uint ticket) {
         // get user pending ticket (not yet place seat)
-        User memory user = userInfo[_user];
+        User memory user = userInfo[user_];
         uint pendingTicket = user.ticketBal;
 
         // get user available ticket to claim
@@ -201,9 +205,9 @@ contract Record is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         return pendingTicket + availableTicket;
     }
 
-    function getUserTotalTickets(address _user) external view returns (uint) {
-        uint ticketBeenPlaceSeat = getUserTotalSeats(_user);
-        uint pendingAndAvailableTicket = getUserAvailableTickets(_user);
+    function getUserTotalTickets(address user_) external view returns (uint) {
+        uint ticketBeenPlaceSeat = getUserTotalSeats(user_);
+        uint pendingAndAvailableTicket = getUserAvailableTickets(user_);
 
         return ticketBeenPlaceSeat + pendingAndAvailableTicket;
     }
