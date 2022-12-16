@@ -36,7 +36,7 @@ contract Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     /// @notice to receive eth send from stargate router
     receive() external payable {}
 
-    /// @notice buy nft and send to dao contract
+    /// @notice buy nft and send to dao contract, only callable by admin or owner
     /// @dev make sure eth in this contract > floor price of nft
     /// @param pool sudoswap pool to buy nft
     function buyNFT(address pool) external {
@@ -60,7 +60,7 @@ contract Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         nftSwapped = nftSwapped_;
     }
 
-    /// @notice set new admin
+    /// @notice set new admin, only callable by owner
     /// @param admin_ new admin address
     function setAdmin(address admin_) external onlyOwner {
         require(admin_ != address(0), "address 0");
@@ -69,7 +69,7 @@ contract Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         emit SetAdmin(admin_);
     }
 
-    /// @notice set new dao contract
+    /// @notice set new dao contract, only callable by owner
     /// @param dao_ new dao contract address
     function setDao(address dao_) external onlyOwner {
         require(dao_ != address(0), "address 0");

@@ -279,17 +279,17 @@ contract PengTogether is
     /// @notice able to receive eth on this contract
     receive() external payable {}
 
-    /// @notice pause deposit
+    /// @notice pause deposit, only callable by owner
     function pauseContract() external onlyOwner {
         _pause();
     }
 
-    /// @notice unpause deposit
+    /// @notice unpause deposit, only callable by owner
     function unPauseContract() external onlyOwner {
         _unpause();
     }
 
-    /// @notice set new admin address
+    /// @notice set new admin, only callable by owner
     /// @param admin_ new admin address
     function setAdmin(address admin_) external onlyOwner {
         require(admin_ != address(0), "0 address");
@@ -298,7 +298,7 @@ contract PengTogether is
         emit SetAdmin(admin_);
     }
 
-    /// @notice set new treasury address
+    /// @notice set new treasury, only callable by owner
     /// @param treasury_ new treasury address
     function setTreasury(address treasury_) external onlyOwner {
         require(treasury_ != address(0), "0 address");
@@ -307,7 +307,7 @@ contract PengTogether is
         emit SetTreasury(treasury_);
     }
 
-    /// @notice set new reward contract address
+    /// @notice set new reward contract, only callable by owner
     /// @param reward_ new reward contract address
     function setReward(address reward_) external onlyOwner {
         require(reward_ != address(0), "0 address");
@@ -316,7 +316,7 @@ contract PengTogether is
         emit SetReward(reward_);
     }
 
-    /// @notice set new yield fee percentage, dominance in 10000
+    /// @notice set new yield fee percentage, dominance in 10000, only callable by owner
     /// @param yieldFeePerc_ new yield fee percentage
     function setYieldFeePerc(uint yieldFeePerc_) external onlyOwner {
         // yieldFeePerc cannot be more than 30%
@@ -326,7 +326,7 @@ contract PengTogether is
         emit SetYieldFeePerc(yieldFeePerc_);
     }
 
-    /// @notice set new helper contract address
+    /// @notice set new helper contract, only callable by owner
     /// @param helper_ new helper contract address
     function setHelper(address helper_) external onlyOwner {
         require(helper_ != address(0), "0 address");

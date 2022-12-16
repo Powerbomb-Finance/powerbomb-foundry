@@ -159,7 +159,7 @@ contract Dao is
         emit DistributeNFT(winner_, address(nft), tokenId);
     }
 
-    /// @notice set new nft
+    /// @notice set new nft, only callable by owner
     /// @param nft_ new nft contract address
     function setNft(address nft_) external onlyOwner {
         require(nft_ != address(0), "address 0");
@@ -168,7 +168,7 @@ contract Dao is
         emit SetNft(nft_);
     }
 
-    /// @notice set total seats manually by owner
+    /// @notice set total seats manually, only callable by owner
     /// @dev only use this function if layerzero failed
     /// @param totalSeats_ total seats
     function setTotalSeats(uint totalSeats_) external onlyOwner {
@@ -177,7 +177,7 @@ contract Dao is
         emit SetTotalSeats(totalSeats_);
     }
 
-    /// @notice set winner manually by owner
+    /// @notice set winner manually, only callable by owner
     /// @dev only use this function if layerzero failed
     /// @param winner_ winner address
     function setWinner(address winner_) external onlyOwner {
@@ -187,7 +187,7 @@ contract Dao is
         emit SetWinner(winner_);
     }
 
-    /// @notice set new chain id or new record contract address
+    /// @notice set new chain id or new record contract, only callable by owner
     /// @param chainId new chain id
     /// @param record new record contract address
     function setTrustedRemote(uint16 chainId, address record) external onlyOwner {
