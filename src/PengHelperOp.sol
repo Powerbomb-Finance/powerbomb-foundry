@@ -13,6 +13,9 @@ import "../interface/IStargateRouterETH.sol";
 import "../interface/ILayerZeroEndpoint.sol";
 import "../interface/IVault.sol";
 
+/// @title contract to help receive/send token from/to ethereum and
+/// deposit/withdraw token into/from peng together
+/// @author siew
 contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, PausableUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
@@ -47,13 +50,17 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
         USDC.safeApprove(address(STARGATE_ROUTER), type(uint).max);
     }
 
-    /// @dev this function is for bridge funds from ethereum and deposit into peng together
+    /// @notice deposit funds which bridged from ethereum into peng together through stargate
+    /// @param chainId chain id from, 101 for ethereum
+    /// @param token_ bridged token address (in optimism)
+    /// @param amount amount bridged
+    /// @param payload payload from PengHelperEth, abi.encode(account, token, amountOutMin)
     function sgReceive(
         uint16 chainId,
         bytes memory, // srcAddress
         uint, // _nonce
-        address token_, // _token
-        uint amount, // amountLD
+        address token_,
+        uint amount,
         bytes memory payload
     ) external {
         require(msg.sender == address(STARGATE_ROUTER), "only stargate router");
@@ -65,20 +72,26 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
         // and deposit into peng together
 
         (address account, address token, uint amountOutMin) = abi.decode(payload, (address, address, uint));
-        // USDC_ETH & WETH_ETH: USDC & WETH address in payload from ethereum is token address in ethereum
+        // USDC_ETH & WETH_ETH: USDC or WETH address in payload token is address in ethereum
         if (token == address(USDC_ETH)) {
+            // bridged token is USDC, deposit USDC into VAULT_SUSD
             VAULT_SUSD.depositByHelper(address(USDC), amount, amountOutMin, account);
 
         } else if (token == address(WETH_ETH)) {
+            // bridged token is native eth after unwrap, deposit native eth into VAULT_SETH
             VAULT_SETH.depositByHelper{value: amount}(address(WETH), amount, amountOutMin, account);
         }
 
         emit SgReceive(chainId, token_, amount, payload);
     }
 
-    /// @dev this function is for send message from ethereum, withdraw from peng together
-    /// @dev and bridge funds to depositor in ethereum
+    /// @notice receive message send from ethereum, which is to withdraw from peng together
+    /// and bridge withdraw funds to depositor in ethereum
+    /// @param srcChainId source chain id, 101 for ethereum
+    /// @param srcAddress source address, PengHelperEth contract
+    /// @param payload payload from PengHelperEth contract, abi.encode(token, amount, amountOutMin, account)
     function lzReceive(uint16 srcChainId, bytes calldata srcAddress, uint64, bytes memory payload) external {
+        // check if caller is layer zero endpoint contract and source address is PengHelperEth contract
         require(msg.sender == address(LZ_ENDPOINT), "sender != LZ_ENDPOINT");
         require(keccak256(srcAddress) == keccak256(trustedRemoteLookup[srcChainId]), "srcAddr != trustedRemote");
         
@@ -86,21 +99,21 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
             address token, uint amount, uint amountOutMin, address account
         ) = abi.decode(payload, (address, uint, uint, address));
 
-        // address(this).balance is gas fee for bridge token to ethereum, which airdrop from ethereum peng helper
-        // remaining funds will return to this contract
+        // address(this).balance is gas fee for bridge token to ethereum,
+        // which airdrop from PengHelperEth through layer zero
         uint gas = address(this).balance;
-        // USDC_ETH & WETH_ETH: USDC & WETH address in payload from ethereum is token address in ethereum
+        // USDC_ETH & WETH_ETH: USDC or WETH address in payload token is address in ethereum
         if (token == address(USDC_ETH)) {
-            // withdraw from peng together to this contract
+            // withdraw USDC from peng together to this contract
             uint withdrawAmt = VAULT_SUSD.withdrawByHelper(address(USDC), amount, amountOutMin, account);
             // bridge USDC from this contract to msg.sender in ethereum
             STARGATE_ROUTER.swap{value: gas}(
-                101, // _dstChainId
-                1, // _srcPoolId
-                1, // _dstPoolId
+                101, // _dstChainId, ethereum
+                1, // _srcPoolId, represent usdc
+                1, // _dstPoolId, represent usdc
                 payable(address(this)), // _refundAddress
                 withdrawAmt, // _amountLD
-                withdrawAmt * 995 / 1000, // _minAmountLD, 0.5%
+                withdrawAmt * 995 / 1000, // _minAmountLD, 0.5% bridge slippage
                 IStargateRouter.LzTxObj(0, 0, "0x"), // _lzTxParams
                 abi.encodePacked(account), // _to
                 bytes("") // _payload
@@ -108,15 +121,15 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
             emit Bridged(address(USDC), withdrawAmt, account);
 
         } else if (token == address(WETH_ETH)) {
-            // withdraw from peng together to this contract
+            // withdraw native eth from peng together to this contract
             uint withdrawAmt = VAULT_SETH.withdrawByHelper(address(WETH), amount, amountOutMin, account);
             // bridge eth from this contract to msg.sender in ethereum
             STARGATE_ROUTER_ETH.swapETH{value: withdrawAmt + gas}(
-                101, // _dstChainId
+                101, // _dstChainId, ethereum
                 address(this), // _refundAddress
                 abi.encodePacked(account), // _toAddress
                 withdrawAmt, // _amountLD
-                withdrawAmt * 995 / 1000 // _minAmountLD, 0.5%
+                withdrawAmt * 995 / 1000 // _minAmountLD, 0.5% bridge slippage
             );
             emit Bridged(address(WETH), withdrawAmt, account);
         }
@@ -124,12 +137,15 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
         emit LzReceive(srcChainId, srcAddress, payload);
     }
 
+    /// @notice to receive eth send from stargate router or withdraw from peng together contract
     receive() external payable {}
 
+    /// @notice pause deposit on behalf & switch vault, only callable by owner
     function pauseContract() external onlyOwner {
         _pause();
     }
 
+    /// @notice unpause deposit on behalf & switch vault, only callable by owner
     function unPauseContract() external onlyOwner {
         _unpause();
     }
@@ -153,12 +169,22 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
     }
 
     /// @notice deposit on behalf of an account
-    function depositOnBehalf(address token, uint amount, uint amountOutMin, address account) external payable {
+    /// @param token token address to deposit
+    /// @param amount amount token to deposit
+    /// @param amountOutMin minimum amount lp token receive when add liquidity in peng together
+    /// @param account account to record deposited funds (and receive nft in ethereum if any)
+    function depositOnBehalf(
+        address token,
+        uint amount,
+        uint amountOutMin,
+        address account
+    ) external payable whenNotPaused {
         if (token == address(USDC)) {
             USDC.safeTransferFrom(msg.sender, address(this), amount);
             VAULT_SUSD.depositByHelper(address(USDC), amount, amountOutMin, account);
 
         } else if (token == address(WETH)) {
+            // depositByHelper will failed if msg.value != amount
             VAULT_SETH.depositByHelper{value: amount}(address(WETH), amount, amountOutMin, account);
         }
 
@@ -166,24 +192,33 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
     }
 
     /// @notice switch user funds within vaults, tokens swap by paraswap
+    /// @param fromVaultAddr withdraw from vault address
+    /// @param toVaultAddr deposit into vault address
+    /// @param amountWithdraw amount to withdraw
+    /// @param amountToSwap amount to swap with paraswap, this amount will slightly lesser than amount to withdraw
+    /// to prevent swap error due to slippage, in normal case same with amountOutMinWithdraw
+    /// @param amountsOutMin minimum token amount to receive after withdraw &
+    /// minimum lp token amount to receive after deposit
+    /// [amountOutMinWithdraw, amountOutMinDeposit]
+    /// @param data paraswap data which contains info for swap
     function switchVault(
         address fromVaultAddr,
         address toVaultAddr,
-        uint amountWithdraw, // amount to withdraw from vault
-        uint amountToSwap, // amount to swap with paraswap, this amount will slightly lesser than amount to withdraw
-        // to prevent swap error due to slippage, in normal case same with amountOutMinWithdraw
-        uint[] memory amountsOutMin, // [amountOutMinWithdraw, amountOutMinDeposit]
-        bytes memory data // paraswap data
-    ) external {
+        uint amountWithdraw,
+        uint amountToSwap, 
+        uint[] memory amountsOutMin,
+        bytes memory data
+    ) external whenNotPaused {
         address msgSender = msg.sender;
         uint usdcBal = USDC.balanceOf(address(this));
         uint ethBal = address(this).balance;
         uint actualWithdrawAmt;
 
+        /// from VAULT_SUSD to VAULT_SETH
         if (fromVaultAddr == address(VAULT_SUSD) && toVaultAddr == address(VAULT_SETH)) {
             // withdraw from VAULT_SUSD
             actualWithdrawAmt = VAULT_SUSD.withdrawByHelper(address(USDC), amountWithdraw, amountsOutMin[0], msgSender);
-            // swap USDC to eth
+            // swap USDC to native eth with paraswap
             (bool success,) = PS_AUGUSTUS_SWAPPER.call(data);
             require(success, "Paraswap swap error");
 
@@ -193,14 +228,15 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
 
             uint usdcLeft = USDC.balanceOf(address(this)) - usdcBal;
             // since amountToSwap == amountOutMinWithdraw, if swap success,
-            // actualWithdrawAmt > amountToSwap(amountOutMinWithdraw), return leftover to user
+            // actualWithdrawAmt > amountToSwap(amountOutMinWithdraw), return leftover usdc to user
             if (usdcLeft > 0) USDC.safeTransfer(msgSender, usdcLeft);
 
+        // from VAULT_SETH to VAULT_SUSD
         } else if (fromVaultAddr == address(VAULT_SETH) && toVaultAddr == address(VAULT_SUSD)) {
             // withdraw from VAULT_SETH
             actualWithdrawAmt = VAULT_SETH.withdrawByHelper(address(WETH), amountWithdraw, amountsOutMin[0], msgSender);
-            // swap eth to USDC
-            bool success = false;
+            // swap native eth to USDC with paraswap
+            bool success;
             (success,) = PS_AUGUSTUS_SWAPPER.call{value: amountToSwap}(data);
             require(success, "Paraswap swap error");
 
@@ -211,8 +247,8 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
             uint ethLeft = address(this).balance - ethBal;
             if (ethLeft > 0) {
                 // since amountToSwap == amountOutMinWithdraw, if swap success,
-                // actualWithdrawAmt > amountToSwap(amountOutMinWithdraw), return leftover to user
-                bool success_ = false;
+                // actualWithdrawAmt > amountToSwap(amountOutMinWithdraw), return leftover eth to user
+                bool success_;
                 (success_,) = msgSender.call{value: ethLeft}("");
                 // slither show this as dangerous calls but, msgSender withdraw nothing if ethLeft = 0,
                 // which record eth balance from the beginning of this function, and calculate ethLeft by
@@ -225,6 +261,7 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
     }
 
     /// @notice withdraw any USDC or eth stuck in this contract due to fail deposit into peng together
+    /// only callable by owner
     function withdrawStuck() external onlyOwner {
         address owner_ = owner();
 
@@ -246,11 +283,15 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
 
     /// @notice approve erc20 token to paraswap TokenTransferProxy contract to perform swap
     /// @dev note that swap is done by AugustusSwapper contract but
-    ///erc20 tokens have to approve TokenTransferProxy contract instead
+    /// erc20 tokens have to approve TokenTransferProxy contract instead
+    /// only callable by owner
+    /// @param token token address to swap
     function approveParaswapTokenTransferProxy(address token) external onlyOwner {
         IERC20Upgradeable(token).safeApprove(PS_TOKEN_TRANSFER_PROXY, type(uint).max);
     }
 
+    /// @notice set new peng helper ethereum contract, only callable by owner
+    /// @param pengHelperEth_ new peng helper ethereum contract address
     function setPengHelperEth(address pengHelperEth_) external onlyOwner {
         require(pengHelperEth_ != address(0), "address(0)");
         pengHelperEth = pengHelperEth_;
@@ -259,5 +300,6 @@ contract PengHelperOp is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pau
         emit SetPengHelperEth(pengHelperEth_);
     }
 
+    /// @dev for uups upgradeable
     function _authorizeUpgrade(address) internal override onlyOwner {}
 }
