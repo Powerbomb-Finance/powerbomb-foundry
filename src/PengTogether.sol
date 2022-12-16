@@ -18,6 +18,8 @@ import "../interface/IRecord.sol";
 import "../interface/IWETH.sol";
 import "../interface/IStargateRouterETH.sol";
 
+/// @title deposit/withdraw funds from/to curve pool, harvest, convert to eth and bridge to ethereum
+/// @author siew
 contract PengTogether is 
     Initializable,
     OwnableUpgradeable,
