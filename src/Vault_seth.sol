@@ -4,31 +4,33 @@ pragma solidity 0.8.16;
 import "./PengTogether.sol";
 import "../interface/IChainlink.sol";
 
+/// @title seth/eth curve pool edition
+/// @author siew
 contract Vault_seth is PengTogether {
     using SafeERC20Upgradeable for IERC20Upgradeable;
     using SafeERC20Upgradeable for IWETH;
 
     // seth/eth Curve pool
-    IPool constant pool_seth = IPool(0x7Bc5728BC2b59B45a58d9A576E2Ffc5f0505B35E);
+    IPool constant POOL_SETH = IPool(0x7Bc5728BC2b59B45a58d9A576E2Ffc5f0505B35E);
     // seth/eth Curve lp token
-    IERC20Upgradeable constant lpToken_seth = IERC20Upgradeable(0x7Bc5728BC2b59B45a58d9A576E2Ffc5f0505B35E);
+    IERC20Upgradeable constant LP_TOKEN_SETH = IERC20Upgradeable(0x7Bc5728BC2b59B45a58d9A576E2Ffc5f0505B35E);
     // Curve staking pool for seth/eth lp token
-    IGauge constant gauge_seth = IGauge(0xCB8883D1D8c560003489Df43B30612AAbB8013bb);
-    IChainlink constant ethUsdPriceOracle = IChainlink(0x13e3Ee699D1909E989722E753853AE30b17e08c5);
+    IGauge constant GAUGE_SETH = IGauge(0xCB8883D1D8c560003489Df43B30612AAbB8013bb);
+    IChainlink constant ETH_USD_PRICE_ORACLE = IChainlink(0x13e3Ee699D1909E989722E753853AE30b17e08c5);
 
-    function initialize(IRecord _record) external override initializer {
+    function initialize(IRecord record_) external override initializer {
         __Ownable_init();
 
         admin = msg.sender;
         treasury = 0x96E2951CAbeF46E547Ae9eEDc3245d69deA0Be49;
         yieldFeePerc = 1000;
-        record = _record;
+        record = record_;
 
-        usdc.safeApprove(address(pool_seth), type(uint).max);
-        lpToken_seth.safeApprove(address(gauge_seth), type(uint).max);
-        lpToken_seth.safeApprove(address(pool_seth), type(uint).max);
-        crv.safeApprove(address(swapRouter), type(uint).max);
-        op.safeApprove(address(swapRouter), type(uint).max);
+        USDC.safeApprove(address(POOL_SETH), type(uint).max);
+        LP_TOKEN_SETH.safeApprove(address(GAUGE_SETH), type(uint).max);
+        LP_TOKEN_SETH.safeApprove(address(POOL_SETH), type(uint).max);
+        CRV.safeApprove(address(SWAP_ROUTER), type(uint).max);
+        OP.safeApprove(address(SWAP_ROUTER), type(uint).max);
     }
 
     /// @inheritdoc PengTogether
@@ -47,21 +49,22 @@ contract Vault_seth is PengTogether {
         uint amountOutMin,
         address depositor
     ) internal override nonReentrant whenNotPaused {
-        require(token == weth, "weth only");
+        require(token == WETH, "weth only");
         require(amount >= 0.1 ether, "min 0.1 ether");
         require(amount == msg.value, "amount != msg.value");
+
+        // save block which call this function to check if withdraw within same block
+        depositedBlock[depositor] = block.number;
 
         uint[2] memory amounts; // [eth, seth]
         amounts[0] = amount;
         // add liquidity eth into curve pool to get lp token
-        uint lpTokenAmt = pool_seth.add_liquidity{value: msg.value}(amounts, amountOutMin);
+        uint lpTokenAmt = POOL_SETH.add_liquidity{value: msg.value}(amounts, amountOutMin);
         // deposit into curve lp token staking pool for reward
-        gauge_seth.deposit(lpTokenAmt);
+        GAUGE_SETH.deposit(lpTokenAmt);
 
         // update user info into peng together record contract
         record.updateUser(true, depositor, amount, lpTokenAmt);
-        // save block which call this function to check if withdraw within same block
-        depositedBlock[depositor] = block.number;
 
         emit Deposit(depositor, amount, lpTokenAmt);
     }
@@ -73,7 +76,7 @@ contract Vault_seth is PengTogether {
         uint amountOutMin,
         address account
     ) internal override nonReentrant returns (uint actualAmt) {
-        require(token == weth, "weth only");
+        require(token == WETH, "weth only");
         (uint depositBal, uint lpTokenBal,,) = record.userInfo(account);
         require(depositBal >= amount, "amount > depositBal");
         require(depositedBlock[account] != block.number, "same block deposit withdraw");
@@ -81,9 +84,9 @@ contract Vault_seth is PengTogether {
         // calculate lp token amount to withdraw
         uint lpTokenAmt = lpTokenBal * amount / depositBal;
         // withdraw from curve lp token staking pool
-        gauge_seth.withdraw(lpTokenAmt);
+        GAUGE_SETH.withdraw(lpTokenAmt);
         // burn lp token and remove liquidity from curve pool and receive eth
-        actualAmt = pool_seth.remove_liquidity_one_coin(lpTokenAmt, 0, amountOutMin);
+        actualAmt = POOL_SETH.remove_liquidity_one_coin(lpTokenAmt, 0, amountOutMin);
 
         // update user info into peng together record contract
         record.updateUser(false, account, amount, lpTokenAmt);
@@ -100,18 +103,18 @@ contract Vault_seth is PengTogether {
     /// @notice harvest from curve for rewards and sell them for weth
     /// @inheritdoc PengTogether
     function harvest() external override {
-        minter.mint(address(gauge_seth)); // to claim crv
-        gauge_seth.claim_rewards(); // to claim op
+        MINTER.mint(address(GAUGE_SETH)); // to claim crv
+        GAUGE_SETH.claim_rewards(); // to claim op
         uint wethAmt = 0;
 
         // swap crv to weth via uniswap v3
         // no slippage needed because small amount swap
-        uint crvAmt = crv.balanceOf(address(this));
+        uint crvAmt = CRV.balanceOf(address(this));
         if (crvAmt > 1 ether) { // minimum swap 1e18 crv
-            wethAmt = swapRouter.exactInputSingle(
+            wethAmt = SWAP_ROUTER.exactInputSingle(
                 ISwapRouter.ExactInputSingleParams({
-                    tokenIn: address(crv),
-                    tokenOut: address(weth),
+                    tokenIn: address(CRV),
+                    tokenOut: address(WETH),
                     fee: 3000,
                     recipient: address(this),
                     deadline: block.timestamp,
@@ -124,12 +127,12 @@ contract Vault_seth is PengTogether {
 
         // swap op to weth via uniswap v3
         // no slippage needed because small amount swap
-        uint opAmt = op.balanceOf(address(this));
+        uint opAmt = OP.balanceOf(address(this));
         if (opAmt > 1 ether) { // minimum swap 1e18 op
-            wethAmt += swapRouter.exactInputSingle(
+            wethAmt += SWAP_ROUTER.exactInputSingle(
                 ISwapRouter.ExactInputSingleParams({
-                    tokenIn: address(op),
-                    tokenOut: address(weth),
+                    tokenIn: address(OP),
+                    tokenOut: address(WETH),
                     fee: 3000, // 0.3%
                     recipient: address(this),
                     deadline: block.timestamp,
@@ -143,7 +146,7 @@ contract Vault_seth is PengTogether {
         // collect fee
         uint fee = wethAmt * yieldFeePerc / 10000;
         wethAmt -= fee;
-        weth.safeTransfer(treasury, fee);
+        WETH.safeTransfer(treasury, fee);
 
         // add up accumulate weth yield
         accWethYield += wethAmt;
@@ -155,23 +158,19 @@ contract Vault_seth is PengTogether {
     /// @inheritdoc PengTogether
     function getPricePerFullShareInUSD() public override view returns (uint) {
         // get latest price from chainlink
-        (, int latestPrice,,,) = ethUsdPriceOracle.latestRoundData();
+        (, int latestPrice,,,) = ETH_USD_PRICE_ORACLE.latestRoundData();
         // get_virtual_price() return 18 decimals, latestPrice 8 decimals
-        return pool_seth.get_virtual_price() * uint(latestPrice) / 1e20; // 6 decimals
+        return POOL_SETH.get_virtual_price() * uint(latestPrice) / 1e20; // 6 decimals
     }
 
-    /// @notice get all lp token amount stake in curve farm(gauge)
     /// @inheritdoc PengTogether
     function getAllPool() public override view returns (uint) {
-        return gauge_seth.balanceOf(address(this)); // 18 decimals
+        return GAUGE_SETH.balanceOf(address(this)); // 18 decimals
     }
 
-    /// @notice get current pending rewards for harvest
-    /// @dev Call this function off-chain by using view
-    /// @return crvReward pendig crv reward
-    /// @return opReward pendig op reward
+    /// @inheritdoc PengTogether
     function getPoolPendingReward() external override returns (uint crvReward, uint opReward) {
-        crvReward = gauge_seth.claimable_tokens(address(this));
-        opReward = gauge_seth.claimable_reward(address(this), address(op));
+        crvReward = GAUGE_SETH.claimable_tokens(address(this));
+        opReward = GAUGE_SETH.claimable_reward(address(this), address(OP));
     }
 }
