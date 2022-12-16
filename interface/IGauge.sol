@@ -8,11 +8,11 @@ interface IGauge {
 
     function claim_rewards() external;
 
-    function claimable_reward_write(address _addr, address _token) external returns (uint);
+    function claimable_reward_write(address addr, address token) external returns (uint);
 
-    function claimable_reward(address _user, address _reward_token) external view returns (uint);
+    function claimable_reward(address user_, address rewardToken) external view returns (uint);
 
-    function claimed_reward(address _addr, address _token) external view returns (uint);
+    function claimed_reward(address addr, address token) external view returns (uint);
     
     function balanceOf(address account) external view returns (uint);
 

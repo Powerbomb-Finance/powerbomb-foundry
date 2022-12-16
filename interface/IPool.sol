@@ -7,22 +7,22 @@ interface IPool {
 
     function add_liquidity(
         uint[2] memory amounts,
-        uint _min_mint_amount
+        uint minMintAmount
     ) external payable returns (uint);
 
     function remove_liquidity_one_coin(
-        uint _burn_amount,
+        uint burnAmount,
         int128 i,
-        uint _min_received
+        uint minReceived
     ) external returns (uint);
 
     function calc_token_amount(
-        uint[2] memory _amounts,
-        bool _is_deposit
+        uint[2] memory amounts,
+        bool isDeposit
     ) external payable returns (uint);
 
     function calc_withdraw_one_coin(
-        uint _burn_amount,
+        uint burnAmount,
         int128 i
     ) external returns (uint);
 }

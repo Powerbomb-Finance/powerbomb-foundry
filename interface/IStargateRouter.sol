@@ -3,7 +3,7 @@ pragma solidity 0.8.16;
 
 /// @title interface for stargate router
 interface IStargateRouter {
-    struct lzTxObj {
+    struct LzTxObj {
         uint256 dstGasForCall;
         uint256 dstNativeAmount;
         bytes dstNativeAddr;
@@ -16,7 +16,7 @@ interface IStargateRouter {
         address payable _refundAddress,
         uint256 _amountLD,
         uint256 _minAmountLD,
-        lzTxObj memory _lzTxParams,
+        LzTxObj memory _lzTxParams,
         bytes calldata _to,
         bytes calldata _payload
     ) external payable;
