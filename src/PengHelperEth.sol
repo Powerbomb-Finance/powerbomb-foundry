@@ -121,6 +121,7 @@ contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pa
         emit Withdraw(address(token), amount);
     }
 
+    /// @notice to receive eth send from user
     receive() external payable {}
 
     /// @notice pause deposit, only callable by owner
