@@ -44,9 +44,9 @@ contract PengTogetherTest is Test {
         // );
         // vault = PengTogether(payable(address(proxy)));
         vault = PengTogether(payable(0x68ca3a3BBD306293e693871E45Fe908C04387614));
-        // PengTogether vaultImpl = new PengTogether();
-        // hoax(owner);
-        // vault.upgradeTo(address(vaultImpl));
+        PengTogether vaultImpl = new PengTogether();
+        hoax(owner);
+        vault.upgradeTo(address(vaultImpl));
 
         // hoax(owner);
         // record.setVault(address(vault));
@@ -284,7 +284,7 @@ contract PengTogetherTest is Test {
         assertEq(record.getUserTotalSeats(address(1)), 0);
         assertEq(record.getUserTotalSeats(address(2)), 0);
         assertEq(record.drawInProgress(), false);
-        assertEq(record.lastSeat(), 0);
+        assertEq(record.totalSeatsAfterPlaceSeat(), 0);
 
         skip(3600);
         assertEq(record.getUserAvailableTickets(address(1)), 5);
