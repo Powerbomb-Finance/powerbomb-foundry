@@ -19,7 +19,7 @@ contract Reward is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     mapping(uint16 => bytes) public trustedRemoteLookup;
     address public admin;
     address public dao;
-    uint public nftSwapped;
+    uint public nftSwapped; // accumulate nft swapped
 
     event BuyNFT(address pool, uint NFTPrice);
     event SetAdmin(address admin_);
