@@ -35,7 +35,7 @@ contract Dao is
     uint64 public subscriptionId;
 
     IERC721Upgradeable public nft;
-    address public reward; // reward contract on ethereum, depreciated
+    address public reward; // unused variable
     uint public totalSeats;
     bool public rngInProgress;
     uint public randomSeat;
@@ -43,6 +43,7 @@ contract Dao is
 
     event LzReceiveRetry(uint16 _srcChainId, bytes _srcAddress, bytes _payload);
     event LzReceiveClear(uint16 _srcChainId, address _srcAddress);
+    event RequestRandomWords(uint requestId);
     event DistributeNFT(address winner, address _nft, uint tokenId);
     event SetNft(address _nft);
     event SetTotalSeats(uint _totalSeats);
@@ -89,8 +90,9 @@ contract Dao is
     /// @param payload abi.encode(totalSeats, address(0)) || abi.encode(0, winnerAddr)
     function lzReceiveRetry(uint16 srcChainId, address srcAddress_, bytes calldata payload) external {
         bytes memory srcAddress = abi.encodePacked(srcAddress_, address(this));
-        emit LzReceiveRetry(srcChainId, srcAddress, payload);
         LZ_ENDPOINT.retryPayload(srcChainId, srcAddress, payload);
+
+        emit LzReceiveRetry(srcChainId, srcAddress, payload);
     }
 
     /// @notice clear any payload that block the subsequent payload
@@ -98,8 +100,9 @@ contract Dao is
     /// @param srcAddress_ optimismRecordAddr
     function lzReceiveClear(uint16 srcChainId, address srcAddress_) external onlyOwner {
         bytes memory srcAddress = abi.encodePacked(srcAddress_, address(this));
-        emit LzReceiveClear(srcChainId, srcAddress_);
         LZ_ENDPOINT.forceResumeReceive(srcChainId, srcAddress);
+
+        emit LzReceiveClear(srcChainId, srcAddress_);
     }
 
     /// @notice request random number from chainlink
@@ -120,7 +123,8 @@ contract Dao is
             100_000, // callBackGasLimit
             1 // numWords
         );
-        require(requestId > 0);
+        
+        emit RequestRandomWords(requestId);
     }
 
     /// @notice set random seat by chainlink vrf coordinator
