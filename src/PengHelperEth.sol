@@ -12,46 +12,49 @@ import "../interface/IWETH.sol";
 import "../interface/IStargateRouter.sol";
 import "../interface/ILayerZeroEndpoint.sol";
 
+/// @title deposit/withdraw token between ethereum and optimism pool together
+/// @author siew
 contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, PausableUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
     using SafeERC20Upgradeable for IWETH;
 
-    IERC20Upgradeable constant weth = IERC20Upgradeable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    IERC20Upgradeable constant usdc = IERC20Upgradeable(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-    IWETH constant sgEth = IWETH(0x72E2F4830b9E45d52F80aC08CB2bEC0FeF72eD9c);
-    IStargateRouter constant stargateRouter = IStargateRouter(0x8731d54E9D02c286767d56ac03e8037C07e01e98);
-    ILayerZeroEndpoint constant lzEndpoint = ILayerZeroEndpoint(0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675);
+    IERC20Upgradeable constant WETH = IERC20Upgradeable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    IERC20Upgradeable constant USDC = IERC20Upgradeable(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+    IWETH constant SG_ETH = IWETH(0x72E2F4830b9E45d52F80aC08CB2bEC0FeF72eD9c);
+    IStargateRouter constant STARGATE_ROUTER = IStargateRouter(0x8731d54E9D02c286767d56ac03e8037C07e01e98);
+    ILayerZeroEndpoint constant LZ_ENDPOINT = ILayerZeroEndpoint(0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675);
     address public pengHelperOp; // optimism
 
     event Deposit(address token, uint amount);
     event Withdraw(address token, uint amount);
-    event SetPengHelperOp(address _pengHelperOp);
+    event SetPengHelperOp(address pengHelperOp_);
 
-    function initialize(address _pengHelperOp) external initializer {
+    function initialize(address pengHelperOp_) external initializer {
+        require(pengHelperOp_ != address(0), "0 address");
         __Ownable_init();
 
-        pengHelperOp = _pengHelperOp;
+        pengHelperOp = pengHelperOp_;
 
-        sgEth.safeApprove(address(stargateRouter), type(uint).max);
-        usdc.safeApprove(address(stargateRouter), type(uint).max);
+        SG_ETH.safeApprove(address(STARGATE_ROUTER), type(uint).max);
+        USDC.safeApprove(address(STARGATE_ROUTER), type(uint).max);
     }
 
-    ///@param amountOutMin amount minimum lp token to receive after deposit on peng together optimism
-    ///@param gasLimit gas limit for calling sgReceive() on optimism
-    ///@dev msg.value = eth deposit + bridge gas fee if deposit eth
-    ///@dev msg.value = bridge gas fee if deposit usdc
-    ///@dev bridge gas fee can retrieve from stargateRouter.quoteLayerZeroFee()
+    /// @param amountOutMin amount minimum lp token to receive after deposit on peng together optimism
+    /// @param gasLimit gas limit for calling sgReceive() on optimism
+    /// @dev msg.value = eth deposit + bridge gas fee if deposit eth
+    /// @dev msg.value = bridge gas fee if deposit usdc
+    /// @dev bridge gas fee can retrieve from stargateRouter.quoteLayerZeroFee()
     function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin, uint gasLimit) external payable {
-        require(token == weth || token == usdc, "weth or usdc only");
+        require(token == WETH || token == USDC, "weth or usdc only");
         address msgSender = msg.sender;
         uint msgValue = msg.value;
         uint poolId;
         
-        if (token == weth) {
+        if (token == WETH) {
             require(amount >= 0.1 ether, "min 0.1 ether");
             require(msgValue > amount, "msg.value < amount");
             // deposit native eth into sgEth
-            sgEth.deposit{value: amount}();
+            SG_ETH.deposit{value: amount}();
             // remaining msg.value for gas fee for stargate router swap
             msgValue -= amount;
             // poolId 13 = eth in stargate for both ethereum & optimism
@@ -60,16 +63,16 @@ contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pa
         } else { // token == usdc
             require(amount >= 100e6, "min $100");
             
-            usdc.safeTransferFrom(msgSender, address(this), amount);
+            USDC.safeTransferFrom(msgSender, address(this), amount);
             // poolId 1 = usdc in stargate for both ethereum & optimism
             poolId = 1;
         }
 
         // deliberately assign minAmount, lzTxParams and payload to solve stack too deep error
         uint minAmount = amount * 995 / 1000;
-        IStargateRouter.lzTxObj memory lzTxParams = IStargateRouter.lzTxObj(gasLimit, 0, "0x");
+        IStargateRouter.LzTxObj memory lzTxParams = IStargateRouter.LzTxObj(gasLimit, 0, "0x");
         bytes memory payload = abi.encode(msgSender, address(token), amountOutMin);
-        stargateRouter.swap{value: msgValue}(
+        STARGATE_ROUTER.swap{value: msgValue}(
             111, // _dstChainId, optimism
             poolId, // _srcPoolId
             poolId, // _dstPoolId
@@ -84,11 +87,11 @@ contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pa
         emit Deposit(address(token), amount);
     }
 
-    ///@param amountOutMin amount minimum token to receive after withdraw from peng together on optimism side
-    ///@param gasLimit gas limit for calling lzReceive() on optimism
-    ///@param nativeForDst gas fee used by stargate router optimism to bridge token to msg.sender in ethereum
-    ///@dev msg.value = bridged gas fee + nativeForDst, can retrieve from lzEndpoint.estimateFees()
-    ///@dev nativeForDst can retrieve from stargateRouter.quoteLayerZeroFee()
+    /// @param amountOutMin amount minimum token to receive after withdraw from peng together on optimism side
+    /// @param gasLimit gas limit for calling lzReceive() on optimism
+    /// @param nativeForDst gas fee used by stargate router optimism to bridge token to msg.sender in ethereum
+    /// @dev msg.value = bridged gas fee + nativeForDst, can retrieve from lzEndpoint.estimateFees()
+    /// @dev nativeForDst can retrieve from stargateRouter.quoteLayerZeroFee()
     function withdraw(
         IERC20Upgradeable token,
         uint amount,
@@ -96,14 +99,14 @@ contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pa
         uint gasLimit, 
         uint nativeForDst
     ) external payable {
-        require(token == weth || token == usdc, "weth or usdc only");
+        require(token == WETH || token == USDC, "weth or usdc only");
         require(amount > 0, "invalid amount");
         address msgSender = msg.sender;
-        address _pengHelperOp = pengHelperOp;
+        address pengHelperOp_ = pengHelperOp;
 
-        lzEndpoint.send{value: msg.value}(
+        LZ_ENDPOINT.send{value: msg.value}(
             111, // _dstChainId, optimism
-            abi.encodePacked(_pengHelperOp, address(this)), // _destination
+            abi.encodePacked(pengHelperOp_, address(this)), // _destination
             abi.encode(address(token), amount, amountOutMin, msgSender), // _payload
             payable(msgSender), // _refundAddress
             address(0), // _zroPaymentAddress
@@ -111,7 +114,7 @@ contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pa
                 uint16(2), // version 2, set gas limit + airdrop nativeForDst
                 gasLimit, // gasAmount
                 nativeForDst, // nativeForDst, refer @param above
-                _pengHelperOp // addressOnDst
+                pengHelperOp_ // addressOnDst
             )
         );
 
@@ -120,19 +123,25 @@ contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pa
 
     receive() external payable {}
 
+    /// @notice pause deposit, only callable by owner
     function pauseContract() external onlyOwner {
         _pause();
     }
 
+    /// @notice unpause deposit, only callable by owner
     function unPauseContract() external onlyOwner {
         _unpause();
     }
 
-    function setPengHelperOp(address _pengHelperOp) external onlyOwner {
-        pengHelperOp = _pengHelperOp;
+    /// @notice set new peng helper optimism contract, only callable by owner
+    /// @param pengHelperOp_ new peng helper optimism contract address
+    function setPengHelperOp(address pengHelperOp_) external onlyOwner {
+        require(pengHelperOp_ != address(0), "0 address");
+        pengHelperOp = pengHelperOp_;
 
-        emit SetPengHelperOp(_pengHelperOp);
+        emit SetPengHelperOp(pengHelperOp_);
     }
 
+    /// @dev for uups upgradeable
     function _authorizeUpgrade(address) internal override onlyOwner {}
 }
