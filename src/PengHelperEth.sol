@@ -44,7 +44,12 @@ contract PengHelperEth is Initializable, OwnableUpgradeable, UUPSUpgradeable, Pa
     /// @dev msg.value = eth deposit + bridge gas fee if deposit eth
     /// @dev msg.value = bridge gas fee if deposit usdc
     /// @dev bridge gas fee can retrieve from stargateRouter.quoteLayerZeroFee()
-    function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin, uint gasLimit) external payable {
+    function deposit(
+        IERC20Upgradeable token,
+        uint amount,
+        uint amountOutMin,
+        uint gasLimit
+    ) external payable whenNotPaused {
         require(token == WETH || token == USDC, "weth or usdc only");
         address msgSender = msg.sender;
         uint msgValue = msg.value;
