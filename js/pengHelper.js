@@ -16,7 +16,7 @@ const pengHelperEth_ABI = [
   "function deposit(address token, uint amount, uint amountOutMin, uint gasLimit) external payable",
   "function withdraw(address token, uint amount, uint amountOutMin, uint gasLimit, uint nativeForDest) external payable"
 ]
-const pengHelperEth = new ethers.Contract(pengHelperOpAddr, pengHelperEth_ABI, ethProvider)
+const pengHelperEth = new ethers.Contract(pengHelperEthAddr, pengHelperEth_ABI, ethProvider)
 const pengHelperOpAddr = "0xCf91CDBB4691a4b912928A00f809f356c0ef30D6"
 const pengHelperOp_ABI = [
   "function switchVault(address fromVaultAddr, address toVaultAddr, uint amountWithdraw, uint amountToSwap, uint[] memory amountsOutMin, bytes memory data) external"
@@ -453,10 +453,10 @@ const test = async () => {
 
   // switch vault example
   const switchVaultArgs = await getSwitchVaultArgs(
-    vaultSethAddr,
     vaultSusdAddr,
+    vaultSethAddr,
     userAddr,
-    ethers.utils.parseUnits("101", 6),
+    ethers.utils.parseUnits("500", 6),
     false
   )
   await pengHelperOp.switchVault(
