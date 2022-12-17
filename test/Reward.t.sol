@@ -110,19 +110,27 @@ contract RewardTest is Test {
         dao.requestRandomWords();
 
         // assume receive winner from layerzero
-        hoax(0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675);
+        vm.expectRevert("srcAddr != trustedRemote");
+        vm.startPrank(0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675);
+        dao.lzReceive(111, abi.encodePacked(address(0), address(0)), uint64(0), data);
         data = abi.encode(0, address(3));
         dao.lzReceive(111, srcAddress, uint64(0), data);
         assertEq(dao.winner(), address(3));
+        vm.stopPrank();
 
         // buy nft and transfer to dao
         // console.log(address(reward).balance); // 0.220000000000000000
-        address[] memory pools = new address[](5);
-        pools[0] = 0x0602Cc05374e60281F11E38eAB37F5cb28c9b8D6;
-        pools[1] = 0x88a9e00c65F7003B35AF2d86114CFBa3d2B33155;
-        pools[2] = 0x48236Bb9961fd6F28461AF2B96Cfada42412FebC;
-        pools[3] = 0xAD8eF13FF812e6589276f3516bea34498f29401c;
-        pools[4] = 0x62eb262145Fc9c772Ec43E1E391010a17305954E;
+        address[] memory pools = new address[](10);
+        pools[0] = 0x4d9BbA8cA9e1D171D73552Df22A56424B49Ee9de;
+        pools[1] = 0x2C66D6cFa87241b00420bA92F32350864Ed4f7Fa;
+        pools[2] = 0x640810D121E685236Ab3AC5bBeC6aEf0b53446f1;
+        pools[3] = 0x6A8205851200104fDed2670b354D31d3984C8436;
+        pools[4] = 0xe11921fA1892E81b6498f9dC6B6a69B448cae44F;
+        pools[5] = 0x2C6b4D36032d0754D29699f1231C9C9ecC897A28;
+        pools[6] = 0x9B04ae4DD3eB0281f435f9128aB9a6286F9b71Ac;
+        pools[7] = 0x0527c473397FB21B47B184bE93A70D540b1Bea93;
+        pools[8] = 0x3221491262E200Cc41C7E37BdeE99E8A68fB9aAc;
+        pools[9] = 0x9632D8062ea0E09d7199D036F91eBD82888e88FD;
         (uint floorPrice, address poolWithFloorPrice) = reward.getPoolWithFloorPrice(
             pools,
             address(lilPudgy)
@@ -160,6 +168,14 @@ contract RewardTest is Test {
         dao.distributeNFT(0);
     }
 
+    function testRetryAndClearLayerzeroPayload() public {
+        startHoax(owner);
+        vm.expectRevert("LayerZero: no stored payload");
+        dao.lzReceiveRetry(111, record, "");
+        vm.expectRevert("LayerZero: no stored payload");
+        dao.lzReceiveClear(111, record);
+    }
+
     function testGlobalVariable() public {
         // reward
         assertEq(reward.trustedRemoteLookup(111), abi.encodePacked(pengTogetherVault));
@@ -179,18 +195,26 @@ contract RewardTest is Test {
     function testSetter() public {
         // reward
         startHoax(owner);
-        // reward.setTrustedRemoteLookup(111, address(5));
-        // assertEq(reward.trustedRemoteLookup(111), abi.encodePacked(address(5)));
+        vm.expectRevert("address 0");
+        reward.setAdmin(address(0));
         reward.setAdmin(address(7707));
         assertEq(reward.admin(), address(7707));
+        vm.expectRevert("address 0");
+        reward.setDao(address(0));
         reward.setDao(address(7707));
         assertEq(reward.dao(), address(7707));
+        reward.setNftSwapped(5);
+        assertEq(reward.nftSwapped(), 5);
 
         // dao
+        vm.expectRevert("address 0");
+        dao.setNft(address(0));
         dao.setNft(address(6288));
         assertEq(address(dao.nft()), address(6288));
         dao.setTotalSeats(6288);
         assertEq(dao.totalSeats(), 6288);
+        vm.expectRevert("address 0");
+        dao.setWinner(address(0));
         dao.setWinner(address(6288));
         assertEq(dao.winner(), address(6288));
         dao.setTrustedRemote(111, address(5));

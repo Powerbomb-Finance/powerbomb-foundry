@@ -18,6 +18,7 @@ contract PengHelperOpTest is Test {
     PengTogether vaultSusd = PengTogether(payable(0x68ca3a3BBD306293e693871E45Fe908C04387614));
     PengTogether vaultSeth = PengTogether(payable(0x98f82ADA10C55BC7D67b92d51b4e1dae69eD0250));
     address pengHelperEth = 0x8799c7fEfB44B8c885b489eB38Fb067c75EbA2ab;
+    // address owner = address(this);
     address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
     address stargateRouter = 0xB0D502E938ed5f4df2E681fE6E419ff29631d62b;
     address lzEndpoint = 0x3c2269811836af69497E5F486A85D7316753cf62;
@@ -33,9 +34,9 @@ contract PengHelperOpTest is Test {
         // );
         // helper = PengHelperOp(payable(address(proxy)));
         helper = PengHelperOp(payable(0xCf91CDBB4691a4b912928A00f809f356c0ef30D6));
-        // PengHelperOp helperImpl = new PengHelperOp();
-        // hoax(owner);
-        // helper.upgradeTo(address(helperImpl));
+        PengHelperOp helperImpl = new PengHelperOp();
+        hoax(owner);
+        helper.upgradeTo(address(helperImpl));
     }
 
     function testDepositUsdc() public {
@@ -149,6 +150,64 @@ contract PengHelperOpTest is Test {
         assertEq(address(helper).balance, 0);
     }
 
+    function testPauseContract() public {
+        startHoax(owner);
+        helper.pauseContract();
+        vm.expectRevert("Pausable: paused");
+        helper.depositOnBehalf(address(weth), 0, 0, address(this));
+        helper.unPauseContract();
+        helper.depositOnBehalf{value: 0.1 ether}(address(weth), 0.1 ether, 0, address(this));
+    }
+
+    function testRetryAndClearLayerzeroPayload() public {
+        startHoax(owner);
+        vm.expectRevert("LayerZero: no stored payload");
+        helper.lzReceiveRetry("");
+        vm.expectRevert("LayerZero: no stored payload");
+        helper.lzReceiveClear();
+    }
+
+    function testSwitchVault() public {
+        uint[] memory amountsOutMin = new uint[](2);
+
+        testDepositUsdc();
+        vm.roll(block.number + 1);
+        uint userDepositBalanceSusd = vaultSusd.getUserDepositBalance(address(this));
+        vm.expectRevert("min 0.1 ether");
+        helper.switchVault(
+            address(vaultSusd),
+            address(vaultSeth),
+            userDepositBalanceSusd,
+            0,
+            amountsOutMin,
+            ""
+        );
+
+        testDepositEth();
+        vm.roll(block.number + 1);
+        uint userDepositBalanceSeth = vaultSeth.getUserDepositBalance(address(this));
+        vm.expectRevert("min $100");
+        helper.switchVault(
+            address(vaultSeth),
+            address(vaultSusd),
+            userDepositBalanceSeth,
+            0,
+            amountsOutMin,
+            ""
+        );
+    }
+
+    function testApproveParaswapTokenTransferProxy() public {
+        hoax(owner);
+        helper.approveParaswapTokenTransferProxy(0x94b008aA00579c1307B0EF2c499aD98a8ce58e58); // USDT
+    }
+
+    function testArgRequire() public {
+        hoax(owner);
+        vm.expectRevert("address(0)");
+        helper.setPengHelperEth(address(0));
+    }
+
     function testSetter() public {
         hoax(owner);
         helper.setPengHelperEth(address(6288));
@@ -166,7 +225,10 @@ contract PengHelperOpTest is Test {
         helper.initialize();
         vm.expectRevert("only stargate router");
         helper.sgReceive(0, abi.encode(address(0)), 0, address(0), 0, bytes(""));
-        vm.expectRevert("sender != lzEndpoint");
+        vm.expectRevert("sender != LZ_ENDPOINT");
+        helper.lzReceive(0, abi.encode(address(0)), 0, bytes(""));
+        vm.expectRevert("srcAddr != trustedRemote");
+        hoax(lzEndpoint);
         helper.lzReceive(0, abi.encode(address(0)), 0, bytes(""));
 
         assertEq(helper.owner(), owner);
@@ -185,4 +247,6 @@ contract PengHelperOpTest is Test {
         vm.expectRevert("Ownable: caller is not the owner");
         helper.approveParaswapTokenTransferProxy(address(0));
     }
+
+    receive() external payable {}
 }

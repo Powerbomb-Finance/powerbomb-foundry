@@ -29,9 +29,9 @@ contract Vault_sethTest is Test {
         // );
         // record = Record_eth(address(proxy));
         record = Record_eth(0xC530677144A7EA5BaE6Fbab0770358522b4e7071);
-        // Record recordImpl = new Record_eth();
-        // hoax(owner);
-        // record.upgradeTo(address(recordImpl));
+        Record recordImpl = new Record_eth();
+        hoax(owner);
+        record.upgradeTo(address(recordImpl));
 
         // vault = new Vault_seth();
         // proxy = new PbProxy(
@@ -43,9 +43,9 @@ contract Vault_sethTest is Test {
         // );
         // vault = Vault_seth(payable(address(proxy)));
         vault = Vault_seth(payable(0x98f82ADA10C55BC7D67b92d51b4e1dae69eD0250));
-        // Vault_seth vaultImpl = new Vault_seth();
-        // hoax(owner);
-        // vault.upgradeTo(address(vaultImpl));
+        Vault_seth vaultImpl = new Vault_seth();
+        hoax(owner);
+        vault.upgradeTo(address(vaultImpl));
 
         // hoax(owner);
         // record.setVault(address(vault));
@@ -313,6 +313,13 @@ contract Vault_sethTest is Test {
     }
 
     function testDepositAndWithdraw() public {
+        vm.expectRevert("weth only");
+        vault.deposit(crv, 0, 0);
+        vm.expectRevert("min 0.1 ether");
+        vault.deposit(weth, 0, 0);
+        vm.expectRevert("amount != msg.value");
+        vault.deposit(weth, 1 ether, 0);
+
         // deposit
         uint[2] memory amounts = [1 ether, uint(0)];
         uint amountOut = pool.calc_token_amount(amounts, true);
@@ -326,6 +333,13 @@ contract Vault_sethTest is Test {
         assertGt(vault.getUserBalance(address(this)), 0);
         assertGt(vault.getUserBalanceInUSD(address(this)), 0);
         assertEq(vault.getUserDepositBalance(address(this)), 1 ether);
+
+        vm.expectRevert("weth only");
+        vault.withdraw(crv, 0, 0);
+        vm.expectRevert("amount > depositBal");
+        vault.withdraw(weth, 10 ether, 0);
+        vm.expectRevert("same block deposit withdraw");
+        vault.withdraw(weth, 1 ether, 0);
 
         vm.roll(block.number + 1);
 
@@ -390,7 +404,9 @@ contract Vault_sethTest is Test {
 
         skip(864000);
         uint wethBef = weth.balanceOf(treasury);
-        // vault.getPoolPendingReward(); // only can test with view
+        (uint crvReward, uint opReward) = vault.getPoolPendingReward();
+        assertGt(crvReward, 0);
+        assertGt(opReward, 0);
         vm.recordLogs();
         vault.harvest();
 

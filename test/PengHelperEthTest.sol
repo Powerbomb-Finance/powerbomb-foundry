@@ -15,6 +15,7 @@ contract PengHelperEthTest is Test {
     // IQuoter sgQuoter = IQuoter(0xB0D502E938ed5f4df2E681fE6E419ff29631d62b); // stargate router optimism
     IQuoter lzQuoter = IQuoter(0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675); // layerzero endpoint
     address pengHelperOp = 0xCf91CDBB4691a4b912928A00f809f356c0ef30D6;
+    // address owner = address(this);
     address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
     PengHelperEth helper;
 
@@ -30,12 +31,13 @@ contract PengHelperEthTest is Test {
         // );
         // helper = PengHelperEth(payable(address(proxy)));
         helper = PengHelperEth(payable(0x8799c7fEfB44B8c885b489eB38Fb067c75EbA2ab));
-        // PengHelperEth helperImpl = new PengHelperEth();
-        // hoax(owner);
-        // helper.upgradeTo(address(helperImpl));
+        PengHelperEth helperImpl = new PengHelperEth();
+        hoax(owner);
+        helper.upgradeTo(address(helperImpl));
     }
 
-    function testDepositAndWithdraw() public {
+
+    function testDeposit() public {
         uint fee;
 
         // deposit eth
@@ -62,6 +64,10 @@ contract PengHelperEthTest is Test {
         assertEq(usdc.balanceOf(address(helper)), 0);
         assertEq(address(helper).balance, 0);
         assertEq(sgEth.balanceOf(address(helper)), 0);
+    }
+
+    function testWithdraw() public {
+        testDeposit();
 
         // withdraw eth
         // estimate gas fee for bridge tokens from optimism to ethereum
@@ -73,7 +79,7 @@ contract PengHelperEthTest is Test {
             IQuoter.lzTxObj(0, 0, "0x")
         );
         // estimate gas fee for send message from ethereum to optimism
-        (fee,) = lzQuoter.estimateFees(
+        (uint fee,) = lzQuoter.estimateFees(
             111, address(helper),
             abi.encode(address(weth), 1 ether, 0.99 ether, address(this)),
             false,
@@ -94,8 +100,33 @@ contract PengHelperEthTest is Test {
         helper.withdraw{value: fee}(usdc, 100e6, 99e6, 1000000, nativeForDst);
     }
 
+    function testPauseContract() public {
+        helper.pauseContract();
+        vm.expectRevert("Pausable: paused");
+        helper.deposit(weth, 0, 0, 0);
+        helper.unPauseContract();
+        helper.deposit{value: 1.1 ether}(weth, 1 ether, 0, 0);
+    }
+
+    function testArgRequire() public {
+        vm.expectRevert("weth or usdc only");
+        helper.deposit(IERC20Upgradeable(address(0)), 0, 0, 0);
+        vm.expectRevert("min 0.1 ether");
+        helper.deposit(weth, 0, 0, 0);
+        vm.expectRevert("msg.value < amount");
+        helper.deposit(weth, 0.1 ether, 0, 0);
+        vm.expectRevert("min $100");
+        helper.deposit(usdc, 0, 0, 0);
+        vm.expectRevert("weth or usdc only");
+        helper.withdraw(IERC20Upgradeable(address(0)), 0, 0, 0, 0);
+        vm.expectRevert("invalid amount");
+        helper.withdraw(weth, 0, 0, 0, 0);
+    }
+
     function testSetter() public {
-        hoax(owner);
+        startHoax(owner);
+        vm.expectRevert("0 address");
+        helper.setPengHelperOp(address(0));
         helper.setPengHelperOp(address(2));
         assertEq(helper.pengHelperOp(), address(2));
     }

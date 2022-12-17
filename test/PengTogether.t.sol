@@ -257,12 +257,19 @@ contract PengTogetherTest is Test {
         address[] memory users = new address[](2);
         users[0] = address(1);
         users[1] = address(2);
+
+        assertEq(record.getTotalSeats(users), 480);
+
         hoax(owner);
         record.placeSeat{value: 0.1 ether}(users);
 
         // vm.expectRevert("lucky draw in progress");
         // hoax(address(1));
         // vault.placeSeat();
+
+        vm.expectRevert("draw in progress");
+        hoax(owner);
+        record.placeSeat{value: 0.1 ether}(users);
 
         (, uint from, uint to) = record.seats(0);
         assertEq(from, 0);
@@ -274,11 +281,18 @@ contract PengTogetherTest is Test {
 
         assertEq(record.getUserAvailableTickets(address(1)), 0);
         assertEq(record.getUserTotalSeats(address(1)), 240);
+        assertEq(record.getUserTotalTickets(address(1)), 240);
         assertEq(record.getUserAvailableTickets(address(2)), 0);
         assertEq(record.getUserTotalSeats(address(2)), 240);
+        assertEq(record.getUserTotalTickets(address(2)), 240);
+
+        assertEq(record.getSeatOwner(0), address(1));
+        assertEq(record.getSeatOwner(239), address(1));
+        assertEq(record.getSeatOwner(240), address(2));
+        assertEq(record.getSeatOwner(479), address(2));
 
         hoax(owner);
-        record.setWinnerAndRestartRound{value: 0.01 ether}(address(1));
+        record.setWinnerAndRestartRound{value: 0.1 ether}(address(1));
 
         assertEq(record.getSeatsLength(), 0);
         assertEq(record.getUserTotalSeats(address(1)), 0);
@@ -352,6 +366,8 @@ contract PengTogetherTest is Test {
         assertGt(vault.getUserBalanceInUSD(address(this)), 0);
         assertEq(vault.getUserDepositBalance(address(this)), 1000e6);
 
+        vm.expectRevert("same block deposit withdraw");
+        vault.withdraw(usdc, 0, 0);
         vm.roll(block.number + 1);
 
         // withdraw
@@ -430,7 +446,9 @@ contract PengTogetherTest is Test {
 
         skip(864000);
         uint wethBef = weth.balanceOf(treasury);
-        // vault.getPoolPendingReward(); // only can test with view
+        (uint crvReward, uint opReward) = vault.getPoolPendingReward();
+        assertGt(crvReward, 0);
+        assertGt(opReward, 0);
         vm.recordLogs();
         vault.harvest();
 
@@ -479,25 +497,77 @@ contract PengTogetherTest is Test {
         assertEq(record.drawInProgress(), false);
     }
 
+    function testArgRequire() public {
+        vm.expectRevert("usdc only");
+        vault.deposit(weth, 0, 0);
+        vm.expectRevert("min $100");
+        vault.deposit(usdc, 0, 0);
+        vm.expectRevert("usdc only");
+        vault.withdraw(weth, 0, 0);
+        // vm.expectRevert("amount > depositBal"); // foundry bug
+        // vault.withdraw(usdc, 0, 0);
+        vm.expectRevert("winner is zero address");
+        vm.startPrank(owner);
+        record.setWinnerAndRestartRound(address(0));
+        vm.expectRevert("0 address");
+        record.setVault(address(0));
+        vm.expectRevert("0 address");
+        record.setDao(address(0));
+        vm.expectRevert("0 address");
+        record.setAdmin(address(0));
+        vm.stopPrank();
+    }
+
+    function testPauseContract() public {
+        deal(address(usdc), address(owner), 200e6);
+
+        startHoax(owner);
+        usdc.approve(address(vault), type(uint).max);
+        vault.deposit(usdc, 100e6, 0);
+        vault.pauseContract();
+        vm.expectRevert("Pausable: paused");
+        vault.deposit(usdc, 100e6, 0);
+        vault.unPauseContract();
+        vault.deposit(usdc, 100e6, 0);
+        vm.roll(block.number + 1);
+        vault.withdraw(usdc, vault.getUserDepositBalance(owner), 0);
+    }
+
     function testSetter() public {
         startHoax(owner);
         // vault
+        vm.expectRevert("0 address");
+        vault.setAdmin(address(0));
         vault.setAdmin(address(1));
         assertEq(vault.admin(), address(1));
+        vm.expectRevert("0 address");
+        vault.setTreasury(address(0));
         vault.setTreasury(address(1));
         assertEq(vault.treasury(), address(1));
+        vm.expectRevert("0 address");
+        vault.setReward(address(0));
         vault.setReward(address(1));
         assertEq(vault.reward(), address(1));
+        vm.expectRevert("yieldFeePerc > 3000");
+        vault.setYieldFeePerc(3000);
         vault.setYieldFeePerc(2000);
         assertEq(vault.yieldFeePerc(), 2000);
+        vm.expectRevert("0 address");
+        vault.setHelper(address(0));
         vault.setHelper(address(1));
         assertEq(vault.helper(), address(1));
 
         // reward
+        vm.expectRevert("0 address");
+        record.setVault(address(0));
         record.setVault(address(1));
         assertEq(record.vault(), address(1));
+        vm.expectRevert("0 address");
+        record.setDao(address(0));
         record.setDao(address(1));
         assertEq(record.dao(), address(1));
+        vm.expectRevert("0 address");
+        record.setAdmin(address(0));
         record.setAdmin(address(1));
         assertEq(record.admin(), address(1));
     }
