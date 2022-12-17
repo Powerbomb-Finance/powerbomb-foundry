@@ -3,3 +3,4 @@ out/
 .env
 .vscode
 .DS_Store
+lcov.info

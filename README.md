@@ -27,3 +27,43 @@ Dao: 0x0C9133Fa96d72C2030D63B6B35c3738D6329A313 (Ethereum)
 Ethereum: 0x8799c7fEfB44B8c885b489eB38Fb067c75EbA2ab
 
 Optimism: 0xCf91CDBB4691a4b912928A00f809f356c0ef30D6
+
+## Checklist for upgrade contract
+
+### before
+
+1. forge test
+
+2. slither
+
+3. forge coverage
+
+### after
+
+1. forge test without upgrade code
+
+## Slither
+
+> slither src/contract.sol
+
+## Coverage
+
+PengHelperEth.sol
+
+> forge coverage -f https://rpc.ankr.com/eth --match-contract PengHelperEthTest --report lcov
+
+PengHelperOp.sol
+
+> forge coverage -f https://rpc.ankr.com/optimism --match-contract PengHelperOpTest --report lcov
+
+PengTogether.sol & Record.sol
+
+> forge coverage -f https://rpc.ankr.com/optimism --match-contract PengTogetherTest --report lcov
+
+Vault_seth.sol & Record_eth.sol
+
+> forge coverage -f https://rpc.ankr.com/optimism --match-contract Vault_sethTest --report lcov
+
+Reward.sol & Dao.sol
+
+> forge coverage -f https://rpc.ankr.com/optimism --match-contract RewardTest --report lcov
