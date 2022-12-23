@@ -192,13 +192,15 @@ const getWithdrawArgs = async (token, amountInUsd, userAddr, max=false) => {
   }
 
   // quote gas fee to bridge token from optimism to ethereum user wallet address
-  const [nativeForDst,] = await sgRouterOp.quoteLayerZeroFee(
+  let [nativeForDst,] = await sgRouterOp.quoteLayerZeroFee(
     101, // uint16 _dstChainId
     1, // uint8 _functionType
     ethers.utils.solidityPack(["address"], [userAddr]), // bytes calldata _toAddress
     [], // bytes calldata _transferAndCallPayload
     { dstGasForCall: 0, dstNativeAmount: 0, dstNativeAddr: "0x" } // Router.lzTxObj memory _lzTxParams
   )
+  // plus additional 15% in case gas fee increase at the moment when try to bridge token
+  nativeForDst = nativeForDst.mul(115).div(100)
 
   // estimate gas fee for calling lzReceive() on optimism side
   const fee = await lzEndpoint.estimateFees(
