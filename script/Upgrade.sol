@@ -2,31 +2,31 @@
 pragma solidity 0.8.16;
 
 import "forge-std/Script.sol";
-// import "src/PbCrvOpUsd.sol";
+import "src/PbCrvOpUsd.sol";
 // import "src/PbCrvOpEth.sol";
 // import "src/PbCrvPolyTri.sol";
-import "src/PbCrvArb2p.sol";
-import "src/PbCrvArbTri.sol";
+// import "src/PbCrvArb2p.sol";
+// import "src/PbCrvArbTri.sol";
 
 contract Upgrade is Script {
-    // PbCrvOpUsd vaultUsd;
+    PbCrvOpUsd vaultUsd;
     // PbCrvOpEth vaultEth;
-    PbCrvArb2p vault2pBTC;
-    PbCrvArb2p vault2pETH;
-    PbCrvArbTri vaultTriBTC;
-    PbCrvArbTri vaultTriETH;
-    PbCrvArbTri vaultTriUSDT;
+    // PbCrvArb2p vault2pBTC;
+    // PbCrvArb2p vault2pETH;
+    // PbCrvArbTri vaultTriBTC;
+    // PbCrvArbTri vaultTriETH;
+    // PbCrvArbTri vaultTriUSDT;
     
     function run() public {
         vm.startBroadcast();
 
-        // PbCrvOpUsd vaultUsdImpl = new PbCrvOpUsd();
+        PbCrvOpUsd vaultUsdImpl = new PbCrvOpUsd();
 
         // vaultUsd = PbCrvOpUsd(0x61F157E08b2B55eB3B0dD137c1D2A73C9AB5888e);
         // vaultUsd.upgradeTo(address(vaultUsdImpl));
 
-        // vaultUsd = PbCrvOpUsd(0xA8e39872452BA48b1F4c7e16b78668199d2C41Dd);
-        // vaultUsd.upgradeTo(address(vaultUsdImpl));
+        vaultUsd = PbCrvOpUsd(0xA8e39872452BA48b1F4c7e16b78668199d2C41Dd);
+        vaultUsd.upgradeTo(address(vaultUsdImpl));
 
         // PbCrvOpEth vaultEthImpl = new PbCrvOpEth();
 
