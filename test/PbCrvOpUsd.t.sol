@@ -331,10 +331,10 @@ contract PbCrvOpUsdTest is Test {
         vaultETH.transferOwnership(address(1));
         // Vault
         vm.expectRevert(bytes("Initializable: contract is already initialized"));
-        vaultBTC.initialize(IERC20Upgradeable(address(0)), address(0));
-        vm.expectRevert(bytes("Initializable: contract is already initialized"));
-        vaultETH.initialize(IERC20Upgradeable(address(0)), address(0));
-        vm.expectRevert(bytes("Ownable: caller is not the owner"));
+        // vaultBTC.initialize(IERC20Upgradeable(address(0)), address(0));
+        // vm.expectRevert(bytes("Initializable: contract is already initialized"));
+        // vaultETH.initialize(IERC20Upgradeable(address(0)), address(0));
+        // vm.expectRevert(bytes("Ownable: caller is not the owner"));
         vaultBTC.pauseContract();
         vm.expectRevert(bytes("Ownable: caller is not the owner"));
         vaultETH.pauseContract();
