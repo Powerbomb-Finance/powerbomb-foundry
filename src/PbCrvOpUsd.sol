@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.16;
 
 import "./PbCrvBase.sol";
 import "../interface/ISwapRouter.sol";
@@ -17,34 +17,35 @@ contract PbCrvOpUsd is PbCrvBase {
     IERC20Upgradeable constant WETH = IERC20Upgradeable(0x4200000000000000000000000000000000000006);
     IERC20Upgradeable constant WBTC = IERC20Upgradeable(0x68f180fcCe6836688e9084f035309E29Bf0A2095);
     IERC20Upgradeable constant OP = IERC20Upgradeable(0x4200000000000000000000000000000000000042);
-    ISwapRouter constant swapRouter = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
-    IZap constant zap = IZap(0x167e42a1C7ab4Be03764A2222aAC57F5f6754411);
-    IMinter constant minter = IMinter(0xabC000d88f23Bb45525E447528DBF656A9D55bf5);
-    IRewardsController constant rewardsController = IRewardsController(0x929EC64c34a17401F460460D4B9390518E5B473e);
+    ISwapRouter constant SWAP_ROUTER = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
+    IZap constant ZAP = IZap(0x167e42a1C7ab4Be03764A2222aAC57F5f6754411);
+    IMinter constant MINTER = IMinter(0xabC000d88f23Bb45525E447528DBF656A9D55bf5);
+    IRewardsController constant REWARDS_CONTROLLER = IRewardsController(0x929EC64c34a17401F460460D4B9390518E5B473e);
 
-    function initialize(IERC20Upgradeable _rewardToken, address _treasury) external initializer {
-        __Ownable_init();
+    /// comment out this function due to contract size limit error
+    // function initialize(IERC20Upgradeable _rewardToken, address _treasury) external initializer {
+    //     __Ownable_init();
 
-        CRV = IERC20Upgradeable(0x0994206dfE8De6Ec6920FF4D779B0d950605Fb53);
-        lpToken = IERC20Upgradeable(0x061b87122Ed14b9526A813209C8a59a633257bAb);
-        rewardToken = _rewardToken;
-        pool = IPool(0x061b87122Ed14b9526A813209C8a59a633257bAb);
-        gauge = IGauge(0xc5aE4B5F86332e70f3205a8151Ee9eD9F71e0797);
-        treasury = _treasury;
-        yieldFeePerc = 500;
-        lendingPool = ILendingPool(0x794a61358D6845594F94dc1DB02A252b5b4814aD);
-        (,,,,,,,, address aTokenAddr) = lendingPool.getReserveData(address(rewardToken));
-        aToken = IERC20Upgradeable(aTokenAddr);
+    //     CRV = IERC20Upgradeable(0x0994206dfE8De6Ec6920FF4D779B0d950605Fb53);
+    //     lpToken = IERC20Upgradeable(0x061b87122Ed14b9526A813209C8a59a633257bAb);
+    //     rewardToken = _rewardToken;
+    //     pool = IPool(0x061b87122Ed14b9526A813209C8a59a633257bAb);
+    //     gauge = IGauge(0xc5aE4B5F86332e70f3205a8151Ee9eD9F71e0797);
+    //     treasury = _treasury;
+    //     yieldFeePerc = 500;
+    //     lendingPool = ILendingPool(0x794a61358D6845594F94dc1DB02A252b5b4814aD);
+    //     (,,,,,,,, address aTokenAddr) = lendingPool.getReserveData(address(rewardToken));
+    //     aToken = IERC20Upgradeable(aTokenAddr);
 
-        USDC.safeApprove(address(zap), type(uint).max);
-        USDT.safeApprove(address(zap), type(uint).max);
-        DAI.safeApprove(address(zap), type(uint).max);
-        SUSD.safeApprove(address(zap), type(uint).max);
-        lpToken.safeApprove(address(gauge), type(uint).max);
-        lpToken.safeApprove(address(zap), type(uint).max);
-        CRV.safeApprove(address(swapRouter), type(uint).max);
-        rewardToken.safeApprove(address(lendingPool), type(uint).max);
-    }
+    //     USDC.safeApprove(address(ZAP), type(uint).max);
+    //     USDT.safeApprove(address(ZAP), type(uint).max);
+    //     DAI.safeApprove(address(ZAP), type(uint).max);
+    //     SUSD.safeApprove(address(ZAP), type(uint).max);
+    //     lpToken.safeApprove(address(gauge), type(uint).max);
+    //     lpToken.safeApprove(address(ZAP), type(uint).max);
+    //     CRV.safeApprove(address(SWAP_ROUTER), type(uint).max);
+    //     rewardToken.safeApprove(address(lendingPool), type(uint).max);
+    // }
 
     function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin) external payable override nonReentrant whenNotPaused {
         require(token == SUSD || token == DAI || token == USDC || token == USDT || token == lpToken, "Invalid token");
@@ -63,7 +64,7 @@ contract PbCrvOpUsd is PbCrvBase {
             else if (token == DAI) amounts[1] = amount;
             else if (token == USDC) amounts[2] = amount;
             else amounts[3] = amount; // token == USDT
-            lpTokenAmt = zap.add_liquidity(address(pool), amounts, amountOutMin);
+            lpTokenAmt = ZAP.add_liquidity(address(pool), amounts, amountOutMin);
         } else {
             lpTokenAmt = amount;
         }
@@ -74,6 +75,29 @@ contract PbCrvOpUsd is PbCrvBase {
         user.rewardStartAt += (lpTokenAmt * accRewardPerlpToken / 1e36);
 
         emit Deposit(msg.sender, address(token), amount, lpTokenAmt);
+    }
+
+    function depositOnBehalf(IERC20Upgradeable token, uint amount, uint amountOutMin, address account) external onlyOwner {
+        token.safeTransferFrom(msg.sender, address(this), amount);
+
+        uint lpTokenAmt;
+        if (token != lpToken) {
+            uint[4] memory amounts;
+            if (token == SUSD) amounts[0] = amount;
+            else if (token == DAI) amounts[1] = amount;
+            else if (token == USDC) amounts[2] = amount;
+            else amounts[3] = amount; // token == USDT
+            lpTokenAmt = ZAP.add_liquidity(address(pool), amounts, amountOutMin);
+        } else {
+            lpTokenAmt = amount;
+        }
+
+        gauge.deposit(lpTokenAmt);
+        User storage user = userInfo[account];
+        user.lpTokenBalance += lpTokenAmt;
+        user.rewardStartAt += (lpTokenAmt * accRewardPerlpToken / 1e36);
+
+        emit Deposit(account, address(token), amount, lpTokenAmt);
     }
 
     function withdraw(IERC20Upgradeable token, uint lpTokenAmt, uint amountOutMin) external payable override nonReentrant {
@@ -95,7 +119,7 @@ contract PbCrvOpUsd is PbCrvBase {
             else if (token == DAI) i = 1;
             else if (token == USDC) i = 2;
             else i = 3; // USDT
-            tokenAmt = zap.remove_liquidity_one_coin(address(pool), lpTokenAmt, i, amountOutMin);
+            tokenAmt = ZAP.remove_liquidity_one_coin(address(pool), lpTokenAmt, i, amountOutMin);
         } else {
             tokenAmt = lpTokenAmt;
         }
@@ -115,13 +139,13 @@ contract PbCrvOpUsd is PbCrvBase {
         }
 
         // Claim CRV from Curve
-        minter.mint(address(gauge)); // to claim crv
+        MINTER.mint(address(gauge)); // to claim crv
         gauge.claim_rewards(); // to claim op
 
         // Claim OP from Aave
         address[] memory assets = new address[](1);
         assets[0] = address(aToken);
-        rewardsController.claimRewards(assets, type(uint).max, address(this), address(OP));
+        REWARDS_CONTROLLER.claimRewards(assets, type(uint).max, address(this), address(OP));
 
         uint CRVAmt = CRV.balanceOf(address(this));
         uint OPAmt = OP.balanceOf(address(this));
@@ -130,7 +154,7 @@ contract PbCrvOpUsd is PbCrvBase {
 
             // Swap CRV to WETH
             if (CRVAmt > 1e18) {
-                rewardTokenAmt = swapRouter.exactInputSingle(
+                rewardTokenAmt = SWAP_ROUTER.exactInputSingle(
                     ISwapRouter.ExactInputSingleParams({
                         tokenIn: address(CRV),
                         tokenOut: address(WETH),
@@ -146,7 +170,7 @@ contract PbCrvOpUsd is PbCrvBase {
 
             // Swap OP to WETH
             if (OPAmt > 1 ether) {
-                rewardTokenAmt += swapRouter.exactInputSingle(
+                rewardTokenAmt += SWAP_ROUTER.exactInputSingle(
                     ISwapRouter.ExactInputSingleParams({
                         tokenIn: address(OP),
                         tokenOut: address(WETH),
@@ -162,7 +186,7 @@ contract PbCrvOpUsd is PbCrvBase {
 
             // Swap WETH to WBTC if rewardToken == WBTC
             if (rewardToken == WBTC) {
-                rewardTokenAmt = swapRouter.exactInputSingle(
+                rewardTokenAmt = SWAP_ROUTER.exactInputSingle(
                     ISwapRouter.ExactInputSingleParams({
                         tokenIn: address(WETH),
                         tokenOut: address(WBTC),
