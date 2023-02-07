@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.16;
 
 interface IPool {
     function add_liquidity(uint[2] memory amounts, uint _min_mint_amount) external payable returns (uint);
