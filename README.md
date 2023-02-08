@@ -71,3 +71,16 @@ USDC: 0xb88C7a8e678B243a6851b9Fa82a1aA0986574631
 #### seth/eth
 
 > forge test --fork-url https://opt-mainnet.g.alchemy.com/v2/<ALCHEMY_API_KEY> --fork-block-number 16079201 -vvv --match-contract PbCrvOpEthTest
+
+
+## Slither
+
+Just run the command below.
+
+> slither src/PbCrvOpUsd.sol
+
+## Coverage
+
+Install VSCode extension "Coverage Gutters". Run command below. Go to contract page and click "Watch" at the very bottom.
+
+> forge coverage -f https://mainnet.optimism.io --match-contract PbCrvOpUsd --report lcov
