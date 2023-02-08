@@ -87,7 +87,7 @@ contract PbCrvOpUsd is PbCrvBase {
         IERC20Upgradeable gaugeToken = IERC20Upgradeable(address(gauge));
         gaugeToken.safeTransferFrom(msg.sender, address(this), amount);
 
-        uint lpTokenAmt = gaugeToken;
+        uint lpTokenAmt = amount;
 
         User storage user = userInfo[account];
         user.lpTokenBalance += lpTokenAmt;
