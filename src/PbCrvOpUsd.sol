@@ -25,30 +25,30 @@ contract PbCrvOpUsd is PbCrvBase {
     /// comment out this function due to contract size limit error
     /// not that when run slither this will get never initialized error which is okay because
     /// this contract is already been initialized
-    function initialize(IERC20Upgradeable _rewardToken, address treasury_) external initializer {
-        require(treasury_ != address(0));
-        __Ownable_init();
+    // function initialize(IERC20Upgradeable _rewardToken, address treasury_) external initializer {
+    //     require(treasury_ != address(0));
+    //     __Ownable_init();
 
-        CRV = IERC20Upgradeable(0x0994206dfE8De6Ec6920FF4D779B0d950605Fb53);
-        lpToken = IERC20Upgradeable(0x061b87122Ed14b9526A813209C8a59a633257bAb);
-        rewardToken = _rewardToken;
-        pool = IPool(0x061b87122Ed14b9526A813209C8a59a633257bAb);
-        gauge = IGauge(0xc5aE4B5F86332e70f3205a8151Ee9eD9F71e0797);
-        treasury = treasury_;
-        yieldFeePerc = 500;
-        lendingPool = ILendingPool(0x794a61358D6845594F94dc1DB02A252b5b4814aD);
-        (,,,,,,,, address aTokenAddr) = lendingPool.getReserveData(address(rewardToken));
-        aToken = IERC20Upgradeable(aTokenAddr);
+    //     CRV = IERC20Upgradeable(0x0994206dfE8De6Ec6920FF4D779B0d950605Fb53);
+    //     lpToken = IERC20Upgradeable(0x061b87122Ed14b9526A813209C8a59a633257bAb);
+    //     rewardToken = _rewardToken;
+    //     pool = IPool(0x061b87122Ed14b9526A813209C8a59a633257bAb);
+    //     gauge = IGauge(0xc5aE4B5F86332e70f3205a8151Ee9eD9F71e0797);
+    //     treasury = treasury_;
+    //     yieldFeePerc = 500;
+    //     lendingPool = ILendingPool(0x794a61358D6845594F94dc1DB02A252b5b4814aD);
+    //     (,,,,,,,, address aTokenAddr) = lendingPool.getReserveData(address(rewardToken));
+    //     aToken = IERC20Upgradeable(aTokenAddr);
 
-        USDC.safeApprove(address(ZAP), type(uint).max);
-        USDT.safeApprove(address(ZAP), type(uint).max);
-        DAI.safeApprove(address(ZAP), type(uint).max);
-        SUSD.safeApprove(address(ZAP), type(uint).max);
-        lpToken.safeApprove(address(gauge), type(uint).max);
-        lpToken.safeApprove(address(ZAP), type(uint).max);
-        CRV.safeApprove(address(SWAP_ROUTER), type(uint).max);
-        rewardToken.safeApprove(address(lendingPool), type(uint).max);
-    }
+    //     USDC.safeApprove(address(ZAP), type(uint).max);
+    //     USDT.safeApprove(address(ZAP), type(uint).max);
+    //     DAI.safeApprove(address(ZAP), type(uint).max);
+    //     SUSD.safeApprove(address(ZAP), type(uint).max);
+    //     lpToken.safeApprove(address(gauge), type(uint).max);
+    //     lpToken.safeApprove(address(ZAP), type(uint).max);
+    //     CRV.safeApprove(address(SWAP_ROUTER), type(uint).max);
+    //     rewardToken.safeApprove(address(lendingPool), type(uint).max);
+    // }
 
     function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin) external payable override nonReentrant whenNotPaused {
         require(token == SUSD || token == DAI || token == USDC || token == USDT || token == lpToken, "Invalid token");
