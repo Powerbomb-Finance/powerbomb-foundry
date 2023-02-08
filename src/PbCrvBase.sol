@@ -53,13 +53,14 @@ abstract contract PbCrvBase is Initializable, UUPSUpgradeable, OwnableUpgradeabl
 
     function claim() public virtual;
 
-    function setTreasury(address _treasury) external onlyOwner {
-        emit SetTreasury(treasury, _treasury);
-        treasury = _treasury;
+    function setTreasury(address treasury_) external onlyOwner {
+        require(treasury_ != address(0));
+        emit SetTreasury(treasury, treasury_);
+        treasury = treasury_;
     }
 
     function setYieldFeePerc(uint _yieldFeePerc) external onlyOwner {
-        require(_yieldFeePerc <= 1000, "Fee cannot over 10%");
+        require(_yieldFeePerc <= 1000, "fee cannot over 10%");
         emit SetYieldFeePerc(yieldFeePerc, _yieldFeePerc);
         yieldFeePerc = _yieldFeePerc;
     }

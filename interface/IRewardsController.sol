@@ -9,5 +9,5 @@ interface IRewardsController {
         uint amount,
         address to,
         address reward
-    ) external returns (uint);
+    ) external;
 }

@@ -23,29 +23,32 @@ contract PbCrvOpUsd is PbCrvBase {
     IRewardsController constant REWARDS_CONTROLLER = IRewardsController(0x929EC64c34a17401F460460D4B9390518E5B473e);
 
     /// comment out this function due to contract size limit error
-    // function initialize(IERC20Upgradeable _rewardToken, address _treasury) external initializer {
-    //     __Ownable_init();
+    /// not that when run slither this will get never initialized error which is okay because
+    /// this contract is already been initialized
+    function initialize(IERC20Upgradeable _rewardToken, address treasury_) external initializer {
+        require(treasury_ != address(0));
+        __Ownable_init();
 
-    //     CRV = IERC20Upgradeable(0x0994206dfE8De6Ec6920FF4D779B0d950605Fb53);
-    //     lpToken = IERC20Upgradeable(0x061b87122Ed14b9526A813209C8a59a633257bAb);
-    //     rewardToken = _rewardToken;
-    //     pool = IPool(0x061b87122Ed14b9526A813209C8a59a633257bAb);
-    //     gauge = IGauge(0xc5aE4B5F86332e70f3205a8151Ee9eD9F71e0797);
-    //     treasury = _treasury;
-    //     yieldFeePerc = 500;
-    //     lendingPool = ILendingPool(0x794a61358D6845594F94dc1DB02A252b5b4814aD);
-    //     (,,,,,,,, address aTokenAddr) = lendingPool.getReserveData(address(rewardToken));
-    //     aToken = IERC20Upgradeable(aTokenAddr);
+        CRV = IERC20Upgradeable(0x0994206dfE8De6Ec6920FF4D779B0d950605Fb53);
+        lpToken = IERC20Upgradeable(0x061b87122Ed14b9526A813209C8a59a633257bAb);
+        rewardToken = _rewardToken;
+        pool = IPool(0x061b87122Ed14b9526A813209C8a59a633257bAb);
+        gauge = IGauge(0xc5aE4B5F86332e70f3205a8151Ee9eD9F71e0797);
+        treasury = treasury_;
+        yieldFeePerc = 500;
+        lendingPool = ILendingPool(0x794a61358D6845594F94dc1DB02A252b5b4814aD);
+        (,,,,,,,, address aTokenAddr) = lendingPool.getReserveData(address(rewardToken));
+        aToken = IERC20Upgradeable(aTokenAddr);
 
-    //     USDC.safeApprove(address(ZAP), type(uint).max);
-    //     USDT.safeApprove(address(ZAP), type(uint).max);
-    //     DAI.safeApprove(address(ZAP), type(uint).max);
-    //     SUSD.safeApprove(address(ZAP), type(uint).max);
-    //     lpToken.safeApprove(address(gauge), type(uint).max);
-    //     lpToken.safeApprove(address(ZAP), type(uint).max);
-    //     CRV.safeApprove(address(SWAP_ROUTER), type(uint).max);
-    //     rewardToken.safeApprove(address(lendingPool), type(uint).max);
-    // }
+        USDC.safeApprove(address(ZAP), type(uint).max);
+        USDT.safeApprove(address(ZAP), type(uint).max);
+        DAI.safeApprove(address(ZAP), type(uint).max);
+        SUSD.safeApprove(address(ZAP), type(uint).max);
+        lpToken.safeApprove(address(gauge), type(uint).max);
+        lpToken.safeApprove(address(ZAP), type(uint).max);
+        CRV.safeApprove(address(SWAP_ROUTER), type(uint).max);
+        rewardToken.safeApprove(address(lendingPool), type(uint).max);
+    }
 
     function deposit(IERC20Upgradeable token, uint amount, uint amountOutMin) external payable override nonReentrant whenNotPaused {
         require(token == SUSD || token == DAI || token == USDC || token == USDT || token == lpToken, "Invalid token");
@@ -84,14 +87,15 @@ contract PbCrvOpUsd is PbCrvBase {
         require(msg.sender == pengTogetherSusdVault, "not pengTogetherSusdVault");
 
         // only accept gauge token from pengtogether susd vault
-        IERC20Upgradeable gaugeToken = IERC20Upgradeable(address(gauge));
-        gaugeToken.safeTransferFrom(msg.sender, address(this), amount);
-
+        // 1 gauge token = 1 lp token
         uint lpTokenAmt = amount;
 
         User storage user = userInfo[account];
         user.lpTokenBalance += lpTokenAmt;
         user.rewardStartAt += (lpTokenAmt * accRewardPerlpToken / 1e36);
+
+        IERC20Upgradeable gaugeToken = IERC20Upgradeable(address(gauge));
+        gaugeToken.safeTransferFrom(msg.sender, address(this), amount);
 
         emit Deposit(account, address(lpToken), amount, lpTokenAmt);
     }
@@ -146,7 +150,7 @@ contract PbCrvOpUsd is PbCrvBase {
         uint CRVAmt = CRV.balanceOf(address(this));
         uint OPAmt = OP.balanceOf(address(this));
         if (CRVAmt > 1e18 || OPAmt > 1e18) {
-            uint rewardTokenAmt;
+            uint rewardTokenAmt = 0;
 
             // Swap CRV to WETH
             if (CRVAmt > 1e18) {
@@ -261,10 +265,11 @@ contract PbCrvOpUsd is PbCrvBase {
         return gauge.balanceOf(address(this)); // lpToken, 18 decimals
     }
 
-    function getAllPoolInUSD() external view override returns (uint) {
+    function getAllPoolInUSD() external view override returns (uint allPoolInUSD) {
         uint allPool = getAllPool();
-        if (allPool == 0) return 0;
-        return allPool * getPricePerFullShareInUSD() / 1e18; // 6 decimals
+        if (allPool > 0) {
+            allPoolInUSD = allPool * getPricePerFullShareInUSD() / 1e18; // 6 decimals
+        }
     }
 
     /// @dev to override base contract (compulsory)
