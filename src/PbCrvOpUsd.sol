@@ -77,18 +77,18 @@ contract PbCrvOpUsd is PbCrvBase {
         emit Deposit(msg.sender, address(token), amount, lpTokenAmt);
     }
 
-    ///@notice this function is only for migrate funds from pengtogether susd vault to this vault
+    ///@notice this function is only for migrate gauge token from pengtogether susd vault to this vault
     ///@notice same as deposit function, but optimize for gas
     function depositOnBehalf(uint amount, address account) external {
         address pengTogetherSusdVault = 0x68ca3a3BBD306293e693871E45Fe908C04387614;
         require(msg.sender == pengTogetherSusdVault, "not pengTogetherSusdVault");
 
-        // only accept lpToken from pengtogether susd vault
-        lpToken.safeTransferFrom(msg.sender, address(this), amount);
+        // only accept gauge token from pengtogether susd vault
+        IERC20Upgradeable gaugeToken = IERC20Upgradeable(address(gauge));
+        gaugeToken.safeTransferFrom(msg.sender, address(this), amount);
 
-        uint lpTokenAmt = amount;
+        uint lpTokenAmt = gaugeToken;
 
-        gauge.deposit(lpTokenAmt);
         User storage user = userInfo[account];
         user.lpTokenBalance += lpTokenAmt;
         user.rewardStartAt += (lpTokenAmt * accRewardPerlpToken / 1e36);
