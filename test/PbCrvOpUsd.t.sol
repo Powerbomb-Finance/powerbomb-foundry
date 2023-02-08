@@ -23,6 +23,7 @@ contract PbCrvOpUsdTest is Test {
     IERC20Upgradeable aWBTC;
     IERC20Upgradeable aWETH;
     address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
+    address treasury = 0x96E2951CAbeF46E547Ae9eEDc3245d69deA0Be49;
     // address owner = address(this);
 
     function setUp() public {
@@ -64,8 +65,8 @@ contract PbCrvOpUsdTest is Test {
         aWETH = IERC20Upgradeable(vaultETH.aToken());
 
         // Reset treasury token for testing purpose
-        deal(address(WBTC), address(owner), 0);
-        deal(address(WETH), address(owner), 0);
+        deal(address(WBTC), address(treasury), 0);
+        deal(address(WETH), address(treasury), 0);
     }
 
     function testDeposit() public {
@@ -135,6 +136,14 @@ contract PbCrvOpUsdTest is Test {
         assertEq(lpToken.balanceOf(address(vaultETH)), 0);
     }
 
+    function testDepositOnBehalf() public {
+        IERC20Upgradeable gaugeToken = IERC20Upgradeable(address(vaultETH.gauge()));
+        address pengTogetherSusdVault = 0x68ca3a3BBD306293e693871E45Fe908C04387614;
+        startHoax(pengTogetherSusdVault);
+        gaugeToken.approve(address(vaultETH), 1000 ether);
+        vaultETH.depositOnBehalf(1000 ether, address(this));
+    }
+
     function testWithdraw() public {
         // Record before deposit
         uint allPoolBTC = vaultBTC.getAllPool();
@@ -184,18 +193,33 @@ contract PbCrvOpUsdTest is Test {
     function testHarvest() public {
         testDeposit();
         // Assume reward
-        skip(864000);
+        skip(3600);
         (uint crvReward, uint opReward) = vaultBTC.getPoolPendingReward2();
         assertGt(crvReward, 0);
         assertGt(opReward, 0);
         (crvReward, opReward) = vaultETH.getPoolPendingReward2();
         assertGt(crvReward, 0);
         assertGt(opReward, 0);
-        deal(address(CRV), address(vaultBTC), 1 ether);
-        deal(address(CRV), address(vaultETH), 1 ether);
-        // Harvest BTC reward
+        // reset vault CRV & OP to 0 for testing purpose
+        deal(address(CRV), address(vaultBTC), 0);
+        deal(address(OP), address(vaultBTC), 0);
+        deal(address(CRV), address(vaultETH), 0);
+        deal(address(OP), address(vaultETH), 0);
+        // Harvest without enough CRV or OP to swap to reward token
         vaultBTC.harvest();
-        // Harvest ETH reward
+        vaultETH.harvest();
+        // Assertion check
+        assertGt(OP.balanceOf(address(vaultBTC)), 0);
+        assertGt(CRV.balanceOf(address(vaultBTC)), 0);
+        assertGt(OP.balanceOf(address(vaultETH)), 0);
+        assertGt(CRV.balanceOf(address(vaultETH)), 0);
+        // Harvest without enough CRV or OP to swap to reward token
+        // assume enough CRV or OP to swap
+        deal(address(CRV), address(vaultBTC), 1.1 ether);
+        deal(address(OP), address(vaultBTC), 1.1 ether);
+        deal(address(CRV), address(vaultETH), 1.1 ether);
+        deal(address(OP), address(vaultETH), 1.1 ether);
+        vaultBTC.harvest();
         vaultETH.harvest();
         // Assertion check
         assertEq(CRV.balanceOf(address(vaultBTC)), 0);
@@ -206,37 +230,21 @@ contract PbCrvOpUsdTest is Test {
         assertGt(aWBTC.balanceOf(address(vaultBTC)), 0);
         assertEq(WETH.balanceOf(address(vaultETH)), 0);
         assertGt(aWETH.balanceOf(address(vaultETH)), 0);
-        assertGt(WBTC.balanceOf(owner), 0); // treasury fee
-        assertGt(WETH.balanceOf(owner), 0); // treasury fee
+        assertGt(WBTC.balanceOf(treasury), 0); // treasury fee
+        assertGt(WETH.balanceOf(treasury), 0); // treasury fee
         assertGt(vaultBTC.accRewardPerlpToken(), 0);
         assertGt(vaultETH.accRewardPerlpToken(), 0);
         assertGt(vaultBTC.lastATokenAmt(), 0);
         assertGt(vaultETH.lastATokenAmt(), 0);
-        // Harvest again after deposit aToken
-        skip(864000);
-        uint OPBalBTC = OP.balanceOf(address(vaultBTC));
-        uint OPBalETH = OP.balanceOf(address(vaultETH));
-        // deal(address(CRV), address(vaultBTC), 2 ether); // Assume CRV meet threshold
-        // deal(address(CRV), address(vaultETH), 2 ether); // Assume CRV meet threshold
-        // deal(address(OP), address(vaultBTC), 2 ether); // Assume OP meet threshold
-        // deal(address(OP), address(vaultETH), 2 ether); // Assume OP meet threshold
-        vaultBTC.harvest();
-        vaultETH.harvest();
-        assertGt(OP.balanceOf(address(vaultBTC)), OPBalBTC);
-        assertGt(OP.balanceOf(address(vaultBTC)), OPBalETH);
-        // console.log(aWBTC.balanceOf(address(vaultBTC))); // 78772 94233
-        // console.log(aWETH.balanceOf(address(vaultETH))); // 7736489356472656 9865140812357437
-        // assertEq(OP.balanceOf(address(vaultBTC)), 0);
-        // assertEq(OP.balanceOf(address(vaultETH)), 0);
         // Assume aToken increase
         // aWBTC
-        hoax(0xc4f24fa48D6DF95097b2577caC2cAf186bC92a00);
+        hoax(0x8eb23a3010795574eE3DD101843dC90bD63b5099);
         aWBTC.transfer(address(vaultBTC), 1e5);
         uint accRewardPerlpTokenWBTC = vaultBTC.accRewardPerlpToken();
         uint lastATokenAmtWBTC = vaultBTC.lastATokenAmt();
         uint userPendingVaultBTC = vaultBTC.getUserPendingReward(address(this));
         // aWETH
-        hoax(0xa3fDC58439b4677A11b9b0C49caE0fCA9c23Ab8a);
+        hoax(0x39fB69f58481458c5BdF8b141d11157937FFcF14);
         aWETH.transfer(address(vaultETH), 1e16);
         uint accRewardPerlpTokenWETH = vaultETH.accRewardPerlpToken();
         uint lastATokenAmtWETH = vaultETH.lastATokenAmt();
@@ -330,11 +338,11 @@ contract PbCrvOpUsdTest is Test {
         vaultBTC.transferOwnership(address(1));
         vaultETH.transferOwnership(address(1));
         // Vault
-        vm.expectRevert(bytes("Initializable: contract is already initialized"));
+        // vm.expectRevert(bytes("Initializable: contract is already initialized"));
         // vaultBTC.initialize(IERC20Upgradeable(address(0)), address(0));
         // vm.expectRevert(bytes("Initializable: contract is already initialized"));
         // vaultETH.initialize(IERC20Upgradeable(address(0)), address(0));
-        // vm.expectRevert(bytes("Ownable: caller is not the owner"));
+        vm.expectRevert(bytes("Ownable: caller is not the owner"));
         vaultBTC.pauseContract();
         vm.expectRevert(bytes("Ownable: caller is not the owner"));
         vaultETH.pauseContract();
