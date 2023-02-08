@@ -77,27 +77,23 @@ contract PbCrvOpUsd is PbCrvBase {
         emit Deposit(msg.sender, address(token), amount, lpTokenAmt);
     }
 
-    function depositOnBehalf(IERC20Upgradeable token, uint amount, uint amountOutMin, address account) external onlyOwner {
-        token.safeTransferFrom(msg.sender, address(this), amount);
+    ///@notice this function is only for migrate funds from pengtogether susd vault to this vault
+    ///@notice same as deposit function, but optimize for gas
+    function depositOnBehalf(uint amount, address account) external {
+        address pengTogetherSusdVault = 0x68ca3a3BBD306293e693871E45Fe908C04387614;
+        require(msg.sender == pengTogetherSusdVault, "not pengTogetherSusdVault");
 
-        uint lpTokenAmt;
-        if (token != lpToken) {
-            uint[4] memory amounts;
-            if (token == SUSD) amounts[0] = amount;
-            else if (token == DAI) amounts[1] = amount;
-            else if (token == USDC) amounts[2] = amount;
-            else amounts[3] = amount; // token == USDT
-            lpTokenAmt = ZAP.add_liquidity(address(pool), amounts, amountOutMin);
-        } else {
-            lpTokenAmt = amount;
-        }
+        // only accept lpToken from pengtogether susd vault
+        lpToken.safeTransferFrom(msg.sender, address(this), amount);
+
+        uint lpTokenAmt = amount;
 
         gauge.deposit(lpTokenAmt);
         User storage user = userInfo[account];
         user.lpTokenBalance += lpTokenAmt;
         user.rewardStartAt += (lpTokenAmt * accRewardPerlpToken / 1e36);
 
-        emit Deposit(account, address(token), amount, lpTokenAmt);
+        emit Deposit(account, address(lpToken), amount, lpTokenAmt);
     }
 
     function withdraw(IERC20Upgradeable token, uint lpTokenAmt, uint amountOutMin) external payable override nonReentrant {
