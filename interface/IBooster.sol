@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.16;
 
 interface IBooster {
     function deposit(uint _pid, uint _amount, bool _stake) external;

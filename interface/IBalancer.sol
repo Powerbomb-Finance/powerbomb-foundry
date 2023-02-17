@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.16;
 
 interface IBalancer {
     enum SwapKind { GIVEN_IN, GIVEN_OUT }
