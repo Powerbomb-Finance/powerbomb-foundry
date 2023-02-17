@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.16;
 
 import "openzeppelin-contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import "openzeppelin-contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "openzeppelin-contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/security/PausableUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -16,14 +17,14 @@ import "../interface/IBalancer.sol";
 
 abstract contract PbAuraBase is Initializable, UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
 
-    IERC20Upgradeable constant bal = IERC20Upgradeable(0xba100000625a3754423978a60c9317c58a424e3D);
-    IERC20Upgradeable constant aura = IERC20Upgradeable(0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF);
-    IERC20Upgradeable constant wbtc = IERC20Upgradeable(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
-    IERC20Upgradeable constant weth = IERC20Upgradeable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    IERC20Upgradeable constant usdc = IERC20Upgradeable(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-    IBooster constant booster = IBooster(0x7818A1DA7BD1E64c199029E86Ba244a9798eEE10);
-    IZap constant zap = IZap(0xB188b1CB84Fb0bA13cb9ee1292769F903A9feC59);
-    IBalancer constant balancer = IBalancer(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
+    IERC20Upgradeable constant BAL = IERC20Upgradeable(0xba100000625a3754423978a60c9317c58a424e3D);
+    IERC20Upgradeable constant AURA = IERC20Upgradeable(0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF);
+    IERC20Upgradeable constant WBTC = IERC20Upgradeable(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
+    IERC20Upgradeable constant WETH = IERC20Upgradeable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    IERC20Upgradeable constant USDC = IERC20Upgradeable(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+    IBooster constant BOOSTER = IBooster(0xA57b8d98dAE62B26Ec3bcC4a365338157060B234);
+    IZap constant ZAP = IZap(0xB188b1CB84Fb0bA13cb9ee1292769F903A9feC59);
+    IBalancer constant BALANCER = IBalancer(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
     IGauge public gauge;
     uint public pid;
     IERC20Upgradeable public lpToken;
@@ -31,11 +32,10 @@ abstract contract PbAuraBase is Initializable, UUPSUpgradeable, OwnableUpgradeab
     address public treasury;
     uint public yieldFeePerc;
 
-    ILendingPool constant lendingPool = ILendingPool(0x7937D4799803FbBe595ed57278Bc4cA21f3bFfCB);
+    ILendingPool constant LENDING_POOL = ILendingPool(0x7937D4799803FbBe595ed57278Bc4cA21f3bFfCB);
     IERC20Upgradeable public aToken;
     uint public lastATokenAmt;
     uint public accRewardPerlpToken;
-    uint public accRewardTokenAmt;
 
     struct User {
         uint lpTokenBalance;
@@ -59,15 +59,16 @@ abstract contract PbAuraBase is Initializable, UUPSUpgradeable, OwnableUpgradeab
 
     function claim() public virtual;
 
-    function setTreasury(address _treasury) external onlyOwner {
-        emit SetTreasury(treasury, _treasury);
-        treasury = _treasury;
+    function setTreasury(address treasury_) external onlyOwner {
+        require(treasury_ != address(0), "address 0");
+        emit SetTreasury(treasury, treasury_);
+        treasury = treasury_;
     }
 
-    function setYieldFeePerc(uint _yieldFeePerc) external onlyOwner {
-        require(_yieldFeePerc <= 1000, "Fee cannot over 10%");
-        emit SetYieldFeePerc(yieldFeePerc, _yieldFeePerc);
-        yieldFeePerc = _yieldFeePerc;
+    function setYieldFeePerc(uint yieldFeePerc_) external onlyOwner {
+        require(yieldFeePerc_ <= 1000, "Fee cannot over 10%");
+        emit SetYieldFeePerc(yieldFeePerc, yieldFeePerc_);
+        yieldFeePerc = yieldFeePerc_;
     }
 
     function pauseContract() external onlyOwner {
@@ -94,5 +95,5 @@ abstract contract PbAuraBase is Initializable, UUPSUpgradeable, OwnableUpgradeab
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
-    uint[38] private __gap;
+    uint[39] private __gap;
 }
