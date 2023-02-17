@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.17;
+pragma solidity 0.8.16;
 
 import "forge-std/Script.sol";
 import "src/PbProxy.sol";
@@ -17,7 +17,7 @@ contract Deploy is Script {
             address(vaultImpl),
             abi.encodeWithSelector(
                 bytes4(keccak256("initialize(uint256,address)")),
-                3,
+                29,
                 usdc
             )
         );
