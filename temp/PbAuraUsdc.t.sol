@@ -1,34 +1,33 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.17;
+pragma solidity 0.8.16;
 
 import "forge-std/Test.sol";
 import "openzeppelin-contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "../src/PbProxy.sol";
-import "../src/PbAuraComp.sol";
+import "../src/PbAuraUsdc.sol";
 import "../interface/IBalancerHelper.sol";
 
-contract PbAuraCompTest is Test {
+contract PbAuraUsdcTest is Test {
 
     IERC20Upgradeable wbtc = IERC20Upgradeable(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
     IERC20Upgradeable weth = IERC20Upgradeable(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     IERC20Upgradeable usdc = IERC20Upgradeable(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-    IERC20Upgradeable comp = IERC20Upgradeable(0xc00e94Cb662C3520282E6f5717214004A7f26888);
     IERC20Upgradeable aura = IERC20Upgradeable(0xC0c293ce456fF0ED870ADd98a0828Dd4d2903DBF);
     IERC20Upgradeable bal = IERC20Upgradeable(0xba100000625a3754423978a60c9317c58a424e3D);
     IBalancerHelper balancerHelper = IBalancerHelper(0x5aDDCCa35b7A0D07C74063c48700C8590E87864E);
-    PbAuraComp vaultWbtc;
-    PbAuraComp vaultWeth;
-    PbAuraComp vaultUsdc;
+    PbAuraUsdc vaultWbtc;
+    PbAuraUsdc vaultWeth;
+    PbAuraUsdc vaultUsdc;
     IERC20Upgradeable lpToken;
     IERC20Upgradeable aWbtc = IERC20Upgradeable(0x13B2f6928D7204328b0E8E4BCd0379aA06EA21FA);
     IERC20Upgradeable aWeth = IERC20Upgradeable(0xf9Fb4AD91812b704Ba883B11d2B576E890a6730A);
     IERC20Upgradeable aUsdc = IERC20Upgradeable(0xd24946147829DEaA935bE2aD85A3291dbf109c80);
-    bytes32 poolId = 0xefaa1604e82e1b3af8430b90192c1b9e8197e377000200000000000000000021;
+    bytes32 poolId = 0x96646936b91d6b9d7d0c47c496afbf3d6ec7b6f8000200000000000000000019;
     address owner = address(this);
 
     function setUp() public {
         // Deploy implementation contract
-        PbAuraComp vaultImpl = new PbAuraComp();
+        PbAuraUsdc vaultImpl = new PbAuraUsdc();
         PbProxy proxy;
 
         // Deploy wbtc reward proxy contract
@@ -36,41 +35,41 @@ contract PbAuraCompTest is Test {
             address(vaultImpl),
             abi.encodeWithSelector(
                 bytes4(keccak256("initialize(uint256,address)")),
-                32,
+                6,
                 address(wbtc)
             )
         );
-        vaultWbtc = PbAuraComp(payable(address(proxy)));
+        vaultWbtc = PbAuraUsdc(payable(address(proxy)));
 
         // Deploy weth reward proxy contract
         proxy = new PbProxy(
             address(vaultImpl),
             abi.encodeWithSelector(
                 bytes4(keccak256("initialize(uint256,address)")),
-                32,
+                6,
                 address(weth)
             )
         );
-        vaultWeth = PbAuraComp(payable(address(proxy)));
+        vaultWeth = PbAuraUsdc(payable(address(proxy)));
 
         // Deploy usdc reward proxy contract
         proxy = new PbProxy(
             address(vaultImpl),
             abi.encodeWithSelector(
                 bytes4(keccak256("initialize(uint256,address)")),
-                32,
+                6,
                 address(usdc)
             )
         );
-        vaultUsdc = PbAuraComp(payable(address(proxy)));
+        vaultUsdc = PbAuraUsdc(payable(address(proxy)));
 
         lpToken = vaultUsdc.lpToken();
     }
 
     // function test() public {
-    //     deal(address(comp), address(this), 10 ether);
-    //     comp.approve(address(vaultUsdc), type(uint).max);
-    //     vaultUsdc.deposit(comp, 10 ether, 0);
+    //     deal(address(usdc), address(this), 10000e6);
+    //     usdc.approve(address(vaultUsdc), type(uint).max);
+    //     vaultUsdc.deposit(usdc, 10000e6, 0);
     //     vaultUsdc.deposit{value: 10 ether}(weth, 10 ether, 0);
     //     console.log(vaultUsdc.getAllPoolInUSD());
     //     skip(864000);
@@ -84,7 +83,7 @@ contract PbAuraCompTest is Test {
     //     vaultUsdc.claim();
     //     vm.roll(block.number + 1);
     //     vaultUsdc.withdraw(weth, vaultUsdc.getUserBalance(address(this)) / 2, 0);
-    //     vaultUsdc.withdraw(comp, vaultUsdc.getUserBalance(address(this)), 0);
+    //     vaultUsdc.withdraw(usdc, vaultUsdc.getUserBalance(address(this)), 0);
     // }
 
     function testDeposit() public {
@@ -100,9 +99,9 @@ contract PbAuraCompTest is Test {
         (uint amountOut,) = balancerHelper.queryJoin(poolId, address(this), address(this), request);
         vaultWbtc.deposit{value: 10 ether}(weth, 10 ether, amountOut * 99 / 100);
 
-        // Deposit comp into vaultWeth
-        deal(address(comp), address(this), 10 ether);
-        maxAmountsIn[0] = 10 ether;
+        // Deposit usdc into vaultWeth
+        deal(address(usdc), address(this), 10000e6);
+        maxAmountsIn[0] = 10000e6;
         maxAmountsIn[1] = 0;
         request = IBalancer.JoinPoolRequest({
             assets: _getAssets(),
@@ -111,13 +110,13 @@ contract PbAuraCompTest is Test {
             fromInternalBalance: false
         });
         (amountOut,) = balancerHelper.queryJoin(poolId, address(this), address(this), request);
-        comp.approve(address(vaultWeth), type(uint).max);
-        vaultWeth.deposit(comp, 10 ether, amountOut * 99 / 100);
+        usdc.approve(address(vaultWeth), type(uint).max);
+        vaultWeth.deposit(usdc, 10000e6, amountOut * 99 / 100);
 
         // Deposit lp token into vaultUsdc
-        deal(address(lpToken), address(this), 10 ether);
+        deal(address(lpToken), address(this), 1000 ether);
         lpToken.approve(address(vaultUsdc), type(uint).max);
-        vaultUsdc.deposit(lpToken, 10 ether, 0);
+        vaultUsdc.deposit(lpToken, 1000 ether, 0);
 
         // assertion check
         // vaultWbtc
@@ -141,7 +140,7 @@ contract PbAuraCompTest is Test {
         assertGt(vaultWeth.getUserBalance(address(this)), 0);
         // console.log(vaultWeth.getUserBalanceInUSD(address(this)));
         assertGt(vaultWeth.getUserBalanceInUSD(address(this)), 0);
-        assertEq(comp.balanceOf(address(this)), 0);
+        assertEq(usdc.balanceOf(address(this)), 0);
 
         // vaultUsdc
         // console.log(vaultUsdc.getAllPool());
@@ -179,7 +178,7 @@ contract PbAuraCompTest is Test {
         (, amountsOut) = balancerHelper.queryExit(poolId, address(this), address(this), request);
         vaultWbtc.withdraw(weth, lpTokenAmt, amountsOut[1] * 99 / 100);
 
-        // withdraw comp from vaultWeth
+        // withdraw usdc from vaultWeth
         lpTokenAmt = vaultWeth.getUserBalance(address(this));
         request = IBalancer.ExitPoolRequest({
             assets: _getAssets(),
@@ -192,7 +191,7 @@ contract PbAuraCompTest is Test {
             toInternalBalance: false
         });
         (, amountsOut) = balancerHelper.queryExit(poolId, address(this), address(this), request);
-        vaultWeth.withdraw(comp, lpTokenAmt, amountsOut[0] * 99 / 100);
+        vaultWeth.withdraw(usdc, lpTokenAmt, amountsOut[0] * 99 / 100);
 
         // withdraw lp token from vaultUsdc
         vaultUsdc.withdraw(lpToken, vaultUsdc.getUserBalance(address(this)), 0);
@@ -209,7 +208,7 @@ contract PbAuraCompTest is Test {
         assertGt(address(this).balance, balBef);
         assertEq(address(vaultWbtc).balance, 0);
         assertEq(weth.balanceOf(address(vaultWbtc)), 0);
-        assertEq(comp.balanceOf(address(vaultWbtc)), 0);
+        assertEq(usdc.balanceOf(address(vaultWbtc)), 0);
         assertEq(lpToken.balanceOf(address(vaultWbtc)), 0);
         (_lpTokenAmt, rewardStartAt) = vaultWbtc.userInfo(address(this));
         assertEq(_lpTokenAmt, 0);
@@ -220,11 +219,11 @@ contract PbAuraCompTest is Test {
         assertEq(vaultWeth.getAllPoolInUSD(), 0);
         assertEq(vaultWeth.getUserBalance(address(this)), 0);
         assertEq(vaultWeth.getUserBalanceInUSD(address(this)), 0);
-        // console.log(comp.balanceOf(address(this)));
-        assertGt(comp.balanceOf(address(this)), 0);
+        // console.log(usdc.balanceOf(address(this)));
+        assertGt(usdc.balanceOf(address(this)), 0);
         assertEq(address(vaultWeth).balance, 0);
         assertEq(weth.balanceOf(address(vaultWeth)), 0);
-        assertEq(comp.balanceOf(address(vaultWeth)), 0);
+        assertEq(usdc.balanceOf(address(vaultWeth)), 0);
         assertEq(lpToken.balanceOf(address(vaultWeth)), 0);
         (_lpTokenAmt, rewardStartAt) = vaultWeth.userInfo(address(this));
         assertEq(_lpTokenAmt, 0);
@@ -239,7 +238,7 @@ contract PbAuraCompTest is Test {
         assertGt(lpToken.balanceOf(address(this)), 0);
         assertEq(address(vaultUsdc).balance, 0);
         assertEq(weth.balanceOf(address(vaultUsdc)), 0);
-        assertEq(comp.balanceOf(address(vaultUsdc)), 0);
+        assertEq(usdc.balanceOf(address(vaultUsdc)), 0);
         assertEq(lpToken.balanceOf(address(vaultUsdc)), 0);
         (_lpTokenAmt, rewardStartAt) = vaultUsdc.userInfo(address(this));
         assertEq(_lpTokenAmt, 0);
@@ -425,7 +424,7 @@ contract PbAuraCompTest is Test {
     }
 
     function testUpgrade() public {
-        PbAuraComp vaultImpl = new PbAuraComp();
+        PbAuraUsdc vaultImpl = new PbAuraUsdc();
         startHoax(owner);
         vaultWbtc.upgradeTo(address(vaultImpl));
         vaultWeth.upgradeTo(address(vaultImpl));
@@ -500,7 +499,7 @@ contract PbAuraCompTest is Test {
 
     function _getAssets() private view returns (address[] memory assets) {
         assets = new address[](2);
-        assets[0] = address(comp);
+        assets[0] = address(usdc);
         assets[1] = address(weth);
     }
     

@@ -1,23 +1,17 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.16;
 
-import "openzeppelin-contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "./PbAuraBase.sol";
+import "../interface/IChainlink.sol";
+import "../interface/IWeth.sol";
 import "../interface/IPool.sol";
 
-contract PbAuraStable is PbAuraBase {
-    using SafeERC20Upgradeable for IERC20Upgradeable;
+contract PbAuraComp is PbAuraBase {
 
-    IERC20Upgradeable constant usdt = IERC20Upgradeable(0xdAC17F958D2ee523a2206206994597C13D831ec7);
-    IERC20Upgradeable constant dai = IERC20Upgradeable(0x6B175474E89094C44Da98b954EedeAC495271d0F);
-    IERC20Upgradeable constant bbaUsdt = IERC20Upgradeable(0x2F4eb100552ef93840d5aDC30560E5513DFfFACb); // bb-a-usdt balancer
-    bytes32 constant bbaUsdtPoolId = 0x2f4eb100552ef93840d5adc30560e5513dfffacb000000000000000000000334;
-    IERC20Upgradeable constant bbaUsdc = IERC20Upgradeable(0x82698aeCc9E28e9Bb27608Bd52cF57f704BD1B83); // bb-a-usdc balancer
-    bytes32 constant bbaUsdcPoolId = 0x82698aecc9e28e9bb27608bd52cf57f704bd1b83000000000000000000000336;
-    IERC20Upgradeable constant bbaDai = IERC20Upgradeable(0xae37D54Ae477268B9997d4161B96b8200755935c); // bb-a-dai balancer
-    bytes32 constant bbaDaiPoolId = 0xae37d54ae477268b9997d4161b96b8200755935c000000000000000000000337;
-    IERC20Upgradeable constant bbaUsd = IERC20Upgradeable(0xA13a9247ea42D743238089903570127DdA72fE44); // bb-a-usd balancer, same as lpToken
-    bytes32 constant bbaUsdPoolId = 0xa13a9247ea42d743238089903570127dda72fe4400000000000000000000035d;
+    IERC20Upgradeable constant comp = IERC20Upgradeable(0xc00e94Cb662C3520282E6f5717214004A7f26888);
+    IChainlink constant compUsdPriceOracle = IChainlink(0xdbd020CAeF83eFd542f4De03e3cF0C28A4428bd5);
+    IChainlink constant ethUsdPriceOracle = IChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
+    bytes32 constant poolId = 0xefaa1604e82e1b3af8430b90192c1b9e8197e377000200000000000000000021; // comp/weth balancer
     
     function initialize(uint _pid, IERC20Upgradeable _rewardToken) external initializer {
         __Ownable_init();
@@ -35,11 +29,9 @@ contract PbAuraStable is PbAuraBase {
         bal.approve(address(balancer), type(uint).max);
         aura.approve(address(balancer), type(uint).max);
         weth.approve(address(balancer), type(uint).max);
-        usdt.safeApprove(address(balancer), type(uint).max);
-        usdc.approve(address(balancer), type(uint).max);
-        dai.approve(address(balancer), type(uint).max);
+        comp.approve(address(zap), type(uint).max);
+        weth.approve(address(zap), type(uint).max);
         lpToken.approve(address(booster), type(uint).max);
-        lpToken.approve(address(balancer), type(uint).max);
         rewardToken.approve(address(lendingPool), type(uint).max);
     }
 
@@ -48,24 +40,39 @@ contract PbAuraStable is PbAuraBase {
         uint amount,
         uint amountOutMin
     ) external payable override nonReentrant whenNotPaused {
-        require(token == usdt || token == usdc || token == dai || token == lpToken, "Invalid token");
+        require(token == weth || token == comp || token == lpToken, "Invalid token");
         require(amount > 0, "Invalid amount");
 
         uint currentPool = gauge.balanceOf(address(this));
         if (currentPool > 0) harvest();
 
-        token.safeTransferFrom(msg.sender, address(this), amount);
-        depositedBlock[msg.sender] = block.number;
-
         uint lpTokenAmt;
         if (token != lpToken) {
-            // zap swap from stablecoin to lp token
-            lpTokenAmt = _zapSwap(token, amount, amountOutMin, true);
+            uint[] memory maxAmountsIn = new uint[](2);
+            if (token == weth) {
+                require(msg.value == amount, "Invalid ETH");
+                IWeth(address(weth)).deposit{value: msg.value}();
+                maxAmountsIn[1] = amount;
+            } else {
+                token.transferFrom(msg.sender, address(this), amount);
+                maxAmountsIn[0] = amount;
+            }
+            depositedBlock[msg.sender] = block.number;
+
+            IBalancer.JoinPoolRequest memory request = IBalancer.JoinPoolRequest({
+                assets: _getAssets(),
+                maxAmountsIn: maxAmountsIn,
+                userData: abi.encode(IBalancer.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, maxAmountsIn, amountOutMin),
+                fromInternalBalance: false
+            });
+            zap.depositSingle(address(gauge), address(token), amount, poolId, request);
+            lpTokenAmt = gauge.balanceOf(address(this)) - currentPool;
+
         } else { // token == lpToken
+            lpToken.transferFrom(msg.sender, address(this), amount);
+            booster.deposit(pid, amount, true);
             lpTokenAmt = amount;
         }
-
-        booster.deposit(pid, lpTokenAmt, true);
 
         User storage user = userInfo[msg.sender];
         user.lpTokenBalance += lpTokenAmt;
@@ -79,7 +86,7 @@ contract PbAuraStable is PbAuraBase {
         uint lpTokenAmt,
         uint amountOutMin
     ) external payable override nonReentrant {
-        require(token == usdt || token == usdc || token == dai || token == lpToken, "Invalid token");
+        require(token == weth || token == comp || token == lpToken, "Invalid token");
         User storage user = userInfo[msg.sender];
         require(lpTokenAmt > 0 && user.lpTokenBalance >= lpTokenAmt, "Invalid lpTokenAmt");
         require(depositedBlock[msg.sender] != block.number, "Not allow withdraw within same block");
@@ -92,15 +99,45 @@ contract PbAuraStable is PbAuraBase {
 
         uint tokenAmt;
         if (token != lpToken) {
-            // zap swap from lp token to stablecoin
-            tokenAmt = _zapSwap(token, lpTokenAmt, amountOutMin, false);
+            uint[] memory minAmountsOut = new uint[](2);
+            uint exitTokenIndex;
+            if (token == weth) {
+                minAmountsOut[1] = amountOutMin;
+                exitTokenIndex = 1;
+            } else {
+                minAmountsOut[0] = amountOutMin;
+                exitTokenIndex = 0;
+            }
+
+            IBalancer.ExitPoolRequest memory request = IBalancer.ExitPoolRequest({
+                assets: _getAssets(),
+                minAmountsOut: minAmountsOut,
+                userData: abi.encode(
+                    IBalancer.ExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT,
+                    lpTokenAmt,
+                    exitTokenIndex
+                ),
+                toInternalBalance: false 
+            });
+            balancer.exitPool(poolId, address(this), payable(address(this)), request);
+
+            tokenAmt = token.balanceOf(address(this));
+            if (token == weth) {
+                IWeth(address(weth)).withdraw(tokenAmt);
+                (bool success,) = msg.sender.call{value: tokenAmt}("");
+                require(success, "ETH transfer failed");
+            } else {
+                token.transfer(msg.sender, tokenAmt);
+            }
+
         } else { // token == lpToken
-            tokenAmt = lpTokenAmt;
+            lpToken.transfer(msg.sender, lpTokenAmt);
         }
-        token.safeTransfer(msg.sender, tokenAmt);
 
         emit Withdraw(msg.sender, address(token), lpTokenAmt, tokenAmt);
     }
+
+    receive() external payable {}
 
     function harvest() public override {
         // Update accrued amount of aToken
@@ -122,7 +159,7 @@ contract PbAuraStable is PbAuraBase {
             // Swap bal to weth
             if (balAmt > 1 ether) {
                 wethAmt = _swap(
-                    0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014, // bal-weth poolId
+                    0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014,
                     address(bal),
                     address(weth),
                     balAmt
@@ -134,7 +171,7 @@ contract PbAuraStable is PbAuraBase {
             // Swap aura to weth
             if (auraAmt > 1 ether) {
                 wethAmt += _swap(
-                    0xc29562b045d80fd77c69bec09541f5c16fe20d9d000200000000000000000251, // aura-weth poolId
+                    0xc29562b045d80fd77c69bec09541f5c16fe20d9d000200000000000000000251,
                     address(aura),
                     address(weth),
                     auraAmt
@@ -143,13 +180,22 @@ contract PbAuraStable is PbAuraBase {
                 emit Harvest(address(aura), auraAmt, 0);
             }
 
+            // Swap weth to reward token
             uint rewardTokenAmt;
-            if (rewardToken != weth) {
-                // Swap weth to reward token
+            if (rewardToken == wbtc) {
+                // Swap weth to wbtc
                 rewardTokenAmt = _swap(
                     0xa6f548df93de924d73be7d25dc02554c6bd66db500020000000000000000000e, // weth-wbtc
                     address(weth),
-                    address(rewardToken),
+                    address(wbtc),
+                    wethAmt
+                );
+
+            } else if (rewardToken == usdc) {
+                rewardTokenAmt = _swap(
+                    0x96646936b91d6b9d7d0c47c496afbf3d6ec7b6f8000200000000000000000019, // usdc-weth
+                    address(weth),
+                    address(usdc),
                     wethAmt
                 );
 
@@ -213,81 +259,6 @@ contract PbAuraStable is PbAuraBase {
         }
     }
 
-    function _zapSwap(
-        IERC20Upgradeable token,
-        uint amount,
-        uint amountOutMin,
-        bool _deposit
-    ) private returns (uint amountOut) {
-        bytes32 poolId;
-        IERC20Upgradeable bbaToken;
-        if (token == usdt) {
-            poolId = bbaUsdtPoolId; // usdt-aUsdt-bbaUsdt
-            bbaToken = bbaUsdt;
-        } else if (token == usdc) {
-            poolId = bbaUsdcPoolId; // usdc-aUsdc-bbaUsdc
-            bbaToken = bbaUsdc;
-        } else { // token == dai
-            poolId = bbaDaiPoolId; // dai-aDai-bbaDai
-            bbaToken = bbaDai;
-        }
-
-        address[] memory assets = new address[](3);
-        assets[1] = address(bbaToken);
-        bytes32 poolId0;
-        bytes32 poolId1;
-        if (_deposit) {
-            // stablecoin -> bbaToken -> bbaUsd(lpToken)
-            assets[0] = address(token);
-            assets[2] = address(bbaUsd);
-            poolId0 = poolId;
-            poolId1 = bbaUsdPoolId;
-        } else { // withdraw
-            // bbaUsd(lpToken) -> bbaToken -> stablecoin
-            assets[0] = address(bbaUsd);
-            assets[2] = address(token);
-            poolId0 = bbaUsdPoolId;
-            poolId1 = poolId;
-        }
-
-        IBalancer.BatchSwapStep[] memory swaps = new IBalancer.BatchSwapStep[](2);
-        swaps[0] = IBalancer.BatchSwapStep({
-            poolId: poolId0,
-            assetInIndex: 0, // asset in out index follow assets above
-            assetOutIndex: 1,
-            amount: amount,
-            userData: ""
-        });
-        swaps[1] = IBalancer.BatchSwapStep({
-            poolId: poolId1,
-            assetInIndex: 1,
-            assetOutIndex: 2,
-            amount: 0,
-            userData: ""
-        });
-
-        IBalancer.FundManagement memory funds = IBalancer.FundManagement({
-            sender: address(this),
-            fromInternalBalance: false,
-            recipient: address(this),
-            toInternalBalance: false
-        });
-
-        int[] memory limits = new int[](3);
-        limits[0] = int(amount); // token into balancer vault = positive
-        limits[2] = -int(amountOutMin); // token out from balancer vault = negative
-
-        int[] memory assetDeltas = balancer.batchSwap(
-            IBalancer.SwapKind.GIVEN_IN,
-            swaps,
-            assets,
-            funds,
-            limits,
-            block.timestamp
-        );
-        amountOut = uint(-assetDeltas[2]); // make positive & uint
-    }
-
     function _swap(bytes32 _poolId, address tokenIn, address tokenOut, uint amount) private returns (uint amountOut) {
         IBalancer.SingleSwap memory singleSwap = IBalancer.SingleSwap({
             poolId: _poolId,
@@ -306,8 +277,22 @@ contract PbAuraStable is PbAuraBase {
         amountOut = balancer.swap(singleSwap, funds, 0, block.timestamp);
     }
 
+    function _getAssets() private pure returns (address[] memory assets) {
+        assets = new address[](2);
+        assets[0] = address(comp);
+        assets[1] = address(weth);
+    }
+
+    ///@notice return 6 decimals
     function getPricePerFullShareInUSD() public view override returns (uint) {
-        return IPool(address(lpToken)).getRate();
+        // balances = [token0Balance, token1Balance]
+        (, uint[] memory balances,) = balancer.getPoolTokens(poolId);
+        (, int latestPrice,,,) = compUsdPriceOracle.latestRoundData(); // return 8 decimals
+        uint compBalInUsd = balances[0] * uint(latestPrice) / 1e20; // return 6 decimals
+        (, latestPrice,,,) = ethUsdPriceOracle.latestRoundData(); // return 8 decimals
+        uint ethBalInUsd = balances[1] * uint(latestPrice) / 1e20; // return 6 decimals
+
+        return (compBalInUsd + ethBalInUsd) * 1e18 / lpToken.totalSupply();
     }
 
     ///@notice return 18 decimals

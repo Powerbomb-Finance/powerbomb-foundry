@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.16;
 
 import "./PbAuraBase.sol";
 import "../interface/IChainlink.sol";
 import "../interface/IWeth.sol";
 import "../interface/IPool.sol";
 
-contract PbAuraComp is PbAuraBase {
+contract PbAuraReth is PbAuraBase {
 
-    IERC20Upgradeable constant comp = IERC20Upgradeable(0xc00e94Cb662C3520282E6f5717214004A7f26888);
-    IChainlink constant compUsdPriceOracle = IChainlink(0xdbd020CAeF83eFd542f4De03e3cF0C28A4428bd5);
+    IERC20Upgradeable constant reth = IERC20Upgradeable(0xae78736Cd615f374D3085123A210448E74Fc6393);
     IChainlink constant ethUsdPriceOracle = IChainlink(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
-    bytes32 constant poolId = 0xefaa1604e82e1b3af8430b90192c1b9e8197e377000200000000000000000021; // comp/weth balancer
+    bytes32 constant poolId = 0x1e19cf2d73a72ef1332c882f20534b6519be0276000200000000000000000112; // reth/weth balancer
     
     function initialize(uint _pid, IERC20Upgradeable _rewardToken) external initializer {
         __Ownable_init();
@@ -29,7 +28,7 @@ contract PbAuraComp is PbAuraBase {
         bal.approve(address(balancer), type(uint).max);
         aura.approve(address(balancer), type(uint).max);
         weth.approve(address(balancer), type(uint).max);
-        comp.approve(address(zap), type(uint).max);
+        reth.approve(address(zap), type(uint).max);
         weth.approve(address(zap), type(uint).max);
         lpToken.approve(address(booster), type(uint).max);
         rewardToken.approve(address(lendingPool), type(uint).max);
@@ -40,7 +39,7 @@ contract PbAuraComp is PbAuraBase {
         uint amount,
         uint amountOutMin
     ) external payable override nonReentrant whenNotPaused {
-        require(token == weth || token == comp || token == lpToken, "Invalid token");
+        require(token == weth || token == reth || token == lpToken, "Invalid token");
         require(amount > 0, "Invalid amount");
 
         uint currentPool = gauge.balanceOf(address(this));
@@ -86,7 +85,7 @@ contract PbAuraComp is PbAuraBase {
         uint lpTokenAmt,
         uint amountOutMin
     ) external payable override nonReentrant {
-        require(token == weth || token == comp || token == lpToken, "Invalid token");
+        require(token == weth || token == reth || token == lpToken, "Invalid token");
         User storage user = userInfo[msg.sender];
         require(lpTokenAmt > 0 && user.lpTokenBalance >= lpTokenAmt, "Invalid lpTokenAmt");
         require(depositedBlock[msg.sender] != block.number, "Not allow withdraw within same block");
@@ -181,27 +180,12 @@ contract PbAuraComp is PbAuraBase {
             }
 
             // Swap weth to reward token
-            uint rewardTokenAmt;
-            if (rewardToken == wbtc) {
-                // Swap weth to wbtc
-                rewardTokenAmt = _swap(
-                    0xa6f548df93de924d73be7d25dc02554c6bd66db500020000000000000000000e, // weth-wbtc
-                    address(weth),
-                    address(wbtc),
-                    wethAmt
-                );
-
-            } else if (rewardToken == usdc) {
-                rewardTokenAmt = _swap(
-                    0x96646936b91d6b9d7d0c47c496afbf3d6ec7b6f8000200000000000000000019, // usdc-weth
-                    address(weth),
-                    address(usdc),
-                    wethAmt
-                );
-
-            } else {
-                rewardTokenAmt = wethAmt;
-            }
+            uint rewardTokenAmt = _swap(
+                0x96646936b91d6b9d7d0c47c496afbf3d6ec7b6f8000200000000000000000019,
+                address(weth),
+                address(usdc),
+                wethAmt
+            );
 
             // Calculate fee
             uint fee = rewardTokenAmt * yieldFeePerc / 10000;
@@ -279,20 +263,15 @@ contract PbAuraComp is PbAuraBase {
 
     function _getAssets() private pure returns (address[] memory assets) {
         assets = new address[](2);
-        assets[0] = address(comp);
+        assets[0] = address(reth);
         assets[1] = address(weth);
     }
 
     ///@notice return 6 decimals
     function getPricePerFullShareInUSD() public view override returns (uint) {
-        // balances = [token0Balance, token1Balance]
-        (, uint[] memory balances,) = balancer.getPoolTokens(poolId);
-        (, int latestPrice,,,) = compUsdPriceOracle.latestRoundData(); // return 8 decimals
-        uint compBalInUsd = balances[0] * uint(latestPrice) / 1e20; // return 6 decimals
-        (, latestPrice,,,) = ethUsdPriceOracle.latestRoundData(); // return 8 decimals
-        uint ethBalInUsd = balances[1] * uint(latestPrice) / 1e20; // return 6 decimals
-
-        return (compBalInUsd + ethBalInUsd) * 1e18 / lpToken.totalSupply();
+        uint rate = IPool(address(lpToken)).getRate();
+        (, int latestPrice,,,) = ethUsdPriceOracle.latestRoundData(); // return 8 decimals
+        return rate * uint(latestPrice) / 1e20;
     }
 
     ///@notice return 18 decimals
