@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.16;
 
 interface ILendingPool {
     function deposit(
@@ -13,7 +13,7 @@ interface ILendingPool {
         address asset,
         uint256 amount,
         address to
-    ) external returns (uint256);
+    ) external;
 
     function getReserveData(address asset) external view returns (
         uint,
@@ -23,10 +23,11 @@ interface ILendingPool {
         uint128,
         uint128,
         uint40,
-        address,
-        address,
-        address,
-        address,
-        uint8
+        address
+        // comment out subsequent return value to aviod stack too deep error
+        // address,
+        // address,
+        // address,
+        // uint8
     );
 }
