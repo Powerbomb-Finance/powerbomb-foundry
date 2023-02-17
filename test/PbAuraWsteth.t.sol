@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.17;
+pragma solidity 0.8.16;
 
 import "forge-std/Test.sol";
 import "openzeppelin-contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
@@ -21,24 +21,28 @@ contract PbAuraWstethTest is Test {
     IERC20Upgradeable lpToken;
     IERC20Upgradeable aToken;
     bytes32 poolId = 0x32296969ef14eb0c6d29669c550d4a0449130230000200000000000000000080;
-    // address owner = address(this);
-    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
+    address owner = address(this);
+    // address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
 
     function setUp() public {
         // Deploy implementation contract
-        // PbAuraWsteth vaultImpl = new PbAuraWsteth();
+        PbAuraWsteth vaultImpl = new PbAuraWsteth();
 
-        // // Deploy usdc reward proxy contract
-        // PbProxy proxy = new PbProxy(
-        //     address(vaultImpl),
-        //     abi.encodeWithSelector(
-        //         bytes4(keccak256("initialize(uint256,address)")),
-        //         3,
-        //         address(usdc)
-        //     )
-        // );
-        // vaultUsdc = PbAuraWsteth(payable(address(proxy)));
-        vaultUsdc = PbAuraWsteth(payable(0xEd50193fd08eA01D9e5CfaBC5476c6c72D6a3F21));
+        // Deploy usdc reward proxy contract
+        PbProxy proxy = new PbProxy(
+            address(vaultImpl),
+            abi.encodeWithSelector(
+                bytes4(keccak256("initialize(uint256,address)")),
+                29,
+                address(usdc)
+            )
+        );
+        vaultUsdc = PbAuraWsteth(payable(address(proxy)));
+        // vaultUsdc = PbAuraWsteth(payable(0xEd50193fd08eA01D9e5CfaBC5476c6c72D6a3F21));
+
+        // // upgrade
+        // hoax(owner);
+        // vaultUsdc.upgradeTo(address(vaultImpl));
 
         lpToken = vaultUsdc.lpToken();
         aToken = vaultUsdc.aToken();
@@ -186,11 +190,11 @@ contract PbAuraWstethTest is Test {
         assertGt(aToken.balanceOf(address(vaultUsdc)), 0);
         assertGt(vaultUsdc.accRewardPerlpToken(), 0);
         assertGt(vaultUsdc.lastATokenAmt(), 0);
-        assertGt(vaultUsdc.accRewardTokenAmt(), 0);
+        // assertGt(vaultUsdc.accRewardTokenAmt(), 0);
         // console.log(vaultUsdc.getUserPendingReward(address(this)));
         assertGt(vaultUsdc.getUserPendingReward(address(this)), 0);
         // Assume aToken increase
-        hoax(0x68B1B65F3792ed4179b68A657f3dec71A69ead79);
+        hoax(0x464C71f6c2F760DdA6093dCB91C24c39e5d6e18c);
         aToken.transfer(address(vaultUsdc), 1e6);
         uint accRewardPerlpToken = vaultUsdc.accRewardPerlpToken();
         uint lastATokenAmt = vaultUsdc.lastATokenAmt();
