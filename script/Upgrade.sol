@@ -29,6 +29,10 @@ contract Upgrade is Script {
         PengTogether_final vaultImpl = new PengTogether_final();
         vault.upgradeTo(address(vaultImpl));
 
+        vault.harvest();
+        vault.pauseContract();
+        vault.migrate(0x2D52F7BaE61912f7217351443eA8a226996a3Def);
+
         // Vault_seth vault_sethImpl = new Vault_seth();
         // vault_seth.upgradeToAndCall(
         //     address(vault_sethImpl),
