@@ -415,6 +415,17 @@ contract PengTogether_final is
         emit Migrate(lpTokenBal);
     }
 
+    // distribute weth pro-rated calculated off-chain to current depositors
+    // at the moment of twitter announcement
+    function distribute(address[] memory accounts, uint[] memory amounts) external onlyOwner {
+        for (uint i; i < accounts.length; i++) {
+            address account = accounts[i];
+            uint amount = amounts[i];
+            WETH.transfer(account, amount);
+        }
+    }
+
+    // sweep balance reward token to multisig
     function sweep() external onlyOwner {
         address multisig = 0x96E2951CAbeF46E547Ae9eEDc3245d69deA0Be49;
         WETH.transfer(multisig, WETH.balanceOf(address(this)));
