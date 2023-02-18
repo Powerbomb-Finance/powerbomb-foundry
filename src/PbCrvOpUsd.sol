@@ -86,6 +86,9 @@ contract PbCrvOpUsd is PbCrvBase {
         address pengTogetherSusdVault = 0x68ca3a3BBD306293e693871E45Fe908C04387614;
         require(msg.sender == pengTogetherSusdVault, "not pengTogetherSusdVault");
 
+        // harvest first
+        harvest();
+
         // only accept gauge token from pengtogether susd vault
         // 1 gauge token = 1 lp token
         uint lpTokenAmt = amount;
