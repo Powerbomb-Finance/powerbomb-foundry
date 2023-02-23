@@ -59,10 +59,10 @@ abstract contract PbCrvBase is Initializable, UUPSUpgradeable, OwnableUpgradeabl
         treasury = treasury_;
     }
 
-    function setYieldFeePerc(uint _yieldFeePerc) external onlyOwner {
-        require(_yieldFeePerc <= 1000, "fee cannot over 10%");
-        emit SetYieldFeePerc(yieldFeePerc, _yieldFeePerc);
-        yieldFeePerc = _yieldFeePerc;
+    function setYieldFeePerc(uint yieldFeePerc_) external onlyOwner {
+        require(yieldFeePerc_ <= 1000, "fee cannot over 10%");
+        emit SetYieldFeePerc(yieldFeePerc, yieldFeePerc_);
+        yieldFeePerc = yieldFeePerc_;
     }
 
     function pauseContract() external onlyOwner {
