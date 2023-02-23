@@ -3,6 +3,7 @@ pragma solidity 0.8.16;
 
 import "./PbCrvBase.sol";
 import "../interface/ISwapRouter.sol";
+import "../interface/IQuoter.sol";
 import "../interface/IZap.sol";
 import "../interface/IMinter.sol";
 import "../interface/IRewardsController.sol";
@@ -11,24 +12,25 @@ import "../interface/IChainlink.sol";
 contract PbCrvOpEth is PbCrvBase {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    IERC20Upgradeable constant USDC = IERC20Upgradeable(0x7F5c764cBc14f9669B88837ca1490cCa17c31607);
     IERC20Upgradeable constant SETH = IERC20Upgradeable(0xE405de8F52ba7559f9df3C368500B6E6ae6Cee49);
     IERC20Upgradeable constant WETH = IERC20Upgradeable(0x4200000000000000000000000000000000000006);
     IERC20Upgradeable constant OP = IERC20Upgradeable(0x4200000000000000000000000000000000000042);
-    ISwapRouter constant swapRouter = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
-    IMinter constant minter = IMinter(0xabC000d88f23Bb45525E447528DBF656A9D55bf5);
-    IRewardsController constant rewardsController = IRewardsController(0x929EC64c34a17401F460460D4B9390518E5B473e);
-    IChainlink constant ethUsdPriceOracle = IChainlink(0x13e3Ee699D1909E989722E753853AE30b17e08c5);
+    ISwapRouter constant SWAP_ROUTER = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
+    IQuoter constant QUOTER = IQuoter(0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6);
+    IMinter constant MINTER = IMinter(0xabC000d88f23Bb45525E447528DBF656A9D55bf5);
+    IRewardsController constant REWARDS_CONTROLLER = IRewardsController(0x929EC64c34a17401F460460D4B9390518E5B473e);
+    IChainlink constant ETH_USD_PRICE_ORACLE = IChainlink(0x13e3Ee699D1909E989722E753853AE30b17e08c5);
 
-    function initialize(IERC20Upgradeable _rewardToken, address _treasury) external initializer {
+    function initialize(IERC20Upgradeable rewardToken_, address treasury_) external initializer {
+        require(treasury_ != address(0));
         __Ownable_init();
 
         CRV = IERC20Upgradeable(0x0994206dfE8De6Ec6920FF4D779B0d950605Fb53);
         lpToken = IERC20Upgradeable(0x7Bc5728BC2b59B45a58d9A576E2Ffc5f0505B35E);
-        rewardToken = _rewardToken;
+        rewardToken = rewardToken_;
         pool = IPool(0x7Bc5728BC2b59B45a58d9A576E2Ffc5f0505B35E);
         gauge = IGauge(0xCB8883D1D8c560003489Df43B30612AAbB8013bb);
-        treasury = _treasury;
+        treasury = treasury_;
         yieldFeePerc = 500;
         lendingPool = ILendingPool(0x794a61358D6845594F94dc1DB02A252b5b4814aD);
         (,,,,,,,, address aTokenAddr) = lendingPool.getReserveData(address(rewardToken));
@@ -37,7 +39,9 @@ contract PbCrvOpEth is PbCrvBase {
         SETH.safeApprove(address(pool), type(uint).max);
         lpToken.safeApprove(address(gauge), type(uint).max);
         lpToken.safeApprove(address(pool), type(uint).max);
-        CRV.safeApprove(address(swapRouter), type(uint).max);
+        CRV.safeApprove(address(SWAP_ROUTER), type(uint).max);
+        OP.safeApprove(address(SWAP_ROUTER), type(uint).max);
+        WETH.safeApprove(address(SWAP_ROUTER), type(uint).max);
         rewardToken.safeApprove(address(lendingPool), type(uint).max);
     }
 
@@ -110,38 +114,40 @@ contract PbCrvOpEth is PbCrvBase {
         }
 
         // Claim CRV from Curve
-        minter.mint(address(gauge)); // to claim crv
+        MINTER.mint(address(gauge)); // to claim CRV
         gauge.claim_rewards(); // to claim op
 
         // Claim OP from Aave
         address[] memory assets = new address[](1);
         assets[0] = address(aToken);
-        rewardsController.claimRewards(assets, type(uint).max, address(this), address(OP));
+        REWARDS_CONTROLLER.claimRewards(assets, type(uint).max, address(this), address(OP));
 
-        uint CRVAmt = CRV.balanceOf(address(this));
+        uint crvAmt = CRV.balanceOf(address(this));
         uint OPAmt = OP.balanceOf(address(this));
-        if (CRVAmt > 1 ether || OPAmt > 1 ether) {
-            uint rewardTokenAmt;
-            
-            // Swap CRV to rewardToken
-            if (CRVAmt > 1 ether) {
-                ISwapRouter.ExactInputParams memory params = 
-                    ISwapRouter.ExactInputParams({
-                        path: abi.encodePacked(address(CRV), uint24(3000), address(WETH), uint24(500), address(USDC)),
+        if (crvAmt > 1 ether || OPAmt > 1 ether) {
+            uint wethAmt = 0;
+
+            // Swap CRV and OP to WETH
+            if (crvAmt > 1 ether) {
+                wethAmt = SWAP_ROUTER.exactInputSingle(
+                    ISwapRouter.ExactInputSingleParams({
+                        tokenIn: address(CRV),
+                        tokenOut: address(WETH),
+                        fee: 3000,
                         recipient: address(this),
                         deadline: block.timestamp,
-                        amountIn: CRVAmt,
-                        amountOutMinimum: 0
-                    });
-                rewardTokenAmt = swapRouter.exactInput(params);
+                        amountIn: crvAmt,
+                        amountOutMinimum: 0,
+                        sqrtPriceLimitX96: 0
+                    })
+                );
             }
 
-            // Swap OP to rewardToken
             if (OPAmt > 1 ether) {
-                rewardTokenAmt += swapRouter.exactInputSingle(
+                wethAmt += SWAP_ROUTER.exactInputSingle(
                     ISwapRouter.ExactInputSingleParams({
                         tokenIn: address(OP),
-                        tokenOut: address(USDC),
+                        tokenOut: address(WETH),
                         fee: 3000,
                         recipient: address(this),
                         deadline: block.timestamp,
@@ -150,6 +156,25 @@ contract PbCrvOpEth is PbCrvBase {
                         sqrtPriceLimitX96: 0
                     })
                 );
+            }
+
+            // Swap WETH to rewardToken if rewardToken != WETH
+            uint rewardTokenAmt = 0;
+            if (rewardToken != WETH) {
+                rewardTokenAmt += SWAP_ROUTER.exactInputSingle(
+                    ISwapRouter.ExactInputSingleParams({
+                        tokenIn: address(WETH),
+                        tokenOut: address(rewardToken),
+                        fee: 3000,
+                        recipient: address(this),
+                        deadline: block.timestamp,
+                        amountIn: wethAmt,
+                        amountOutMinimum: 0,
+                        sqrtPriceLimitX96: 0
+                    })
+                );
+            } else {
+                rewardTokenAmt = wethAmt;
             }
 
             // Calculate fee
@@ -169,7 +194,7 @@ contract PbCrvOpEth is PbCrvBase {
             // Update accumulate reward token amount
             accRewardTokenAmt += rewardTokenAmt;
 
-            emit Harvest(CRVAmt, rewardTokenAmt, fee);
+            emit Harvest(crvAmt, rewardTokenAmt, fee);
         }
     }
 
@@ -217,11 +242,12 @@ contract PbCrvOpEth is PbCrvBase {
         return gauge.balanceOf(address(this)); // lpToken, 18 decimals
     }
 
-    function getAllPoolInUSD() external view override returns (uint) {
+    function getAllPoolInUSD() external view override returns (uint allPoolInUSD) {
         uint allPool = getAllPool();
-        if (allPool == 0) return 0;
-        (, int latestPrice,,,) = ethUsdPriceOracle.latestRoundData();
-        return allPool * getPricePerFullShareInUSD() * uint(latestPrice) / 1e26; // 6 decimals
+        if (allPool > 0) {
+            (, int latestPrice,,,) = ETH_USD_PRICE_ORACLE.latestRoundData();
+            allPoolInUSD = allPool * getPricePerFullShareInUSD() * uint(latestPrice) / 1e26; // 6 decimals
+        }
     }
 
     /// @dev to override base contract (compulsory)
@@ -230,14 +256,40 @@ contract PbCrvOpEth is PbCrvBase {
     }
 
     /// @dev Call this function off-chain by using view
-    function getPoolPendingReward2() external returns (uint crvReward, uint opReward) {
+    function getPoolPendingReward2() public returns (uint crvReward, uint opReward) {
         crvReward = gauge.claimable_tokens(address(this)) + CRV.balanceOf(address(this));
         opReward = gauge.claimable_reward(address(this), address(OP)) + OP.balanceOf(address(this));
     }
 
+    /// @dev This function only return user pending reward that harvested
     function getUserPendingReward(address account) external view override returns (uint) {
         User storage user = userInfo[account];
         return (user.lpTokenBalance * accRewardPerlpToken / 1e36) - user.rewardStartAt;
+    }
+
+    /// @dev This function return estimated user pending reward including reward that ready to harvest
+    function getUserPendingReward2(address account) external returns (uint) {
+        (uint crvReward, uint opReward) = getPoolPendingReward2();
+        uint accRewardPerlpToken_ = accRewardPerlpToken;
+        uint wethAmt = 0;
+        if (crvReward > 1 ether) {
+            wethAmt = QUOTER.quoteExactInputSingle(address(CRV), address(WETH), 3000, crvReward, 0);
+        }
+        if (opReward > 1 ether) {
+            wethAmt += QUOTER.quoteExactInputSingle(address(OP), address(WETH), 3000, opReward, 0);
+        }
+        if (wethAmt > 0) {
+            uint rewardTokenAmt = 0;
+            if (rewardToken != WETH) {
+                rewardTokenAmt = QUOTER.quoteExactInputSingle(address(WETH), address(rewardToken), 3000, wethAmt, 0);
+            } else {
+                rewardTokenAmt = wethAmt;
+            }
+            rewardTokenAmt -= rewardTokenAmt * yieldFeePerc / 10000;
+            accRewardPerlpToken_ += (rewardTokenAmt * 1e36 / getAllPool());
+        }
+        User storage user = userInfo[account];
+        return (user.lpTokenBalance * accRewardPerlpToken_ / 1e36) - user.rewardStartAt;
     }
 
     function getUserBalance(address account) external view override returns (uint) {
@@ -245,7 +297,7 @@ contract PbCrvOpEth is PbCrvBase {
     }
 
     function getUserBalanceInUSD(address account) external view override returns (uint) {
-        (, int latestPrice,,,) = ethUsdPriceOracle.latestRoundData();
+        (, int latestPrice,,,) = ETH_USD_PRICE_ORACLE.latestRoundData();
         return userInfo[account].lpTokenBalance * getPricePerFullShareInUSD() * uint(latestPrice) / 1e26;
     }
 }
