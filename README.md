@@ -44,6 +44,10 @@ Summary: deposit/withdraw in SETH/native ETH/LP token, reward in USDC only. Toke
 
 USDC: 0xb88C7a8e678B243a6851b9Fa82a1aA0986574631
 
+WETH: 0x72F6ECF3dE8A58aBA9F97b4c5d1C213Df976cf4E
+
+WBTC: 0xb8fEb9d8a1ab83f59Ee423281b72c62EC9dD4A97
+
 ## Test
 
 ### Arbitrum
@@ -75,12 +79,12 @@ USDC: 0xb88C7a8e678B243a6851b9Fa82a1aA0986574631
 
 ## Slither
 
-Just run the command below.
+Make sure to have `slither.config.json` in root folder, then just run the command below.
 
-> slither src/PbCrvOpUsd.sol
+> slither src/{contract_name}.sol
 
 ## Coverage
 
 Install VSCode extension "Coverage Gutters". Run command below. Go to contract page and click "Watch" at the very bottom.
 
-> forge coverage -f https://mainnet.optimism.io --match-contract PbCrvOpUsd --report lcov
+> forge coverage -f https://mainnet.optimism.io --match-contract {contract_name} --report lcov
