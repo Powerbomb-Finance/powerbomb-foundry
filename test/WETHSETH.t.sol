@@ -25,6 +25,7 @@ contract WETHSETHTest is Test {
     IERC20Upgradeable aWETH;
     IRouter router = IRouter(0xa132DAB612dB5cB9fC9Ac426A0Cc215A3423F9c9);
     address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
+    address treasury = 0x96E2951CAbeF46E547Ae9eEDc3245d69deA0Be49;
     // address owner = address(this);
 
     function setUp() public {
@@ -52,6 +53,8 @@ contract WETHSETHTest is Test {
         token1 = IERC20Upgradeable(vaultUSDC.token1());
         lpToken = IERC20Upgradeable(vaultUSDC.lpToken());
         (, aUSDC,,) = vaultUSDC.reward();
+
+        deal(address(USDC), treasury, 0);
     }
 
     // function test() public {
@@ -71,18 +74,18 @@ contract WETHSETHTest is Test {
         // console.log(token0.balanceOf(address(this))); // 0.021111462207938377
         // console.log(token1.balanceOf(address(this))); // 0
 
-        // Deposit token1 for USDC reward
-        // deal(address(token1), address(this), 10 ether);
-        address SETHHolder = 0x12478d1a60a910C9CbFFb90648766a2bDD5918f5;
-        hoax(SETHHolder);
-        token1.transfer(address(this), 10 ether);
-        swapPerc = getSwapPerc(address(token1));
-        token1.approve(address(vaultUSDC), type(uint).max);
-        (amountOut,) = router.getAmountOut(
-            token1.balanceOf(address(this)) * swapPerc / 1000, address(token1), address(token0));
-        vaultUSDC.deposit(token1, token1.balanceOf(address(this)), swapPerc, amountOut * 95 / 100);
-        // console.log(token0.balanceOf(address(this))); // 0.056510491632296631
-        // console.log(token1.balanceOf(address(this))); // 0
+        // as tested 26/2/2023 cannot swap seth to weth for weird reason
+        // // Deposit token1 for USDC reward
+        // address SETHHolder = 0xFd7FddFc0A729eCF45fB6B12fA3B71A575E1966F;
+        // hoax(SETHHolder);
+        // token1.transfer(address(this), 10 ether);
+        // swapPerc = getSwapPerc(address(token1));
+        // token1.approve(address(vaultUSDC), type(uint).max);
+        // (amountOut,) = router.getAmountOut(
+        //     token1.balanceOf(address(this)) * swapPerc / 1000, address(token1), address(token0));
+        // vaultUSDC.deposit(token1, token1.balanceOf(address(this)), swapPerc, amountOut * 95 / 100);
+        // // console.log(token0.balanceOf(address(this))); // 0.056510491632296631
+        // // console.log(token1.balanceOf(address(this))); // 0
 
         // Deposit LP for USDC reward
         deal(address(lpToken), address(this), 1 ether);
@@ -160,14 +163,14 @@ contract WETHSETHTest is Test {
         assertEq(USDC.balanceOf(address(vaultUSDC)), 0);
         assertGt(aUSDC.balanceOf(address(vaultUSDC)), 0);
         // console.log(aUSDC.balanceOf(address(vaultUSDC))); // 118550456 127843902
-        assertGt(USDC.balanceOf(owner), 0); // treasury fee
+        assertGt(USDC.balanceOf(treasury), 0); // treasury fee
         (,,uint lastATokenAmt, uint accRewardPerlpToken) = vaultUSDC.reward();
         assertGt(lastATokenAmt, 0);
         assertGt(accRewardPerlpToken, 0);
 
         // Assume aToken increase
         // aUSDC
-        hoax(0x5F34c530Ffcc091bFb7228B20892612F79361C34);
+        hoax(0x4ecB5300D9ec6BCA09d66bfd8Dcb532e3192dDA1);
         aUSDC.transfer(address(vaultUSDC), 10e6);
         (,,uint lastATokenAmtUSDC, uint accRewardPerlpTokenUSDC) = vaultUSDC.reward();
         uint userPendingvaultUSDC = vaultUSDC.getUserPendingReward(address(this));

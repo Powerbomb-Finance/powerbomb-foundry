@@ -374,52 +374,67 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         WETHAmt += getAmountOut(OPAmt, address(OP), address(WETH));
 
         if (WETHAmt > swapThreshold) {
+            WETHAmt = 0;
             // Swap VELO to WETH
-            WETHAmt = swap(address(VELO), address(WETH), false, VELOAmt, 0);
+            if (VELOAmt > 1 ether) {
+                WETHAmt = swap(address(VELO), address(WETH), false, VELOAmt, 0);
+            }
 
             // Swap OP to WETH
             if (reward.rewardToken != USDC) {
                 // If reward.rewardtoken == USDC, swap OP directly to USDC below
-                WETHAmt += swap(address(OP), address(WETH), false, OPAmt, 0);
+                if (OPAmt > 1 ether) {
+                    WETHAmt += swap(address(OP), address(WETH), false, OPAmt, 0);
+                }
             }
 
             // Swap WETH to reward token
-            uint rewardTokenAmt;
+            uint rewardTokenAmt = 0;
             if (reward.rewardToken == WBTC) {
-                IRouter.route[] memory routes = new IRouter.route[](2);
-                routes[0] = IRouter.route(address(WETH), address(USDC), false);
-                routes[1] = IRouter.route(address(USDC), address(WBTC), false);
-                rewardTokenAmt = router.swapExactTokensForTokens(
-                    WETHAmt,
-                    0,
-                    routes,
-                    address(this),
-                    block.timestamp
-                )[2];
+                if (WETHAmt > 0) {
+                    IRouter.route[] memory routes = new IRouter.route[](2);
+                    routes[0] = IRouter.route(address(WETH), address(USDC), false);
+                    routes[1] = IRouter.route(address(USDC), address(WBTC), false);
+                    rewardTokenAmt = router.swapExactTokensForTokens(
+                        WETHAmt,
+                        0,
+                        routes,
+                        address(this),
+                        block.timestamp
+                    )[2];
+                }
 
             } else if (reward.rewardToken == USDC) {
-                rewardTokenAmt = swap(address(WETH), address(reward.rewardToken), false, WETHAmt, 0);
-                rewardTokenAmt += swap(address(OP), address(reward.rewardToken), false, OPAmt, 0);
+                if (WETHAmt > 0) {
+                    rewardTokenAmt = swap(address(WETH), address(reward.rewardToken), false, WETHAmt, 0);
+                }
+                if (OPAmt > 1 ether) {
+                    rewardTokenAmt += swap(address(OP), address(reward.rewardToken), false, OPAmt, 0);
+                }
 
             } else { // reward.rewardToken == WETH
                 rewardTokenAmt = WETHAmt;
             }
 
-            // Calculate fee
-            uint fee = rewardTokenAmt * yieldFeePerc / 10000;
-            rewardTokenAmt -= fee;
-            reward.rewardToken.safeTransfer(treasury, fee);
+            uint fee = 0;
+            if (rewardTokenAmt > 0) {
+                // Calculate fee
+                fee = rewardTokenAmt * yieldFeePerc / 10000;
+                rewardTokenAmt -= fee;
+                reward.rewardToken.safeTransfer(treasury, fee);
 
-            // Update accRewardPerlpToken
-            reward.accRewardPerlpToken += (rewardTokenAmt * 1e36 / currentPool);
+                // Update accRewardPerlpToken
+                reward.accRewardPerlpToken += (rewardTokenAmt * 1e36 / currentPool);
 
-            // Deposit reward token into Aave to get interest bearing aToken
-            lendingPool.supply(address(reward.rewardToken), rewardTokenAmt, address(this), 0);
+                // Deposit reward token into Aave to get interest bearing aToken
+                lendingPool.supply(address(reward.rewardToken), rewardTokenAmt, address(this), 0);
 
-            // Update lastATokenAmt
-            reward.lastATokenAmt = reward.aToken.balanceOf(address(this));
+                // Update lastATokenAmt
+                reward.lastATokenAmt = reward.aToken.balanceOf(address(this));
 
-            accRewardTokenAmt += rewardTokenAmt;
+                accRewardTokenAmt += rewardTokenAmt;
+            }
+
             emit Harvest(VELOAmt, rewardTokenAmt, fee);
         }
     }
