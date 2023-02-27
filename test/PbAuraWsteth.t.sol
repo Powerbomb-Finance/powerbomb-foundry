@@ -21,24 +21,24 @@ contract PbAuraWstethTest is Test {
     IERC20Upgradeable lpToken;
     IERC20Upgradeable aToken;
     bytes32 poolId = 0x32296969ef14eb0c6d29669c550d4a0449130230000200000000000000000080;
-    address owner = address(this);
-    // address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
+    // address owner = address(this);
+    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
 
     function setUp() public {
-        // Deploy implementation contract
-        PbAuraWsteth vaultImpl = new PbAuraWsteth();
+        // // Deploy implementation contract
+        // PbAuraWsteth vaultImpl = new PbAuraWsteth();
 
-        // Deploy usdc reward proxy contract
-        PbProxy proxy = new PbProxy(
-            address(vaultImpl),
-            abi.encodeWithSelector(
-                bytes4(keccak256("initialize(uint256,address)")),
-                29,
-                address(usdc)
-            )
-        );
-        vaultUsdc = PbAuraWsteth(payable(address(proxy)));
-        // vaultUsdc = PbAuraWsteth(payable(0xEd50193fd08eA01D9e5CfaBC5476c6c72D6a3F21));
+        // // Deploy usdc reward proxy contract
+        // PbProxy proxy = new PbProxy(
+        //     address(vaultImpl),
+        //     abi.encodeWithSelector(
+        //         bytes4(keccak256("initialize(uint256,address)")),
+        //         29,
+        //         address(usdc)
+        //     )
+        // );
+        // vaultUsdc = PbAuraWsteth(payable(address(proxy)));
+        vaultUsdc = PbAuraWsteth(payable(0x3bBc9Dc447D12a2ea196a3395dd6bCb06fF07631));
 
         // // upgrade
         // hoax(owner);
