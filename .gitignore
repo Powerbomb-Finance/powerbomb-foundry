@@ -2,3 +2,4 @@ cache/
 out/
 .env
 lib/chainlink
+.DS_Store
