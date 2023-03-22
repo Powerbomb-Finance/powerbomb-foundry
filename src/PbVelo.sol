@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.15;
+pragma solidity 0.8.16;
 
 import "openzeppelin-contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "openzeppelin-contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
@@ -68,7 +68,8 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
     function initialize(
         IGauge _gauge,
         IERC20Upgradeable _rewardToken,
-        address _treasury
+        address _treasury,
+        uint swapThreshold_
     ) external virtual initializer {
         __Ownable_init();
 
@@ -83,6 +84,7 @@ contract PbVelo is Initializable, OwnableUpgradeable, UUPSUpgradeable, Reentranc
         (,,,,,,,,address _aTokenAddr) = lendingPool.getReserveData(address(_rewardToken));
         reward.aToken = IERC20Upgradeable(_aTokenAddr);
         treasury = _treasury;
+        swapThreshold = swapThreshold_;
         yieldFeePerc = 50; // 2 decimals, 50 = 0.5%
 
         token0.safeApprove(address(router), type(uint).max);

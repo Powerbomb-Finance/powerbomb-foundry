@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.15;
+pragma solidity 0.8.16;
 
 import "forge-std/Test.sol";
 import "../src/PbVelo.sol";
@@ -37,7 +37,7 @@ contract WETHUSDCTest is Test {
         // PbProxy proxy = new PbProxy(
         //     address(vaultImpl),
         //     abi.encodeWithSelector(
-        //         bytes4(keccak256("initialize(address,address,address)")),
+        //         PbVelo.initialize.selector,
         //         0xE2CEc8aB811B648bA7B1691Ce08d5E800Dd0a60a, // _gauge
         //         address(WBTC), // _rewardToken
         //         address(owner) // _treasury
@@ -51,7 +51,7 @@ contract WETHUSDCTest is Test {
         // proxy = new PbProxy(
         //     address(vaultImpl),
         //     abi.encodeWithSelector(
-        //         bytes4(keccak256("initialize(address,address,address)")),
+        //         PbVelo.initialize.selector,
         //         0xE2CEc8aB811B648bA7B1691Ce08d5E800Dd0a60a, // _gauge
         //         address(WETH), // _rewardToken
         //         address(owner) // _treasury
@@ -65,7 +65,7 @@ contract WETHUSDCTest is Test {
         // proxy = new PbProxy(
         //     address(vaultImpl),
         //     abi.encodeWithSelector(
-        //         bytes4(keccak256("initialize(address,address,address)")),
+        //         PbVelo.initialize.selector,
         //         0xE2CEc8aB811B648bA7B1691Ce08d5E800Dd0a60a, // _gauge
         //         address(USDC), // _rewardToken
         //         address(owner) // _treasury
@@ -407,11 +407,11 @@ contract WETHUSDCTest is Test {
         vaultUSDC.transferOwnership(address(1));
         // Vault
         vm.expectRevert(bytes("Initializable: contract is already initialized"));
-        vaultBTC.initialize(IGauge(address(0)), IERC20Upgradeable(address(0)), address(0));
+        vaultBTC.initialize(IGauge(address(0)), IERC20Upgradeable(address(0)), address(0),0);
         vm.expectRevert(bytes("Initializable: contract is already initialized"));
-        vaultETH.initialize(IGauge(address(0)), IERC20Upgradeable(address(0)), address(0));
+        vaultETH.initialize(IGauge(address(0)), IERC20Upgradeable(address(0)), address(0),0);
         vm.expectRevert(bytes("Initializable: contract is already initialized"));
-        vaultUSDC.initialize(IGauge(address(0)), IERC20Upgradeable(address(0)), address(0));
+        vaultUSDC.initialize(IGauge(address(0)), IERC20Upgradeable(address(0)), address(0),0);
         vm.expectRevert(bytes("Ownable: caller is not the owner"));
         vaultBTC.pauseContract();
         vm.expectRevert(bytes("Ownable: caller is not the owner"));

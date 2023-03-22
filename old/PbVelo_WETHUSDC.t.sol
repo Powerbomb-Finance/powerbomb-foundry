@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.15;
+pragma solidity 0.8.16;
 
 import "forge-std/Test.sol";
 import "../src/PbVelo.sol";
@@ -30,7 +30,7 @@ contract PbVeloTest_WETHUSDC is Test {
         PbProxy proxy = new PbProxy(
             address(vault),
             abi.encodeWithSelector(
-                bytes4(keccak256("initialize(address,address,address)")),
+                PbVelo.initialize.selector,
                 0xE2CEc8aB811B648bA7B1691Ce08d5E800Dd0a60a, // _gauge
                 address(WETH), // _rewardToken
                 address(owner) // _treasury
