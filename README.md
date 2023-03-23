@@ -168,6 +168,10 @@ Deposit/withdraw native ETH/sETH/LP token into vault. Rewards in USDC.
 
 USDC reward: 0xcba7864134e1A5326b817676ad5302A009c84d68
 
+WBTC reward: 0x3eB3D7d12a6421fb4D261D62431b34382fc2f72D
+
+WETH reward: 0x225169A63864f9E6d1B92bdB43118D701fAF7531
+
 ### Tokens
 
 WETH: 0x4200000000000000000000000000000000000006 (deposit in native ETH)
@@ -175,3 +179,38 @@ WETH: 0x4200000000000000000000000000000000000006 (deposit in native ETH)
 sETH: 0xE405de8F52ba7559f9df3C368500B6E6ae6Cee49
 
 LP token: 0xFd7FddFc0A729eCF45fB6B12fA3B71A575E1966F
+
+
+## Checklist for deploy/upgrade contract
+
+### before
+
+1. forge test
+
+2. slither
+
+3. forge coverage
+
+4. solhint
+
+### after
+
+1. forge test without upgrade code
+
+## Slither
+
+Make sure to have `slither.config.json` in root folder, then just run the command below.
+
+> slither src/{contract_name}.sol
+
+## Coverage
+
+Install VSCode extension "Coverage Gutters". Run command below. Go to contract page and click "Watch" at the very bottom.
+
+> forge coverage -f {rpc_url} --match-contract {contract_name} --report lcov
+
+## Solhit
+
+Make sure to have `solhint.json` in root folder, then just run the command below.
+
+> solhint src/{contract_name}.sol

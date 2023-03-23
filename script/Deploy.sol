@@ -10,7 +10,7 @@ contract Deploy is Script {
     address WBTC = 0x68f180fcCe6836688e9084f035309E29Bf0A2095;
     address WETH = 0x4200000000000000000000000000000000000006;
     address USDC = 0x7F5c764cBc14f9669B88837ca1490cCa17c31607;
-    address gauge = 0x101D5e5651D7f949154258C1C7516da1eC273476;
+    address gaugeAddr = 0x101D5e5651D7f949154258C1C7516da1eC273476;
 
     function run() public {
         vm.startBroadcast();
