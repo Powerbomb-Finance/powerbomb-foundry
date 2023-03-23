@@ -12,7 +12,7 @@ interface IRouter {
         uint deadline
     ) external returns (uint[] memory amounts);
 
-    struct route {
+    struct Route {
         address from;
         address to;
         bool stable;
@@ -21,7 +21,7 @@ interface IRouter {
     function swapExactTokensForTokens(
         uint amountIn,
         uint amountOutMin,
-        route[] calldata routes,
+        Route[] calldata routes,
         address to,
         uint deadline
     ) external returns (uint[] memory amounts);
@@ -57,7 +57,7 @@ interface IRouter {
 
     function getAmountsOut(
         uint amountIn,
-        route[] memory routes
+        Route[] memory routes
     ) external view returns (uint[] memory amounts);
 
     function quoteAddLiquidity(
