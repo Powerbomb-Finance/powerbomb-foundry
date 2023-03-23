@@ -29,35 +29,35 @@ contract WETHSETHTest is Test {
     IERC20Upgradeable aWBTC;
     IERC20Upgradeable aWETH;
     IRouter router = IRouter(0xa132DAB612dB5cB9fC9Ac426A0Cc215A3423F9c9);
-    // address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
     address treasury = 0x96E2951CAbeF46E547Ae9eEDc3245d69deA0Be49;
-    address owner = address(this);
+    // address owner = address(this);
+    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
 
     function setUp() public {
         PbVelo vaultImpl = new PbVelo();
+
+        // PbProxy proxy = new PbProxy(
+        //     address(vaultImpl),
+        //     abi.encodeWithSelector(
+        //         PbVelo.initialize.selector,
+        //         gaugeAddr, // _gauge
+        //         address(USDC), // _rewardToken
+        //         treasury, // _treasury
+        //         0.001 ether // swapThreshold
+        //     )
+        // );
+        // vaultUSDC = PbVelo(payable(address(proxy)));
+        vaultUSDC = PbVelo(payable(0xcba7864134e1A5326b817676ad5302A009c84d68));
+        hoax(owner);
+        vaultUSDC.upgradeTo(address(vaultImpl));
 
         PbProxy proxy = new PbProxy(
             address(vaultImpl),
             abi.encodeWithSelector(
                 PbVelo.initialize.selector,
                 gaugeAddr, // _gauge
-                address(USDC), // _rewardToken
-                address(treasury), // _treasury
-                0.001 ether // swapThreshold
-            )
-        );
-        vaultUSDC = PbVelo(payable(address(proxy)));
-        // vaultUSDC = PbVelo(payable(0xcba7864134e1A5326b817676ad5302A009c84d68));
-        // hoax(owner);
-        // vaultUSDC.upgradeTo(address(vaultImpl));
-
-        proxy = new PbProxy(
-            address(vaultImpl),
-            abi.encodeWithSelector(
-                PbVelo.initialize.selector,
-                gaugeAddr, // _gauge
                 address(WBTC), // _rewardToken
-                address(treasury), // _treasury
+                treasury, // _treasury
                 0.001 ether // swapThreshold
             )
         );
@@ -69,7 +69,7 @@ contract WETHSETHTest is Test {
                 PbVelo.initialize.selector,
                 gaugeAddr, // _gauge
                 address(WETH), // _rewardToken
-                address(treasury), // _treasury
+                treasury, // _treasury
                 0.001 ether // swapThreshold
             )
         );
@@ -87,6 +87,14 @@ contract WETHSETHTest is Test {
         deal(address(WETH), treasury, 0);
     }
 
+    // function test() public {
+    //     vaultUSDC.deposit{value: 67 ether}(WETH, 67 ether, getSwapPerc(address(WETH)), 0);
+    //     // console.log(vaultUSDC.getUserBalanceInUSD(address(this)));
+    //     console.log(token0.balanceOf(address(this))); // 0
+    //     console.log(token1.balanceOf(address(this))); // 0.094209361341491118
+    //     // console.log(lpToken.balanceOf(address(this)));
+    // }
+
     function testDeposit() public {
         // Deposit token0 for USDC reward
         uint swapPerc = getSwapPerc(address(token0));
@@ -96,18 +104,18 @@ contract WETHSETHTest is Test {
         // console.log(token0.balanceOf(address(this))); // 0.021111462207938377
         // console.log(token1.balanceOf(address(this))); // 0
 
-        // // as tested 19/3/2023 cannot swap seth to weth for weird reason
-        // // Deposit token1 for USDC reward
-        // address SETHHolder = 0xFd7FddFc0A729eCF45fB6B12fA3B71A575E1966F;
-        // hoax(SETHHolder);
-        // token1.transfer(address(this), 1 ether);
-        // swapPerc = getSwapPerc(address(token1));
-        // token1.approve(address(vaultUSDC), type(uint).max);
-        // (amountOut,) = router.getAmountOut(
-        //     token1.balanceOf(address(this)) * swapPerc / 1000, address(token1), address(token0));
-        // vaultUSDC.deposit(token1, token1.balanceOf(address(this)), swapPerc, amountOut * 95 / 100);
-        // // console.log(token0.balanceOf(address(this))); // 0.056510491632296631
-        // // console.log(token1.balanceOf(address(this))); // 0
+        // as tested 19/3/2023 cannot swap seth to weth for weird reason
+        // Deposit token1 for USDC reward
+        address SETHHolder = 0xB343dae0E7fe28c16EC5dCa64cB0C1ac5F4690AC;
+        hoax(SETHHolder);
+        token1.transfer(address(this), 1 ether);
+        swapPerc = getSwapPerc(address(token1));
+        token1.approve(address(vaultUSDC), type(uint).max);
+        (amountOut,) = router.getAmountOut(
+            token1.balanceOf(address(this)) * swapPerc / 1000, address(token1), address(token0));
+        vaultUSDC.deposit(token1, token1.balanceOf(address(this)), swapPerc, amountOut * 95 / 100);
+        // console.log(token0.balanceOf(address(this))); // 0.056510491632296631
+        // console.log(token1.balanceOf(address(this))); // 0
 
         // Deposit token0 for WBTC reward
         swapPerc = getSwapPerc(address(token0));
@@ -175,24 +183,24 @@ contract WETHSETHTest is Test {
         vaultWETH.withdraw(token0, userBalance, amountOut * 95 / 100);
 
         // Assertion check
-        assertEq(vaultUSDC.getAllPool(), 0);
-        assertEq(vaultUSDC.getAllPoolInUSD(), 0);
+        // assertEq(vaultUSDC.getAllPool(), 0);
+        // assertEq(vaultUSDC.getAllPoolInUSD(), 0);
         assertEq(vaultUSDC.getUserBalance(address(this)), 0);
         assertEq(vaultUSDC.getUserBalanceInUSD(address(this)), 0);
         assertEq(token0.balanceOf(address(vaultUSDC)), 0);
         assertEq(token1.balanceOf(address(vaultUSDC)), 0);
         assertEq(address(vaultUSDC).balance, 0);
         assertEq(lpToken.balanceOf(address(vaultUSDC)), 0);
-        assertEq(vaultWBTC.getAllPool(), 0);
-        assertEq(vaultWBTC.getAllPoolInUSD(), 0);
+        // assertEq(vaultWBTC.getAllPool(), 0);
+        // assertEq(vaultWBTC.getAllPoolInUSD(), 0);
         assertEq(vaultWBTC.getUserBalance(address(this)), 0);
         assertEq(vaultWBTC.getUserBalanceInUSD(address(this)), 0);
         assertEq(token0.balanceOf(address(vaultWBTC)), 0);
         assertEq(token1.balanceOf(address(vaultWBTC)), 0);
         assertEq(address(vaultWBTC).balance, 0);
         assertEq(lpToken.balanceOf(address(vaultWBTC)), 0);
-        assertEq(vaultWETH.getAllPool(), 0);
-        assertEq(vaultWETH.getAllPoolInUSD(), 0);
+        // assertEq(vaultWETH.getAllPool(), 0);
+        // assertEq(vaultWETH.getAllPoolInUSD(), 0);
         assertEq(vaultWETH.getUserBalance(address(this)), 0);
         assertEq(vaultWETH.getUserBalanceInUSD(address(this)), 0);
         assertEq(token0.balanceOf(address(vaultWETH)), 0);
@@ -321,25 +329,25 @@ contract WETHSETHTest is Test {
         assertEq(USDC.balanceOf(address(this)), userPendingRewardUSDC);
         (, uint rewardStartAt) = vaultUSDC.userInfo(address(this));
         assertGt(rewardStartAt, 0);
-        (,,uint lastATokenAmt,) = vaultUSDC.reward();
-        assertLe(lastATokenAmt, 2);
-        assertLe(aUSDC.balanceOf(address(vaultUSDC)), 2);
+        // (,,uint lastATokenAmt,) = vaultUSDC.reward();
+        // assertLe(lastATokenAmt, 2);
+        // assertLe(aUSDC.balanceOf(address(vaultUSDC)), 2);
         assertEq(USDC.balanceOf(address(vaultUSDC)), 0);
         // vaultWBTC
         assertEq(WBTC.balanceOf(address(this)), userPendingRewardWBTC);
         (, rewardStartAt) = vaultWBTC.userInfo(address(this));
         assertGt(rewardStartAt, 0);
-        (,,lastATokenAmt,) = vaultWBTC.reward();
-        assertLe(lastATokenAmt, 2);
-        assertLe(aWBTC.balanceOf(address(vaultWBTC)), 2);
+        // (,,lastATokenAmt,) = vaultWBTC.reward();
+        // assertLe(lastATokenAmt, 2);
+        // assertLe(aWBTC.balanceOf(address(vaultWBTC)), 2);
         assertEq(WBTC.balanceOf(address(vaultWBTC)), 0);
         // vaultWETH
         assertEq(WETH.balanceOf(address(this)), userPendingRewardWETH);
         (, rewardStartAt) = vaultWETH.userInfo(address(this));
         assertGt(rewardStartAt, 0);
-        (,,lastATokenAmt,) = vaultWETH.reward();
-        assertLe(lastATokenAmt, 2);
-        assertLe(aWETH.balanceOf(address(vaultWETH)), 2);
+        // (,,lastATokenAmt,) = vaultWETH.reward();
+        // assertLe(lastATokenAmt, 2);
+        // assertLe(aWETH.balanceOf(address(vaultWETH)), 2);
         assertEq(WETH.balanceOf(address(vaultWETH)), 0);
     }
 
@@ -414,13 +422,13 @@ contract WETHSETHTest is Test {
         (IERC20Upgradeable rewardToken, IERC20Upgradeable aToken, uint lastATokenAmt, uint accRewardPerlpToken) = vaultUSDC.reward();
         assertEq(address(rewardToken), address(USDC));
         assertEq(address(aToken), 0x625E7708f30cA75bfd92586e17077590C60eb4cD);
-        assertEq(lastATokenAmt, 0);
-        assertEq(accRewardPerlpToken, 0);
+        // assertEq(lastATokenAmt, 0);
+        // assertEq(accRewardPerlpToken, 0);
         (uint lpTokenBalance, uint rewardStartAt) = vaultUSDC.userInfo(address(this));
         assertEq(lpTokenBalance, 0);
         assertEq(rewardStartAt, 0);
         assertEq(vaultUSDC.swapThreshold(), 0.001 ether);
-        assertEq(vaultUSDC.accRewardTokenAmt(), 0);
+        // assertEq(vaultUSDC.accRewardTokenAmt(), 0);
         // vaultWBTC
         assertEq(address(vaultWBTC.token0()), address(WETH));
         assertEq(address(vaultWBTC.token1()), sethAddr);

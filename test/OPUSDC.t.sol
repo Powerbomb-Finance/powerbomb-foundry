@@ -28,11 +28,12 @@ contract OPUSDCTest is Test {
     IERC20Upgradeable aWETH;
     IERC20Upgradeable aUSDC;
     IRouter router = IRouter(0xa132DAB612dB5cB9fC9Ac426A0Cc215A3423F9c9);
-    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
+    address treasury = 0x96E2951CAbeF46E547Ae9eEDc3245d69deA0Be49;
     // address owner = address(this);
+    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
 
     function setUp() public {
-        // PbVelo vaultImpl = new PbVelo();
+        PbVelo vaultImpl = new PbVelo();
 
         // PbProxy proxy = new PbProxy(
         //     address(vaultImpl),
@@ -40,13 +41,14 @@ contract OPUSDCTest is Test {
         //         PbVelo.initialize.selector,
         //         0x0299d40E99F2a5a1390261f5A71d13C3932E214C, // _gauge
         //         address(WBTC), // _rewardToken
-        //         address(owner) // _treasury
+        //         address(owner), // _treasury
+        //         0.001 ether // swapThreshold
         //     )
         // );
         // vaultBTC = PbVelo(payable(address(proxy)));
         vaultBTC = PbVelo(payable(0x2510E5054eeEbED40C3C580ae3241F5457b630D9));
-        // hoax(owner);
-        // vaultBTC.upgradeTo(address(vaultImpl));
+        hoax(owner);
+        vaultBTC.upgradeTo(address(vaultImpl));
 
         // proxy = new PbProxy(
         //     address(vaultImpl),
@@ -54,13 +56,14 @@ contract OPUSDCTest is Test {
         //         PbVelo.initialize.selector,
         //         0x0299d40E99F2a5a1390261f5A71d13C3932E214C, // _gauge
         //         address(WETH), // _rewardToken
-        //         address(owner) // _treasury
+        //         address(owner), // _treasury
+        //         0.001 ether // swapThreshold
         //     )
         // );
         // vaultETH = PbVelo(payable(address(proxy)));
         vaultETH = PbVelo(payable(0xFAcB839BF8f09f2e7B4b6C83349B5bbFD62fd659));
-        // hoax(owner);
-        // vaultETH.upgradeTo(address(vaultImpl));
+        hoax(owner);
+        vaultETH.upgradeTo(address(vaultImpl));
 
         // proxy = new PbProxy(
         //     address(vaultImpl),
@@ -68,19 +71,14 @@ contract OPUSDCTest is Test {
         //         PbVelo.initialize.selector,
         //         0x0299d40E99F2a5a1390261f5A71d13C3932E214C, // _gauge
         //         address(USDC), // _rewardToken
-        //         address(owner) // _treasury
+        //         address(owner), // _treasury
+        //         0.001 ether // swapThreshold
         //     )
         // );
         // vaultUSDC = PbVelo(payable(address(proxy)));
         vaultUSDC = PbVelo(payable(0x176CC5Ff9BDBf4daFB955003E6f8229f47Ef1E55));
-        // hoax(owner);
-        // vaultUSDC.upgradeTo(address(vaultImpl));
-
-        // vm.startPrank(owner);
-        // vaultBTC.setSwapThreshold(0.001 ether);
-        // vaultETH.setSwapThreshold(0.001 ether);
-        // vaultUSDC.setSwapThreshold(0.001 ether);
-        // vm.stopPrank();
+        hoax(owner);
+        vaultUSDC.upgradeTo(address(vaultImpl));
 
         token0 = IERC20Upgradeable(vaultBTC.token0());
         token1 = IERC20Upgradeable(vaultBTC.token1());
@@ -89,9 +87,9 @@ contract OPUSDCTest is Test {
         (, aWETH,,) = vaultETH.reward();
         (, aUSDC,,) = vaultUSDC.reward();
 
-        deal(address(WBTC), address(owner), 0);
-        deal(address(WETH), address(owner), 0);
-        deal(address(USDC), address(owner), 0);
+        deal(address(WBTC), treasury, 0);
+        deal(address(WETH), treasury, 0);
+        deal(address(USDC), treasury, 0);
     }
 
     // function test() public {
@@ -164,12 +162,13 @@ contract OPUSDCTest is Test {
         // console.log(vaultUSDC.getAllPoolInUSD());
         assertEq(token0.balanceOf(address(vaultBTC)), 0);
 
+        assertEq(token0.balanceOf(address(vaultBTC)), 0);
         assertEq(token1.balanceOf(address(vaultBTC)), 0);
         assertEq(lpToken.balanceOf(address(vaultBTC)), 0);
         assertEq(token0.balanceOf(address(vaultETH)), 0);
         assertEq(token1.balanceOf(address(vaultETH)), 0);
         assertEq(lpToken.balanceOf(address(vaultETH)), 0);
-        assertEq(token0.balanceOf(address(vaultUSDC)), 0);
+        // assertEq(token0.balanceOf(address(vaultUSDC)), 0); // got airdrop from optimism foundation
         assertEq(token1.balanceOf(address(vaultUSDC)), 0);
         assertEq(lpToken.balanceOf(address(vaultUSDC)), 0);
     }
@@ -211,12 +210,12 @@ contract OPUSDCTest is Test {
         // console.log(token0.balanceOf(address(this))); // 6586.231624663510749663
         // console.log(token1.balanceOf(address(this))); // 15174.738761
         assertEq(token0.balanceOf(address(vaultBTC)), 0);
-        // assertEq(token1.balanceOf(address(vaultBTC)), 0); <-- to check
+        assertEq(token1.balanceOf(address(vaultBTC)), 0);
         assertEq(lpToken.balanceOf(address(vaultBTC)), 0);
         assertEq(token0.balanceOf(address(vaultETH)), 0);
         assertEq(token1.balanceOf(address(vaultETH)), 0);
         assertEq(lpToken.balanceOf(address(vaultETH)), 0);
-        assertEq(token0.balanceOf(address(vaultUSDC)), 0);
+        // assertEq(token0.balanceOf(address(vaultUSDC)), 0); // got airdrop from optimism foundation
         assertEq(token1.balanceOf(address(vaultUSDC)), 0);
         assertEq(lpToken.balanceOf(address(vaultUSDC)), 0);
         assertGt(token0.balanceOf(address(this)), 0);
@@ -251,9 +250,9 @@ contract OPUSDCTest is Test {
         assertGt(aWETH.balanceOf(address(vaultETH)), 0);
         assertEq(USDC.balanceOf(address(vaultUSDC)), 0);
         assertGt(aUSDC.balanceOf(address(vaultUSDC)), 0);
-        assertGt(WBTC.balanceOf(owner), 0); // treasury fee
-        assertGt(WETH.balanceOf(owner), 0); // treasury fee
-        assertGt(USDC.balanceOf(owner), 0); // treasury fee
+        assertGt(WBTC.balanceOf(treasury), 0); // treasury fee
+        assertGt(WETH.balanceOf(treasury), 0); // treasury fee
+        assertGt(USDC.balanceOf(treasury), 0); // treasury fee
         (,,uint lastATokenAmt, uint accRewardPerlpToken) = vaultBTC.reward();
         assertGt(lastATokenAmt, 0);
         assertGt(accRewardPerlpToken, 0);
@@ -266,17 +265,17 @@ contract OPUSDCTest is Test {
 
         // Assume aToken increase
         // aWBTC
-        hoax(0xc4f24fa48D6DF95097b2577caC2cAf186bC92a00);
+        hoax(0x8eb23a3010795574eE3DD101843dC90bD63b5099);
         aWBTC.transfer(address(vaultBTC), 1e5);
         (,,uint lastATokenAmtWBTC, uint accRewardPerlpTokenWBTC) = vaultBTC.reward();
         uint userPendingVaultBTC = vaultBTC.getUserPendingReward(address(this));
         // aWETH
-        hoax(0xa3fDC58439b4677A11b9b0C49caE0fCA9c23Ab8a);
+        hoax(0x39fB69f58481458c5BdF8b141d11157937FFcF14);
         aWETH.transfer(address(vaultETH), 1e16);
         (,,uint lastATokenAmtWETH, uint accRewardPerlpTokenWETH) = vaultBTC.reward();
         uint userPendingVaultETH = vaultETH.getUserPendingReward(address(this));
         // aUSDC
-        hoax(0x5F34c530Ffcc091bFb7228B20892612F79361C34);
+        hoax(0x4ecB5300D9ec6BCA09d66bfd8Dcb532e3192dDA1);
         aUSDC.transfer(address(vaultUSDC), 10e6);
         (,,uint lastATokenAmtUSDC, uint accRewardPerlpTokenUSDC) = vaultUSDC.reward();
         uint userPendingVaultUSDC = vaultUSDC.getUserPendingReward(address(this));

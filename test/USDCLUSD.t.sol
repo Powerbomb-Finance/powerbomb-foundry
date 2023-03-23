@@ -17,6 +17,7 @@ contract USDCLUSDTest is Test {
     PbVelo vaultETH;
     IERC20Upgradeable VELO = IERC20Upgradeable(0x3c8B650257cFb5f272f799F5e2b4e65093a11a05);
     IERC20Upgradeable WBTC = IERC20Upgradeable(0x68f180fcCe6836688e9084f035309E29Bf0A2095);
+    IERC20Upgradeable USDC = IERC20Upgradeable(0x7F5c764cBc14f9669B88837ca1490cCa17c31607);
     IERC20Upgradeable WETH = IERC20Upgradeable(0x4200000000000000000000000000000000000006);
     IERC20Upgradeable OP = IERC20Upgradeable(0x4200000000000000000000000000000000000042);
     IERC20Upgradeable token0;
@@ -25,11 +26,12 @@ contract USDCLUSDTest is Test {
     IERC20Upgradeable aWBTC;
     IERC20Upgradeable aWETH;
     IRouter router = IRouter(0xa132DAB612dB5cB9fC9Ac426A0Cc215A3423F9c9);
-    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
+    address treasury = 0x96E2951CAbeF46E547Ae9eEDc3245d69deA0Be49;
     // address owner = address(this);
+    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
 
     function setUp() public {
-        // PbVelo vaultImpl = new PbVelo();
+        PbVelo vaultImpl = new PbVelo();
 
         // PbProxy proxy = new PbProxy(
         //     address(vaultImpl),
@@ -37,13 +39,14 @@ contract USDCLUSDTest is Test {
         //         PbVelo.initialize.selector,
         //         0x631dCe3a422e1af1AD9d3952B06f9320e2f2ed72, // _gauge
         //         address(WBTC), // _rewardToken
-        //         address(owner) // _treasury
+        //         address(owner), // _treasury
+        //         0.001 ether // swapThreshold
         //     )
         // );
         // vaultBTC = PbVelo(payable(address(proxy)));
         vaultBTC = PbVelo(payable(0xcaCdE37C8Aef43304e9d7153e668eDb7126Ff755));
-        // hoax(owner);
-        // vaultBTC.upgradeTo(address(vaultImpl));
+        hoax(owner);
+        vaultBTC.upgradeTo(address(vaultImpl));
 
         // proxy = new PbProxy(
         //     address(vaultImpl),
@@ -51,24 +54,24 @@ contract USDCLUSDTest is Test {
         //         PbVelo.initialize.selector,
         //         0x631dCe3a422e1af1AD9d3952B06f9320e2f2ed72, // _gauge
         //         address(WETH), // _rewardToken
-        //         address(owner) // _treasury
+        //         address(owner), // _treasury
+        //         0.001 ether // swapThreshold
         //     )
         // );
         // vaultETH = PbVelo(payable(address(proxy)));
         vaultETH = PbVelo(payable(0xf12a8E2Fd857B134381c1B9F6027D4F0eE05295A));
-        // hoax(owner);
-        // vaultETH.upgradeTo(address(vaultImpl));
-
-        // vm.startPrank(owner);
-        // vaultBTC.setSwapThreshold(0.001 ether);
-        // vaultETH.setSwapThreshold(0.001 ether);
-        // vm.stopPrank();
+        hoax(owner);
+        vaultETH.upgradeTo(address(vaultImpl));
 
         token0 = IERC20Upgradeable(vaultBTC.token0());
         token1 = IERC20Upgradeable(vaultBTC.token1());
         lpToken = IERC20Upgradeable(vaultBTC.lpToken());
         (, aWBTC,,) = vaultBTC.reward();
         (, aWETH,,) = vaultETH.reward();
+
+        deal(address(WBTC), treasury, 0);
+        deal(address(WETH), treasury, 0);
+        deal(address(USDC), treasury, 0);
     }
 
     // function test() public {
@@ -90,7 +93,6 @@ contract USDCLUSDTest is Test {
         (uint amountOut,) = router.getAmountOut(
             token0.balanceOf(address(this)) * swapPerc / 1000, address(token0), address(token1));
         vaultBTC.deposit(token0, token0.balanceOf(address(this)), swapPerc, amountOut * 95 / 100);
-        // vaultBTC.deposit(token0, token0.balanceOf(address(this)), 390, 0);
         // console.log(token0.balanceOf(address(this))); // 132.472562
         // console.log(token1.balanceOf(address(this))); // 0
 
@@ -159,12 +161,12 @@ contract USDCLUSDTest is Test {
         vaultETH.withdraw(token0, userBalance, amountOut * 95 / 100);
 
         // Assertion check
-         // assertEq(vaultBTC.getAllPool(), 0);
-         // assertEq(vaultBTC.getAllPoolInUSD(), 0);
+        // assertEq(vaultBTC.getAllPool(), 0);
+        // assertEq(vaultBTC.getAllPoolInUSD(), 0);
         assertEq(vaultBTC.getUserBalance(address(this)), 0);
         assertEq(vaultBTC.getUserBalanceInUSD(address(this)), 0);
-         // assertEq(vaultETH.getAllPool(), 0);
-         // assertEq(vaultETH.getAllPoolInUSD(), 0);
+        // assertEq(vaultETH.getAllPool(), 0);
+        // assertEq(vaultETH.getAllPoolInUSD(), 0);
         assertEq(vaultETH.getUserBalance(address(this)), 0);
         assertEq(vaultETH.getUserBalanceInUSD(address(this)), 0);
         // console.log(lpToken.balanceOf(address(this))); // 0.000100000000000000
@@ -202,8 +204,8 @@ contract USDCLUSDTest is Test {
         assertGt(aWBTC.balanceOf(address(vaultBTC)), 0);
         assertEq(WETH.balanceOf(address(vaultETH)), 0);
         assertGt(aWETH.balanceOf(address(vaultETH)), 0);
-        assertGt(WBTC.balanceOf(owner), 0); // treasury fee
-        assertGt(WETH.balanceOf(owner), 0); // treasury fee
+        assertGt(WBTC.balanceOf(treasury), 0); // treasury fee
+        assertGt(WETH.balanceOf(treasury), 0); // treasury fee
         (,,uint lastATokenAmt, uint accRewardPerlpToken) = vaultBTC.reward();
         assertGt(lastATokenAmt, 0);
         assertGt(accRewardPerlpToken, 0);
@@ -213,12 +215,12 @@ contract USDCLUSDTest is Test {
 
         // Assume aToken increase
         // aWBTC
-        hoax(0xc4f24fa48D6DF95097b2577caC2cAf186bC92a00);
+        hoax(0x8eb23a3010795574eE3DD101843dC90bD63b5099);
         aWBTC.transfer(address(vaultBTC), 1e5);
         (,,uint lastATokenAmtWBTC, uint accRewardPerlpTokenWBTC) = vaultBTC.reward();
         uint userPendingVaultBTC = vaultBTC.getUserPendingReward(address(this));
         // aWETH
-        hoax(0xa3fDC58439b4677A11b9b0C49caE0fCA9c23Ab8a);
+        hoax(0x39fB69f58481458c5BdF8b141d11157937FFcF14);
         aWETH.transfer(address(vaultETH), 1e16);
         (,,uint lastATokenAmtWETH, uint accRewardPerlpTokenWETH) = vaultBTC.reward();
         uint userPendingVaultETH = vaultETH.getUserPendingReward(address(this));
@@ -261,12 +263,12 @@ contract USDCLUSDTest is Test {
         assertGt(rewardStartAt, 0);
         (, rewardStartAt) = vaultETH.userInfo(address(this));
         assertGt(rewardStartAt, 0);
-         // (,,uint lastATokenAmt,) = vaultBTC.reward();
-         // assertLe(lastATokenAmt, 2);
-         // (,,lastATokenAmt,) = vaultETH.reward();
-         // assertLe(lastATokenAmt, 2);
-         // assertLe(aWBTC.balanceOf(address(vaultBTC)), 2);
-         // assertLe(aWETH.balanceOf(address(vaultETH)), 2);
+        //  (,,uint lastATokenAmt,) = vaultBTC.reward();
+        //  assertLe(lastATokenAmt, 2);
+        //  (,,lastATokenAmt,) = vaultETH.reward();
+        //  assertLe(lastATokenAmt, 2);
+        //  assertLe(aWBTC.balanceOf(address(vaultBTC)), 2);
+        //  assertLe(aWETH.balanceOf(address(vaultETH)), 2);
         assertEq(WBTC.balanceOf(address(vaultBTC)), 0);
         assertEq(WETH.balanceOf(address(vaultETH)), 0);
     }
@@ -274,7 +276,7 @@ contract USDCLUSDTest is Test {
     function testPauseContract() public {
         deal(address(token0), address(this), 10000e6);
         token0.approve(address(vaultBTC), type(uint).max);
-        // // Pause contract and test deposit
+        // Pause contract and test deposit
         hoax(owner);
         vaultBTC.pauseContract();
         vm.expectRevert(bytes("Pausable: paused"));
