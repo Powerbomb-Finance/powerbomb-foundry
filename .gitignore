@@ -2,3 +2,5 @@ cache/
 out/
 .env
 .DS_Store
+.vscode
+lcov.info
