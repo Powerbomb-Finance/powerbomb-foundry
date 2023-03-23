@@ -34,7 +34,7 @@ contract WETHSETHTest is Test {
     address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
 
     function setUp() public {
-        PbVelo vaultImpl = new PbVelo();
+        // PbVelo vaultImpl = new PbVelo();
 
         // PbProxy proxy = new PbProxy(
         //     address(vaultImpl),
@@ -48,32 +48,34 @@ contract WETHSETHTest is Test {
         // );
         // vaultUSDC = PbVelo(payable(address(proxy)));
         vaultUSDC = PbVelo(payable(0xcba7864134e1A5326b817676ad5302A009c84d68));
-        hoax(owner);
-        vaultUSDC.upgradeTo(address(vaultImpl));
+        // hoax(owner);
+        // vaultUSDC.upgradeTo(address(vaultImpl));
 
-        PbProxy proxy = new PbProxy(
-            address(vaultImpl),
-            abi.encodeWithSelector(
-                PbVelo.initialize.selector,
-                gaugeAddr, // _gauge
-                address(WBTC), // _rewardToken
-                treasury, // _treasury
-                0.001 ether // swapThreshold
-            )
-        );
-        vaultWBTC = PbVelo(payable(address(proxy)));
+        // PbProxy proxy = new PbProxy(
+        //     address(vaultImpl),
+        //     abi.encodeWithSelector(
+        //         PbVelo.initialize.selector,
+        //         gaugeAddr, // _gauge
+        //         address(WBTC), // _rewardToken
+        //         treasury, // _treasury
+        //         0.001 ether // swapThreshold
+        //     )
+        // );
+        // vaultWBTC = PbVelo(payable(address(proxy)));
+        vaultWBTC = PbVelo(payable(0x3eB3D7d12a6421fb4D261D62431b34382fc2f72D));
 
-        proxy = new PbProxy(
-            address(vaultImpl),
-            abi.encodeWithSelector(
-                PbVelo.initialize.selector,
-                gaugeAddr, // _gauge
-                address(WETH), // _rewardToken
-                treasury, // _treasury
-                0.001 ether // swapThreshold
-            )
-        );
-        vaultWETH = PbVelo(payable(address(proxy)));
+        // proxy = new PbProxy(
+        //     address(vaultImpl),
+        //     abi.encodeWithSelector(
+        //         PbVelo.initialize.selector,
+        //         gaugeAddr, // _gauge
+        //         address(WETH), // _rewardToken
+        //         treasury, // _treasury
+        //         0.001 ether // swapThreshold
+        //     )
+        // );
+        // vaultWETH = PbVelo(payable(address(proxy)));
+        vaultWETH = PbVelo(payable(0x225169A63864f9E6d1B92bdB43118D701fAF7531));
 
         token0 = IERC20Upgradeable(vaultUSDC.token0());
         token1 = IERC20Upgradeable(vaultUSDC.token1());

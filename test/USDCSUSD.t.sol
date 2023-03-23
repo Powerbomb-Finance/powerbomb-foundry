@@ -28,10 +28,11 @@ contract USDCSUSDTest is Test {
     IRouter router = IRouter(0xa132DAB612dB5cB9fC9Ac426A0Cc215A3423F9c9);
     address treasury = 0x96E2951CAbeF46E547Ae9eEDc3245d69deA0Be49;
     // address owner = address(this);
-    address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
+    // address owner = 0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E;
+    address owner = treasury;
 
     function setUp() public {
-        PbVelo vaultImpl = new PbVelo();
+        // PbVelo vaultImpl = new PbVelo();
 
         // PbProxy proxy = new PbProxy(
         //     address(vaultImpl),
@@ -45,8 +46,9 @@ contract USDCSUSDTest is Test {
         // );
         // vaultBTC = PbVelo(payable(address(proxy)));
         vaultBTC = PbVelo(payable(0x208e2D48b5A080E57792D8b175De914Ddb18F9a8));
-        hoax(owner);
-        vaultBTC.upgradeTo(address(vaultImpl));
+        hoax(0x2C10aC0E6B6c1619F4976b2ba559135BFeF53c5E);
+        // vaultBTC.upgradeTo(address(vaultImpl));
+        vaultBTC.transferOwnership(owner);
 
         // proxy = new PbProxy(
         //     address(vaultImpl),
@@ -60,10 +62,10 @@ contract USDCSUSDTest is Test {
         // );
         // vaultETH = PbVelo(payable(address(proxy)));
         vaultETH = PbVelo(payable(0xee9857e5e1d0089075F75ABe5255fc30695d09FA));
-        startHoax(treasury);
-        vaultETH.upgradeTo(address(vaultImpl));
-        vaultETH.transferOwnership(owner);
-        vm.stopPrank();
+        // startHoax(treasury);
+        // vaultETH.upgradeTo(address(vaultImpl));
+        // vaultETH.transferOwnership(owner);
+        // vm.stopPrank();
 
         token0 = IERC20Upgradeable(vaultBTC.token0());
         token1 = IERC20Upgradeable(vaultBTC.token1());
@@ -329,9 +331,9 @@ contract USDCSUSDTest is Test {
         vaultETH.transferOwnership(address(1));
         // Vault
         vm.expectRevert(bytes("Initializable: contract is already initialized"));
-        vaultBTC.initialize(IGauge(address(0)), IERC20Upgradeable(address(0)), address(0),0);
+        vaultBTC.initialize(IGauge(address(0)), IERC20Upgradeable(address(0)), address(0), 0);
         vm.expectRevert(bytes("Initializable: contract is already initialized"));
-        vaultETH.initialize(IGauge(address(0)), IERC20Upgradeable(address(0)), address(0),0);
+        vaultETH.initialize(IGauge(address(0)), IERC20Upgradeable(address(0)), address(0), 0);
         vm.expectRevert(bytes("Ownable: caller is not the owner"));
         vaultBTC.pauseContract();
         vm.expectRevert(bytes("Ownable: caller is not the owner"));
